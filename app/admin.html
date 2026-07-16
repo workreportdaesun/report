@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>work-report · 관리자</title>
+<style>
+:root{
+  --brand-1:#1E3A5F; --brand-2:#2E5F9E;
+  --bg:#F0F4F8; --card:#fff; --card-bd:#D1DCE8; --ink:#1A2332; --lbl:#5A7A9A;
+  --field-bg:#F7FAFC; --ok:#27AE60;
+  --m-시공:#2E5F9E; --m-품질:#27AE60; --m-자재:#A0703A; --m-안전:#F39C12; --m-화기:#C0392B;
+  --font-body:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --font-mono:"SFMono-Regular",Consolas,Menlo,monospace;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-height:100vh;}
+.admin-wrap{max-width:1100px; margin:0 auto; padding:24px 20px 60px;}
+
+.admin-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;}
+.admin-head h2{font-size:19px; font-weight:800; color:var(--brand-1); margin:0;}
+.admin-head .proj{font-size:12px; color:var(--lbl);}
+.admin-tabs{display:flex; gap:8px; margin-bottom:16px; border-bottom:2px solid var(--card-bd);}
+.admin-tab{border:none; background:none; padding:10px 6px; font-size:14px; font-weight:700; color:var(--lbl); cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; font-family:var(--font-body);}
+.admin-tab.active{color:var(--brand-2); border-bottom-color:var(--brand-2);}
+.admin-pane{display:none;}
+.admin-pane.active{display:block;}
+
+.proc-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:16px;}
+.proc-card{background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px;}
+.proc-card .m{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px;}
+.proc-card .pct{font-size:26px; font-weight:800; color:var(--ink); font-family:var(--font-mono);}
+.proc-bar{height:6px; border-radius:3px; background:var(--field-bg); margin:8px 0; overflow:hidden;}
+.proc-bar > div{height:100%; border-radius:3px;}
+.proc-card .d{font-size:11px; color:var(--lbl);}
+
+.dtable{width:100%; border-collapse:collapse; font-size:13px; background:var(--card); border:1px solid var(--card-bd); border-radius:10px; overflow:hidden;}
+.dtable th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--lbl); background:var(--field-bg); padding:10px 12px; font-weight:700;}
+.dtable td{padding:10px 12px; border-top:1px solid var(--card-bd); color:var(--ink);}
+.dtable td.mono{font-family:var(--font-mono);}
+.pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;}
+.pill-ok{background:#EAF7EE; color:var(--ok);}
+.pill-draft{background:#FDF3E3; color:#B9770E;}
+.pill-pdf{background:#EAF0F8; color:var(--brand-2); cursor:pointer; text-decoration:none;}
+
+.out-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px;}
+.out-card{background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px; text-align:center;}
+.out-card .num{font-size:28px; font-weight:800; color:var(--brand-1); font-family:var(--font-mono);}
+.out-card .lbl{font-size:11px; color:var(--lbl); margin-top:4px;}
+</style>
+</head>
+<body>
+<div class="admin-wrap">
+  <div class="admin-head">
+    <div>
+      <h2>work-report · 관리자</h2>
+      <div class="proj">S-OIL SHAHEEN Project 계장공사 3공구(PKG-1)</div>
+    </div>
+    <div style="font-size:12px;color:var(--lbl);" id="hdrDate"></div>
+  </div>
+
+  <div class="admin-tabs">
+    <button class="admin-tab active" onclick="showAdminTab(this,'proc')">공종별 공정률</button>
+    <button class="admin-tab" onclick="showAdminTab(this,'out')">출력현황</button>
+    <button class="admin-tab" onclick="showAdminTab(this,'reports')">작업일보 전체내용</button>
+    <button class="admin-tab" onclick="showAdminTab(this,'cl')">Check List</button>
+  </div>
+
+  <!-- 공정률 -->
+  <div class="admin-pane active" id="pane-proc">
+    <div class="proc-grid">
+      <div class="proc-card"><div class="m" style="color:var(--m-시공);">시공</div><div class="pct">62%</div><div class="proc-bar"><div style="width:62%;background:var(--m-시공);"></div></div><div class="d">계획 480 / 실적 298</div></div>
+      <div class="proc-card"><div class="m" style="color:var(--m-품질);">품질</div><div class="pct">41%</div><div class="proc-bar"><div style="width:41%;background:var(--m-품질);"></div></div><div class="d">계획 120 / 실적 49</div></div>
+      <div class="proc-card"><div class="m" style="color:var(--m-자재);">자재</div><div class="pct">78%</div><div class="proc-bar"><div style="width:78%;background:var(--m-자재);"></div></div><div class="d">계획 210 / 실적 164</div></div>
+      <div class="proc-card"><div class="m" style="color:var(--m-안전);">안전</div><div class="pct">95%</div><div class="proc-bar"><div style="width:95%;background:var(--m-안전);"></div></div><div class="d">점검 38 / 완료 36</div></div>
+      <div class="proc-card"><div class="m" style="color:var(--m-화기);">화기/유도</div><div class="pct">100%</div><div class="proc-bar"><div style="width:100%;background:var(--m-화기);"></div></div><div class="d">배치 12 / 완료 12</div></div>
+    </div>
+    <table class="dtable">
+      <tr><th>작업분류</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>공정률</th></tr>
+      <tr><td>Junction Box</td><td class="mono">64</td><td class="mono">30</td><td class="mono">4</td><td class="mono">34</td><td>53%</td></tr>
+      <tr><td>Cable Tray</td><td class="mono">120</td><td class="mono">88</td><td class="mono">6</td><td class="mono">94</td><td>78%</td></tr>
+      <tr><td>Loop Test</td><td class="mono">40</td><td class="mono">12</td><td class="mono">2</td><td class="mono">14</td><td>35%</td></tr>
+    </table>
+  </div>
+
+  <!-- 출력현황 -->
+  <div class="admin-pane" id="pane-out">
+    <div class="out-grid">
+      <div class="out-card"><div class="num">25</div><div class="lbl">오늘 총 출력인원</div></div>
+      <div class="out-card"><div class="num">4</div><div class="lbl">팀 수</div></div>
+      <div class="out-card"><div class="num">18</div><div class="lbl">전공·조공</div></div>
+      <div class="out-card"><div class="num">3</div><div class="lbl">화기감시·유도원</div></div>
+    </div>
+    <table class="dtable">
+      <tr><th>팀명</th><th>직책</th><th>공종</th><th>인원</th><th>성명</th></tr>
+      <tr><td>1팀(계장)</td><td>전공</td><td>시공</td><td class="mono">8</td><td>김민수(팀장), 이재훈✓, 박성진, 최영호, 정다은, 강태윤, 윤성민, 조현우</td></tr>
+      <tr><td>2팀(계장)</td><td>조공</td><td>시공</td><td class="mono">10</td><td>한지훈(팀장), 오세영, 임도현, 배수빈, 신동혁, 홍길표, 서준영, 문가람, 양태식, 노형진</td></tr>
+      <tr><td>품질팀</td><td>검사원</td><td>품질</td><td class="mono">4</td><td>이수진(팀장), 김태호, 박은정, 최준혁</td></tr>
+      <tr><td>안전관리팀</td><td>화기감시자</td><td>화기/유도</td><td class="mono">3</td><td>정민재(팀장), 강수아, 유재원</td></tr>
+    </table>
+    <div style="font-size:11px;color:var(--lbl);margin-top:8px;">✓ 표시는 앱 GPS 출력체크 완료자 · 회원가입 시 등록한 소속팀 정보를 그대로 사용합니다.</div>
+  </div>
+
+  <!-- 작업일보 전체내용 -->
+  <div class="admin-pane" id="pane-reports">
+    <table class="dtable">
+      <tr><th>날짜</th><th>공종</th><th>팀명</th><th>항목수</th><th>PDF</th><th>상태</th></tr>
+      <tbody id="reportsRows"><tr><td colspan="6" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Check List -->
+  <div class="admin-pane" id="pane-cl">
+    <table class="dtable">
+      <tr><th>TAG NO.</th><th>작업분류</th><th>설치</th><th>결선</th><th>Loop Test</th><th>비고</th></tr>
+      <tr><td class="mono">PT-2101</td><td>Field Instrument</td><td><span class="pill pill-ok">완료</span></td><td><span class="pill pill-ok">완료</span></td><td>대기</td><td>-</td></tr>
+      <tr><td class="mono">JB-0512</td><td>Junction Box</td><td><span class="pill pill-ok">완료</span></td><td>진행중</td><td>대기</td><td>-</td></tr>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+document.getElementById('hdrDate').textContent = new Date().toLocaleDateString('ko-KR', {year:'numeric', month:'2-digit', day:'2-digit', weekday:'short'});
+function showAdminTab(btn, key){
+  document.querySelectorAll('.admin-tab').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  document.querySelectorAll('.admin-pane').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById('pane-'+key).classList.add('active');
+  if(key==='reports') loadAllReports();
+}
+
+var SUPABASE_URL='https://dteljgmdbfyxubtpogcj.supabase.co';
+var SUPABASE_KEY='sb_publishable_VC2GcwpxDg_zVbFgOnpfzg__sictyqc';
+var sbClient = (typeof supabase!=='undefined') ? supabase.createClient(SUPABASE_URL,SUPABASE_KEY) : null;
+
+var reportsLoaded = false;
+async function loadAllReports(){
+  if(reportsLoaded) return; // 관리자가 탭을 다시 눌러도 매번 새로 안 불러옴(간단한 1회 캐시) — 새로고침하면 최신화됨
+  var wrap = document.getElementById('reportsRows');
+  if(!sbClient){ wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">연결 실패</td></tr>'; return; }
+  try{
+    var res = await sbClient.from('daily_reports').select('*').order('date',{ascending:false});
+    if(res.error || !res.data){ wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; return; }
+    reportsLoaded = true;
+    if(!res.data.length){ wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">작업일보가 아직 없습니다</td></tr>'; return; }
+    wrap.innerHTML = res.data.map(function(r){
+      var items = Array.isArray(r.items) ? r.items : [];
+      var cats = items.map(function(it){ return it.menu; }).filter(function(v,i,a){ return v && a.indexOf(v)===i; }).join(', ') || '-';
+      var isSub = r.status==='submitted';
+      return '<tr>'
+        +'<td class="mono">'+(r.date||'-')+'</td>'
+        +'<td>'+cats+'</td>'
+        +'<td>'+(r.team||'-')+'</td>'
+        +'<td class="mono">'+items.length+'</td>'
+        +'<td>'+(isSub ? '<a class="pill pill-pdf" href="report-pdf.html?id='+encodeURIComponent(r.id)+'" target="_blank">📄 열기</a>' : '<span style="color:var(--lbl);font-size:11px;">-</span>')+'</td>'
+        +'<td>'+(isSub ? '<span class="pill pill-ok">제출완료</span>' : '<span class="pill pill-draft">작성중</span>')+'</td>'
+      +'</tr>';
+    }).join('');
+  }catch(e){ wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; }
+}
+</script>
+</body>
+</html>

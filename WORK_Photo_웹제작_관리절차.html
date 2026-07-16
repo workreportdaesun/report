@@ -1,0 +1,978 @@
+<html lang="ko"><head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.13/html-to-image.min.js" integrity="sha512-iZ2ORl595Wx6miw+GuadDet4WQbdSWS3JLMoNfY8cRGoEFy6oT3G9IbcrBeL6AfkgpA51ETt/faX6yLV+/gFJg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      (function() {
+        // Capture host references before any artifact code runs: Window.parent
+        // is [Replaceable] (a top-level `var parent` in artifact code would
+        // replace the accessor with a data property), and a top-level
+        // `const crypto` would shadow the global — either would otherwise
+        // silently break the bridge for artifacts that worked before.
+        const realParent = window.parent;
+        const cryptoObj = window.crypto;
+        // crypto.randomUUID exists only in Secure Contexts; fall back to a
+        // unique non-crypto id elsewhere (http://LAN-IP dev flows) —
+        // uniqueness is what the bridge needs, unpredictability is
+        // defense-in-depth on top of the source guards.
+        const newRequestId =
+          cryptoObj && typeof cryptoObj.randomUUID === "function"
+            ? function () { return cryptoObj.randomUUID(); }
+            : function () { return Date.now() + "-" + Math.random(); };
+        const originalConsole = window.console;
+        window.console = {
+          log: (...args) => {
+            originalConsole.log(...args);
+            realParent.postMessage({ type: 'console', message: args.join(' ') }, '*');
+          },
+          error: (...args) => {
+            originalConsole.error(...args);
+            realParent.postMessage({ type: 'console', message: 'Error: ' + args.join(' ') }, '*');
+          },
+          warn: (...args) => {
+            originalConsole.warn(...args);
+            realParent.postMessage({ type: 'console', message: 'Warning: ' + args.join(' ') }, '*');
+          }
+        };
+
+        // Bridge request ids are crypto-random (not sequential) so they
+        // cannot be predicted by other frames in the tab.
+        let callbacksMap = new Map();
+        let streamControllers = new Map();
+        
+        window.claude = {
+          complete: (prompt) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'claudeComplete', id, prompt }, '*');
+            });
+          }
+        };
+
+        window.storage = {
+          get: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageGet', id, key, shared }, '*');
+            });
+          },
+          set: (key, value, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageSet', id, key, value, shared }, '*');
+            });
+          },
+          delete: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageDelete', id, key, shared }, '*');
+            });
+          },
+          list: (prefix, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageList', id, prefix, shared }, '*');
+            });
+          }
+        };
+
+        let pendingBlobs = new Map();
+        URL.createObjectURL = (blob) => {
+          // Store the blob and create an ID and URL for it
+          const blobId = `blob-${Date.now()}-${Math.random()}`;
+          pendingBlobs.set(blobId, blob);
+          return `blob-request://${blobId}`;
+        };
+
+        URL.revokeObjectURL = (url) => {
+          // Remove the blob from our store
+          const blobId = url.replace("blob-request://", "");
+          pendingBlobs.delete(blobId);
+        };
+
+        const getBlobFromURL = (url) => {
+          const blobId = url.replace("blob-request://", "");
+          return pendingBlobs.get(blobId);
+        };
+
+        // Override global fetch with streaming support
+        window.fetch = (url, init = {}) => {
+          return new Promise((resolve, reject) => {
+            const id = newRequestId();
+            const channelId = `fetch-${id}-${Date.now()}`;
+            
+            callbacksMap.set(id, { 
+              resolve: (response) => {
+                // Null-body statuses: Response(stream, {status: 204}) throws
+                // per the Fetch spec, which would escape this resolver and
+                // hang the artifact's await forever.
+                if (response.status === 204 || response.status === 205 || response.status === 304) {
+                  try {
+                    resolve(new Response(null, {
+                      status: response.status,
+                      statusText: response.statusText,
+                      headers: response.headers
+                    }));
+                  } catch (err) {
+                    // Invalid statusText/header bytes can throw here too.
+                    reject(new TypeError(
+                      'Bridge fetch: unconstructable response (status ' + response.status + ')'
+                    ));
+                  }
+                  return;
+                }
+                // Create a ReadableStream for the response body
+                const stream = new ReadableStream({
+                  start(controller) {
+                    streamControllers.set(channelId, controller);
+                  },
+                  cancel() {
+                    streamControllers.delete(channelId);
+                  }
+                });
+                
+                // Create and return the Response with the stream. Response()
+                // requires status in [200, 599]; an opaque/no-cors fetch
+                // forwards status 0, which would throw here and escape the
+                // resolver, hanging the artifact's await. Surface it as a
+                // network-error-shaped rejection instead.
+                try {
+                  resolve(new Response(stream, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: response.headers
+                  }));
+                } catch (err) {
+                  streamControllers.delete(channelId);
+                  reject(new TypeError(
+                    'Bridge fetch: unconstructable response (status ' + response.status + ')'
+                  ));
+                }
+              },
+              reject,
+              channelId
+            });
+            
+            realParent.postMessage({
+              type: 'proxyFetch',
+              id,
+              url,
+              init,
+              channelId
+            }, '*');
+          });
+        };
+
+        window.addEventListener('message', async (event) => {
+          // Only the embedding parent may drive the bridge — sibling and
+          // nested frames can also postMessage into this window.
+          if (event.source !== realParent) return;
+          if (event.data.type === 'takeScreenshot') {
+            // Echo the request's nonce so the requester can correlate the
+            // reply to ITS request — a reply without the expected nonce
+            // (e.g. from a stale pre-remount artifact) is ignored upstream.
+            const screenshotNonce = event.data.nonce;
+            const rootElement = document.getElementById('artifacts-component-root-html');
+            if (!rootElement) {
+              realParent.postMessage({
+                type: 'screenshotError',
+                nonce: screenshotNonce,
+                error: new Error('Root element not found'),
+              }, '*');
+              return;
+            }
+            // Catch CDN load failures (htmlToImage undefined) and toPng errors
+            // so the parent always gets a response instead of hanging forever.
+            try {
+              const screenshot = await htmlToImage.toPng(rootElement, {
+                imagePlaceholder:
+                  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdjePDgwX8ACOQDoNsk0PMAAAAASUVORK5CYII=",
+              });
+              realParent.postMessage({
+                type: 'screenshotData',
+                nonce: screenshotNonce,
+                data: screenshot,
+              }, '*');
+            } catch (err) {
+              realParent.postMessage({
+                type: 'screenshotError',
+                nonce: screenshotNonce,
+                error: err instanceof Error ? err : new Error(String(err)),
+              }, '*');
+            }
+          } else if (event.data.type === 'claudeComplete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.completion);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'proxyFetchResponse') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+              callbacksMap.delete(event.data.id);
+            } else {
+              // Initial response with headers, status, etc.
+              callback.resolve({
+                status: event.data.status,
+                statusText: event.data.statusText,
+                headers: event.data.headers
+              });
+              // Don't delete the callback yet if streaming
+              if (!event.data.body) {
+                callbacksMap.delete(event.data.id);
+              }
+            }
+          } else if (event.data.type === 'proxyFetchStream') {
+            // Handle streaming data chunks
+            const controller = streamControllers.get(event.data.channelId);
+            if (controller) {
+              if (event.data.error) {
+                controller.error(new Error(event.data.error));
+                streamControllers.delete(event.data.channelId);
+              } else if (event.data.done) {
+                controller.close();
+                streamControllers.delete(event.data.channelId);
+                // Clean up the callback
+                const callback = Array.from(callbacksMap.entries()).find(
+                  ([_, value]) => value.channelId === event.data.channelId
+                );
+                if (callback) {
+                  callbacksMap.delete(callback[0]);
+                }
+              } else if (event.data.chunk) {
+                controller.enqueue(new Uint8Array(event.data.chunk));
+              }
+            }
+          } else if (event.data.type === 'storageGet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageSet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageDelete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageList') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          }
+        });
+
+        window.addEventListener('click', (event) => {
+          const isEl = event.target instanceof HTMLElement;
+          if (!isEl) return;
+    
+          // find ancestor links
+          const linkEl = event.target.closest("a");
+          if (!linkEl || !linkEl.href) return;
+    
+          event.preventDefault();
+          event.stopImmediatePropagation();
+    
+          if (linkEl.href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(linkEl.href);
+            if (!blob) return;
+            void blob.arrayBuffer().then((data) => {
+              realParent.postMessage({
+                type: "downloadFile",
+                filename: linkEl.download,
+                data,
+                mimeType: blob.type || "application/octet-stream",
+              });
+            });
+          } else if (linkEl.href.startsWith("data:")) {
+            const [header, base64Data] = linkEl.href.split(",");
+            const mimeMatch = header.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+            const binaryString = atob(base64Data);
+            const data = Uint8Array.from(binaryString, (c) =>
+              c.charCodeAt(0),
+            ).buffer;
+            realParent.postMessage({
+              type: "downloadFile",
+              filename: linkEl.download,
+              data,
+              mimeType,
+            });
+          } else {
+            let linkUrl;
+            try {
+              linkUrl = new URL(linkEl.href);
+            } catch (error) {
+              return;
+            }
+    
+            if (linkUrl.hostname === window.location.hostname) return;
+      
+            realParent.postMessage({
+              type: 'openExternal',
+              href: linkEl.href,
+            }, '*');
+          }
+      });
+
+        const originalOpen = window.open;
+        window.open = function (url) {
+          realParent.postMessage({
+            type: "openExternal",
+            href: url,
+          }, "*");
+        };
+
+        window.addEventListener('error', (event) => {
+          realParent.postMessage({ type: 'console', message: 'Uncaught Error: ' + event.message }, '*');
+        });
+      })();
+    </script>
+  
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>웹 제작 관리 절차</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Malgun Gothic','Apple SD Gothic Neo',Arial,sans-serif;
+  background:#F0F4F8;color:#1A2332;line-height:1.8;font-size:15px;}
+
+/* 다운로드 바 */
+.dl-bar{background:#fff;padding:14px 30px;display:flex;align-items:center;
+  justify-content:space-between;border-bottom:1px solid #E0E8F0;
+  position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.08);}
+.dl-bar span{font-size:15px;font-weight:800;color:#1E3A5F;}
+.dl-btn{border:none;border-radius:10px;padding:9px 20px;font-size:13px;
+  font-weight:700;cursor:pointer;margin-left:8px;}
+.btn-pdf{background:linear-gradient(135deg,#2E5F9E,#1E3A5F);color:#fff;}
+.btn-html{background:linear-gradient(135deg,#27AE60,#1E8449);color:#fff;}
+
+/* 커버 */
+.cover{background:linear-gradient(135deg,#1E3A5F 0%,#2E5F9E 100%);
+  color:#fff;padding:60px 40px;text-align:center;}
+.cover h1{font-size:28px;font-weight:900;letter-spacing:2px;margin-bottom:10px;}
+.cover .sub{font-size:14px;opacity:0.75;margin-bottom:16px;}
+.cover .badge{background:rgba(255,255,255,0.2);border-radius:20px;
+  padding:5px 18px;font-size:12px;display:inline-block;}
+
+/* 컨테이너 */
+.container{max-width:960px;margin:0 auto;padding:32px 24px 80px;}
+
+/* 카드 */
+.card{background:#fff;border-radius:16px;padding:32px;margin-bottom:24px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.07);}
+.card-num{font-size:11px;font-weight:700;color:#2E5F9E;letter-spacing:2px;
+  text-transform:uppercase;margin-bottom:6px;}
+.card h2{font-size:22px;font-weight:800;color:#1A2332;
+  border-bottom:3px solid #2E5F9E;padding-bottom:10px;margin-bottom:20px;}
+
+/* 섹션 */
+.section{margin-bottom:24px;}
+.section h3{font-size:16px;font-weight:700;color:#2E5F9E;margin-bottom:10px;
+  display:flex;align-items:center;gap:8px;}
+.section h3::before{content:'';display:inline-block;width:4px;height:18px;
+  background:#2E5F9E;border-radius:2px;flex-shrink:0;}
+
+/* 폴더 트리 */
+.tree{background:#1A2332;border-radius:12px;padding:20px 24px;
+  font-family:'Courier New',monospace;font-size:14px;line-height:2;}
+.tree .folder{color:#FBD38D;font-weight:700;}
+.tree .file{color:#68D391;}
+.tree .desc{color:#718096;font-size:12px;margin-left:8px;}
+.tree .html{color:#FC8181;}
+.tree .js{color:#76E4F7;}
+.tree .img{color:#D6BCFA;}
+
+/* 흐름도 */
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:16px 0;}
+.flow-box{background:linear-gradient(135deg,#EBF2FF,#D6E8FF);
+  border:2px solid #2E5F9E;border-radius:12px;padding:12px 16px;
+  text-align:center;min-width:110px;flex:1;}
+.flow-box .icon{font-size:22px;margin-bottom:4px;}
+.flow-box .label{font-size:13px;font-weight:700;color:#1E3A5F;}
+.flow-box .sub{font-size:11px;color:#5A7A9A;margin-top:2px;}
+.flow-arrow{font-size:20px;color:#2E5F9E;padding:0 4px;flex-shrink:0;}
+
+/* 표 */
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px;}
+th{background:#1E3A5F;color:#fff;padding:10px 14px;text-align:left;}
+td{padding:10px 14px;border-bottom:1px solid #E2E8F0;vertical-align:top;}
+tr:nth-child(even) td{background:#F7FAFC;}
+td b{color:#1E3A5F;}
+
+/* 단계 */
+.step{display:flex;gap:14px;margin-bottom:12px;padding:14px;
+  background:#F7FAFC;border-radius:10px;border-left:4px solid #2E5F9E;}
+.step-num{background:#2E5F9E;color:#fff;border-radius:50%;
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;flex-shrink:0;margin-top:2px;}
+.step-content b{color:#1E3A5F;font-size:15px;display:block;margin-bottom:4px;}
+.step-content p{font-size:13px;color:#4A5568;}
+
+/* 코드 */
+.code{background:#1A2332;color:#E2E8F0;border-radius:10px;
+  padding:14px 18px;margin:10px 0;font-family:'Courier New',monospace;
+  font-size:13px;line-height:1.8;overflow-x:auto;}
+.code .c{color:#68D391;}
+.code .k{color:#FBD38D;}
+.code .s{color:#FC8181;}
+
+/* 알림 */
+.notice{border-radius:10px;padding:12px 16px;margin:12px 0;font-size:14px;}
+.blue{background:#EBF8FF;border-left:4px solid #2E5F9E;color:#1E3A5F;}
+.green{background:#F0FFF4;border-left:4px solid #27AE60;color:#1A4731;}
+.yellow{background:#FFFBEB;border-left:4px solid #F6C90E;color:#744210;}
+.red{background:#FFF5F5;border-left:4px solid #E74C3C;color:#742A2A;}
+
+/* 배지 */
+.badge-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
+.bdg{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;}
+.bdg.blue{background:#EBF2FF;color:#2E5F9E;}
+.bdg.green{background:#F0FFF4;color:#27AE60;}
+.bdg.orange{background:#FFF3E0;color:#E67E22;}
+
+/* 체크리스트 */
+.checklist{list-style:none;margin:8px 0;}
+.checklist li{padding:8px 0;border-bottom:1px solid #F0F4F8;
+  font-size:14px;display:flex;align-items:flex-start;gap:10px;}
+.checklist li::before{content:'☐';color:#2E5F9E;font-size:16px;flex-shrink:0;}
+
+/* 버전 타임라인 */
+.timeline{position:relative;padding-left:24px;margin:12px 0;}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;
+  width:2px;background:#D1DCE8;}
+.tl-item{position:relative;margin-bottom:16px;padding-left:20px;}
+.tl-item::before{content:'';position:absolute;left:-20px;top:6px;
+  width:12px;height:12px;border-radius:50%;background:#2E5F9E;border:2px solid #fff;
+  box-shadow:0 0 0 2px #2E5F9E;}
+.tl-item .ver{font-size:12px;font-weight:700;color:#2E5F9E;margin-bottom:2px;}
+.tl-item .desc{font-size:14px;color:#2D3748;}
+
+@media print{
+  .dl-bar{display:none;}
+  body{background:#fff;}
+  .card{box-shadow:none;border:1px solid #E0E8F0;}
+}
+</style>
+</head>
+<body id="artifacts-component-root-html">
+
+<div class="dl-bar">
+  <span>📋 웹 제작 관리 절차 가이드</span>
+  <div>
+    <button class="dl-btn btn-pdf" onclick="window.print()">🖨️ PDF 저장</button>
+    <button class="dl-btn btn-html" onclick="downloadHTML()">💾 HTML 다운로드</button>
+  </div>
+</div>
+
+<div class="cover">
+  <div style="font-size:40px;margin-bottom:14px;">📁</div>
+  <h1>웹 제작 관리 절차</h1>
+  <div class="sub">폴더 관리 · 파일 관리 · 제작 관리 · 배포 관리</div>
+  <div class="badge">작업사진 앱 (WORK Photo) — SHAHEEN PROJECT</div>
+</div>
+
+<div class="container">
+
+<!-- ══════════════════════════════ -->
+<!-- 1. 전체 관리 흐름 -->
+<!-- ══════════════════════════════ -->
+<div class="card">
+  <div class="card-num">Section 01</div>
+  <h2>전체 관리 흐름</h2>
+
+  <div class="section">
+    <h3>관리 구조 한눈에 보기</h3>
+    <div class="flow">
+      <div class="flow-box">
+        <div class="icon">💻</div>
+        <div class="label">PC 로컬</div>
+        <div class="sub">파일 편집</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">
+        <div class="icon">🐙</div>
+        <div class="label">GitHub</div>
+        <div class="sub">소스 저장</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">
+        <div class="icon">🌐</div>
+        <div class="label">GitHub Pages</div>
+        <div class="sub">웹 배포</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">
+        <div class="icon">📱</div>
+        <div class="label">Expo 앱</div>
+        <div class="sub">APK 빌드</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">
+        <div class="icon">🏪</div>
+        <div class="label">스토어</div>
+        <div class="sub">앱 배포</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>역할별 관리 도구</h3>
+    <table>
+      <tbody><tr><th>역할</th><th>도구</th><th>용도</th></tr>
+      <tr><td><b>코드 편집</b></td><td>메모장 / VSCode</td><td>HTML, JS, CSS 수정</td></tr>
+      <tr><td><b>버전 관리</b></td><td>GitHub</td><td>코드 저장 및 이력 관리</td></tr>
+      <tr><td><b>웹 호스팅</b></td><td>GitHub Pages</td><td>무료 웹 배포</td></tr>
+      <tr><td><b>앱 빌드</b></td><td>Expo / EAS CLI</td><td>Android APK 생성</td></tr>
+      <tr><td><b>AI 코드 생성</b></td><td>Claude AI</td><td>코드 작성 및 수정</td></tr>
+    </tbody></table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════ -->
+<!-- 2. 폴더 관리 -->
+<!-- ══════════════════════════════ -->
+<div class="card">
+  <div class="card-num">Section 02</div>
+  <h2>폴더 관리</h2>
+
+  <div class="section">
+    <h3>PC 로컬 폴더 구조</h3>
+    <div class="tree">
+      <div><span class="folder">📁 Desktop/</span></div>
+      <div>&nbsp;&nbsp;<span class="folder">📁 shaheen-photo/</span> <span class="desc">← 메인 프로젝트 폴더</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="html">📄 index.html</span> <span class="desc">← 웹앱 메인 파일</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="html">📄 admin.html</span> <span class="desc">← 관리자 페이지</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="img">🖼️ kakao_icon_128x128.jpg</span> <span class="desc">← 카카오 앱 아이콘</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">📁 backup/</span> <span class="desc">← 버전별 백업 보관</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="html">📄 index_v1.html</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="html">📄 index_v2.html</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="html">📄 index_v3.html</span> <span class="desc">← 최신 백업</span></div>
+      <div>&nbsp;&nbsp;<span class="folder">📁 expo-app/</span> <span class="desc">← Expo 앱 프로젝트</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="js">📄 App.js</span> <span class="desc">← WebView 설정 파일</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">📄 app.json</span> <span class="desc">← 앱 정보 설정</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">📄 eas.json</span> <span class="desc">← EAS 빌드 설정</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">📁 apk-releases/</span> <span class="desc">← APK 파일 보관</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">📦 app-v1.0.apk</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">📦 app-v1.1.apk</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>GitHub 저장소 구조</h3>
+    <div class="tree">
+      <div><span class="folder">📁 faraoh77777/shaheen-photo</span> <span class="desc">← GitHub 저장소</span></div>
+      <div>&nbsp;&nbsp;<span class="html">📄 index.html</span> <span class="desc">← 웹앱 (자동 배포됨)</span></div>
+      <div>&nbsp;&nbsp;<span class="html">📄 admin.html</span> <span class="desc">← 관리자 페이지</span></div>
+      <div>&nbsp;&nbsp;<span class="img">🖼️ kakao_icon_128x128.jpg</span> <span class="desc">← 카카오 아이콘</span></div>
+      <div>&nbsp;&nbsp;<span class="file">📄 README.md</span> <span class="desc">← 프로젝트 설명</span></div>
+    </div>
+    <div class="notice blue">
+      💡 GitHub에 업로드된 index.html 은 자동으로 아래 URL에 배포됩니다:<br>
+      <b>https://faraoh77777.github.io/shaheen-photo/</b>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>폴더 관리 규칙</h3>
+    <table>
+      <tbody><tr><th>규칙</th><th>내용</th></tr>
+      <tr><td><b>백업 필수</b></td><td>수정 전 현재 파일을 backup 폴더에 날짜로 저장</td></tr>
+      <tr><td><b>파일명 규칙</b></td><td>index_YYYYMMDD.html (예: index_20260610.html)</td></tr>
+      <tr><td><b>APK 보관</b></td><td>빌드된 APK를 버전명으로 저장 (예: app-v1.1.apk)</td></tr>
+      <tr><td><b>폴더 분리</b></td><td>웹 소스와 Expo 앱 폴더 분리 관리</td></tr>
+    </tbody></table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════ -->
+<!-- 3. 파일 관리 -->
+<!-- ══════════════════════════════ -->
+<div class="card">
+  <div class="card-num">Section 03</div>
+  <h2>파일 관리</h2>
+
+  <div class="section">
+    <h3>핵심 파일 목록</h3>
+    <table>
+      <tbody><tr><th>파일명</th><th>위치</th><th>용도</th><th>수정 빈도</th></tr>
+      <tr><td><b>index.html</b></td><td>PC + GitHub</td><td>웹앱 전체 (HTML+CSS+JS 통합)</td><td>자주</td></tr>
+      <tr><td><b>admin.html</b></td><td>PC + GitHub</td><td>관리자 사진 관리 페이지</td><td>가끔</td></tr>
+      <tr><td><b>App.js</b></td><td>PC (Expo)</td><td>앱에서 웹뷰 URL 설정</td><td>거의 없음</td></tr>
+      <tr><td><b>app.json</b></td><td>PC (Expo)</td><td>앱 이름, 버전, 아이콘 설정</td><td>버전 업데이트 시</td></tr>
+      <tr><td><b>eas.json</b></td><td>PC (Expo)</td><td>APK 빌드 설정</td><td>거의 없음</td></tr>
+      <tr><td><b>kakao_icon_128x128.jpg</b></td><td>PC + GitHub</td><td>카카오 앱 아이콘</td><td>거의 없음</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="section">
+    <h3>파일 수정 시 주의사항</h3>
+    <div class="notice yellow">
+      ⚠️ <b>index.html 저장 시 반드시 확인!</b><br>
+      파일형식: <b>모든 파일 (*.*)</b> 선택<br>
+      인코딩: <b>UTF-8</b> 선택<br>
+      파일명: <b>index.html</b> (index.html.txt 가 되지 않도록 주의!)
+    </div>
+    <div class="notice red">
+      🚨 <b>절대 하지 말 것!</b><br>
+      - 기존 파일을 백업 없이 덮어쓰기<br>
+      - GitHub에서 직접 편집 후 로컬 파일과 동기화 안 하기<br>
+      - APK 빌드 후 파일명 없이 저장
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>파일 버전 관리 방법</h3>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <b>수정 전 백업</b>
+        <p>현재 index.html → backup/index_20260610.html 로 복사</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <b>Claude AI로 코드 수정</b>
+        <p>Claude에서 수정된 코드 → "코드 복사" → 메모장에 붙여넣기</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <b>로컬 테스트</b>
+        <p>index.html 파일을 브라우저로 열어서 동작 확인</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <b>GitHub 업로드</b>
+        <p>GitHub 저장소 → 기존 파일 삭제 → 새 파일 업로드 → Commit</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <b>배포 확인</b>
+        <p>3~5분 후 https://faraoh77777.github.io/shaheen-photo/ 접속 확인</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════ -->
+<!-- 4. 제작 관리 -->
+<!-- ══════════════════════════════ -->
+<div class="card">
+  <div class="card-num">Section 04</div>
+  <h2>제작 관리 (코드 수정 절차)</h2>
+
+  <div class="section">
+    <h3>기능 수정 절차</h3>
+    <div class="flow">
+      <div class="flow-box">
+        <div class="icon">💬</div>
+        <div class="label">요구사항</div>
+        <div class="sub">기능 정의</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">
+        <div class="icon">🤖</div>
+        <div class="label">Claude AI</div>
+        <div class="sub">코드 생성</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">
+        <div class="icon">✅</div>
+        <div class="label">로컬 테스트</div>
+        <div class="sub">브라우저 확인</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">
+        <div class="icon">📤</div>
+        <div class="label">GitHub 업로드</div>
+        <div class="sub">배포</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">
+        <div class="icon">📱</div>
+        <div class="label">모바일 테스트</div>
+        <div class="sub">최종 확인</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>버전 이력</h3>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="ver">v1.0 — 초기 버전</div>
+        <div class="desc">기본 사진 촬영, 카테고리 선택, 정보 입력, Firebase 연동</div>
+      </div>
+      <div class="tl-item">
+        <div class="ver">v2.0 — 드롭다운 메뉴</div>
+        <div class="desc">작업분류, 위치 드롭다운 변경, 사진 표시 문제 수정</div>
+      </div>
+      <div class="tl-item">
+        <div class="ver">v3.0 — 워터마크</div>
+        <div class="desc">날짜 자동 워터마크, 4:3 크롭 적용</div>
+      </div>
+      <div class="tl-item">
+        <div class="ver">v4.0 — 작업분류 19종</div>
+        <div class="desc">DCS Panel ~ Scaffolding 등 현장 분류 적용</div>
+      </div>
+      <div class="tl-item">
+        <div class="ver">v5.0 — 서버 제거</div>
+        <div class="desc">Firebase 제거, 로컬 저장 방식으로 변경</div>
+      </div>
+      <div class="tl-item">
+        <div class="ver">v6.0 — 한글화 + 밝은 테마</div>
+        <div class="desc">UI 전체 한글화, 밝은 색 테마 적용, 신규/수정 구분 추가</div>
+      </div>
+      <div class="tl-item">
+        <div class="ver">v7.0 — 현재 버전</div>
+        <div class="desc">연속 촬영, 사진 목록, 개별 저장, 텍스트 합성 최적화</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>주요 기능 현황</h3>
+    <table>
+      <tbody><tr><th>기능</th><th>상태</th><th>비고</th></tr>
+      <tr><td>사진 촬영 (4:3)</td><td>✅ 완료</td><td>자동 크롭</td></tr>
+      <tr><td>정보 합성 (상단/하단)</td><td>✅ 완료</td><td>작업분류/날짜/TAG/구역/팀명</td></tr>
+      <tr><td>개별 파일 저장</td><td>✅ 완료</td><td>자동 다운로드</td></tr>
+      <tr><td>사진 목록 관리</td><td>✅ 완료</td><td>썸네일 + 개별 삭제</td></tr>
+      <tr><td>신규/수정 구분</td><td>✅ 완료</td><td>라디오 버튼</td></tr>
+      <tr><td>연속 촬영</td><td>✅ 완료</td><td>저장 후 자동 복귀</td></tr>
+      <tr><td>카카오 로그인</td><td>🔄 예정</td><td>추후 구현</td></tr>
+      <tr><td>서버 저장</td><td>🔄 예정</td><td>추후 Firebase 재연동</td></tr>
+    </tbody></table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════ -->
+<!-- 5. 배포 관리 -->
+<!-- ══════════════════════════════ -->
+<div class="card">
+  <div class="card-num">Section 05</div>
+  <h2>배포 관리</h2>
+
+  <div class="section">
+    <h3>웹 배포 (GitHub Pages)</h3>
+    <table>
+      <tbody><tr><th>항목</th><th>내용</th></tr>
+      <tr><td><b>서비스 URL</b></td><td>https://faraoh77777.github.io/shaheen-photo/</td></tr>
+      <tr><td><b>관리자 URL</b></td><td>https://faraoh77777.github.io/shaheen-photo/admin.html</td></tr>
+      <tr><td><b>GitHub 저장소</b></td><td>https://github.com/faraoh77777/shaheen-photo</td></tr>
+      <tr><td><b>배포 방식</b></td><td>GitHub Pages 자동 배포</td></tr>
+      <tr><td><b>업데이트 소요시간</b></td><td>파일 업로드 후 3~5분</td></tr>
+      <tr><td><b>비용</b></td><td>무료</td></tr>
+    </tbody></table>
+
+    <h4 style="margin-top:16px;margin-bottom:8px;font-size:14px;color:#1E3A5F;">웹 업데이트 절차</h4>
+    <div class="code">
+<span class="c"># 1. GitHub 저장소 접속</span>
+https://github.com/faraoh77777/shaheen-photo
+
+<span class="c"># 2. 기존 index.html 삭제</span>
+index.html 클릭 → ⋮ → Delete file → Commit changes
+
+<span class="c"># 3. 새 파일 업로드</span>
+Add file → Upload files → index.html 업로드 → Commit changes
+
+<span class="c"># 4. 3~5분 후 확인</span>
+https://faraoh77777.github.io/shaheen-photo/
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>앱 배포 (Expo EAS)</h3>
+    <table>
+      <tbody><tr><th>항목</th><th>내용</th></tr>
+      <tr><td><b>Expo 계정</b></td><td>https://expo.dev/accounts/faraoh</td></tr>
+      <tr><td><b>프로젝트</b></td><td>shaheen-photo</td></tr>
+      <tr><td><b>앱 ID</b></td><td>com.faraoh.shaheenphoto</td></tr>
+      <tr><td><b>빌드 방식</b></td><td>EAS Build (클라우드 빌드)</td></tr>
+      <tr><td><b>빌드 소요시간</b></td><td>10~15분</td></tr>
+      <tr><td><b>비용</b></td><td>무료 (월 30빌드 제한)</td></tr>
+    </tbody></table>
+
+    <h4 style="margin-top:16px;margin-bottom:8px;font-size:14px;color:#1E3A5F;">APK 빌드 절차</h4>
+    <div class="code">
+<span class="c"># 프로젝트 폴더로 이동</span>
+cd C:\Users\windows\Desktop\shaheen-photo
+
+<span class="c"># Git 없이 EAS 사용 설정</span>
+set EAS_NO_VCS=1
+
+<span class="c"># APK 빌드</span>
+eas build -p android --profile preview
+
+<span class="c"># 빌드 완료 후 QR코드로 다운로드</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>스토어 배포 현황</h3>
+    <table>
+      <tbody><tr><th>스토어</th><th>상태</th><th>URL</th><th>비용</th></tr>
+      <tr><td>원스토어</td><td>🔄 예정</td><td>dev.onestore.co.kr</td><td>무료</td></tr>
+      <tr><td>갤럭시스토어</td><td>🔄 예정</td><td>seller.samsungapps.com</td><td>무료</td></tr>
+      <tr><td>구글 플레이</td><td>🔄 예정</td><td>play.google.com/console</td><td>$25 1회</td></tr>
+    </tbody></table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════ -->
+<!-- 6. 유지보수 체크리스트 -->
+<!-- ══════════════════════════════ -->
+<div class="card">
+  <div class="card-num">Section 06</div>
+  <h2>유지보수 체크리스트</h2>
+
+  <div class="section">
+    <h3>수정 작업 전 체크리스트</h3>
+    <ul class="checklist">
+      <li>현재 index.html 백업 폴더에 날짜로 복사했는가?</li>
+      <li>Claude AI 대화에서 현재 버전 아티팩트 확인했는가?</li>
+      <li>수정할 기능 요구사항 명확히 정리했는가?</li>
+      <li>로컬에서 브라우저 테스트 가능한 환경인가?</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h3>수정 작업 후 체크리스트</h3>
+    <ul class="checklist">
+      <li>PC 브라우저에서 기본 동작 확인했는가?</li>
+      <li>모바일 Chrome에서 사진 촬영 테스트했는가?</li>
+      <li>사진 저장(다운로드) 정상 동작 확인했는가?</li>
+      <li>GitHub에 새 파일 업로드 완료했는가?</li>
+      <li>GitHub Pages URL에서 반영 확인했는가?</li>
+      <li>모바일 앱(WebView)에서도 정상 동작하는가?</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h3>APK 빌드 체크리스트</h3>
+    <ul class="checklist">
+      <li>App.js의 WebView URL이 최신 GitHub Pages URL인가?</li>
+      <li>Expo 계정 로그인 상태인가? (eas login)</li>
+      <li>EAS_NO_VCS=1 환경변수 설정했는가?</li>
+      <li>이전 APK를 apk-releases 폴더에 보관했는가?</li>
+      <li>새 APK를 모바일에서 테스트했는가?</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h3>자주 발생하는 문제 빠른 해결</h3>
+    <table>
+      <tbody><tr><th>증상</th><th>해결</th></tr>
+      <tr><td>GitHub Pages 업데이트 안됨</td><td>기존 파일 삭제 후 새 파일 업로드</td></tr>
+      <tr><td>파일명이 .html.txt로 저장됨</td><td>저장 시 파일형식 "모든 파일" 선택</td></tr>
+      <tr><td>eas 명령어 없음</td><td>npm install -g eas-cli</td></tr>
+      <tr><td>git 오류로 빌드 실패</td><td>set EAS_NO_VCS=1 후 재실행</td></tr>
+      <tr><td>모바일에서 공유 안됨</td><td>Chrome 또는 Safari로 직접 접속</td></tr>
+      <tr><td>앱이 기본 Expo 화면</td><td>App.js WebView 코드 확인 후 재빌드</td></tr>
+    </tbody></table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════ -->
+<!-- 7. 주요 정보 -->
+<!-- ══════════════════════════════ -->
+<div class="card">
+  <div class="card-num">Section 07</div>
+  <h2>주요 계정 및 URL 정보</h2>
+
+  <div class="notice red">
+    🔒 이 문서는 내부 관리용입니다. 외부 공유 시 계정 정보 삭제 후 공유하세요.
+  </div>
+
+  <div class="section" style="margin-top:16px;">
+    <h3>서비스 URL</h3>
+    <table>
+      <tbody><tr><th>서비스</th><th>URL</th></tr>
+      <tr><td><b>웹앱 (현장용)</b></td><td>https://faraoh77777.github.io/shaheen-photo/</td></tr>
+      <tr><td><b>관리자 페이지</b></td><td>https://faraoh77777.github.io/shaheen-photo/admin.html</td></tr>
+      <tr><td><b>GitHub 저장소</b></td><td>https://github.com/faraoh77777/shaheen-photo</td></tr>
+      <tr><td><b>Expo 프로젝트</b></td><td>https://expo.dev/accounts/faraoh/projects/shaheen-photo</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="section">
+    <h3>개발 도구</h3>
+    <table>
+      <tbody><tr><th>도구</th><th>URL</th><th>용도</th></tr>
+      <tr><td>Claude AI</td><td>claude.ai</td><td>코드 생성 및 수정</td></tr>
+      <tr><td>GitHub</td><td>github.com</td><td>소스 관리 및 배포</td></tr>
+      <tr><td>Expo</td><td>expo.dev</td><td>앱 빌드 관리</td></tr>
+      <tr><td>카카오 개발자</td><td>developers.kakao.com</td><td>카카오 API 관리</td></tr>
+      <tr><td>Firebase</td><td>console.firebase.google.com</td><td>서버 저장 (예정)</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="section">
+    <h3>앱 정보</h3>
+    <table>
+      <tbody><tr><th>항목</th><th>내용</th></tr>
+      <tr><td>앱 이름</td><td>작업 사진</td></tr>
+      <tr><td>패키지명</td><td>com.faraoh.shaheenphoto</td></tr>
+      <tr><td>현재 버전</td><td>v7.0</td></tr>
+      <tr><td>대상 플랫폼</td><td>Android (iOS 추후)</td></tr>
+      <tr><td>최소 SDK</td><td>Android 5.0 이상</td></tr>
+    </tbody></table>
+  </div>
+</div>
+
+<!-- 푸터 -->
+<div style="text-align:center;padding:24px;color:#8A9BAC;font-size:13px;">
+  SHAHEEN PROJECT — Instrument &amp; Electric Work<br>
+  웹 제작 관리 절차 가이드 © 2026
+</div>
+
+</div>
+
+<script>
+function downloadHTML(){
+  var html=document.documentElement.outerHTML;
+  var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='WORK_Photo_웹제작_관리절차.html';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+</script>
+
+
+</body></html>

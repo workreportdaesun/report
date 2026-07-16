@@ -1,0 +1,1007 @@
+<html lang="ko"><head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.13/html-to-image.min.js" integrity="sha512-iZ2ORl595Wx6miw+GuadDet4WQbdSWS3JLMoNfY8cRGoEFy6oT3G9IbcrBeL6AfkgpA51ETt/faX6yLV+/gFJg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      (function() {
+        // Capture host references before any artifact code runs: Window.parent
+        // is [Replaceable] (a top-level `var parent` in artifact code would
+        // replace the accessor with a data property), and a top-level
+        // `const crypto` would shadow the global — either would otherwise
+        // silently break the bridge for artifacts that worked before.
+        const realParent = window.parent;
+        const cryptoObj = window.crypto;
+        // crypto.randomUUID exists only in Secure Contexts; fall back to a
+        // unique non-crypto id elsewhere (http://LAN-IP dev flows) —
+        // uniqueness is what the bridge needs, unpredictability is
+        // defense-in-depth on top of the source guards.
+        const newRequestId =
+          cryptoObj && typeof cryptoObj.randomUUID === "function"
+            ? function () { return cryptoObj.randomUUID(); }
+            : function () { return Date.now() + "-" + Math.random(); };
+        const originalConsole = window.console;
+        window.console = {
+          log: (...args) => {
+            originalConsole.log(...args);
+            realParent.postMessage({ type: 'console', message: args.join(' ') }, '*');
+          },
+          error: (...args) => {
+            originalConsole.error(...args);
+            realParent.postMessage({ type: 'console', message: 'Error: ' + args.join(' ') }, '*');
+          },
+          warn: (...args) => {
+            originalConsole.warn(...args);
+            realParent.postMessage({ type: 'console', message: 'Warning: ' + args.join(' ') }, '*');
+          }
+        };
+
+        // Bridge request ids are crypto-random (not sequential) so they
+        // cannot be predicted by other frames in the tab.
+        let callbacksMap = new Map();
+        let streamControllers = new Map();
+        
+        window.claude = {
+          complete: (prompt) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'claudeComplete', id, prompt }, '*');
+            });
+          }
+        };
+
+        window.storage = {
+          get: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageGet', id, key, shared }, '*');
+            });
+          },
+          set: (key, value, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageSet', id, key, value, shared }, '*');
+            });
+          },
+          delete: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageDelete', id, key, shared }, '*');
+            });
+          },
+          list: (prefix, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageList', id, prefix, shared }, '*');
+            });
+          }
+        };
+
+        let pendingBlobs = new Map();
+        URL.createObjectURL = (blob) => {
+          // Store the blob and create an ID and URL for it
+          const blobId = `blob-${Date.now()}-${Math.random()}`;
+          pendingBlobs.set(blobId, blob);
+          return `blob-request://${blobId}`;
+        };
+
+        URL.revokeObjectURL = (url) => {
+          // Remove the blob from our store
+          const blobId = url.replace("blob-request://", "");
+          pendingBlobs.delete(blobId);
+        };
+
+        const getBlobFromURL = (url) => {
+          const blobId = url.replace("blob-request://", "");
+          return pendingBlobs.get(blobId);
+        };
+
+        // Override global fetch with streaming support
+        window.fetch = (url, init = {}) => {
+          return new Promise((resolve, reject) => {
+            const id = newRequestId();
+            const channelId = `fetch-${id}-${Date.now()}`;
+            
+            callbacksMap.set(id, { 
+              resolve: (response) => {
+                // Null-body statuses: Response(stream, {status: 204}) throws
+                // per the Fetch spec, which would escape this resolver and
+                // hang the artifact's await forever.
+                if (response.status === 204 || response.status === 205 || response.status === 304) {
+                  try {
+                    resolve(new Response(null, {
+                      status: response.status,
+                      statusText: response.statusText,
+                      headers: response.headers
+                    }));
+                  } catch (err) {
+                    // Invalid statusText/header bytes can throw here too.
+                    reject(new TypeError(
+                      'Bridge fetch: unconstructable response (status ' + response.status + ')'
+                    ));
+                  }
+                  return;
+                }
+                // Create a ReadableStream for the response body
+                const stream = new ReadableStream({
+                  start(controller) {
+                    streamControllers.set(channelId, controller);
+                  },
+                  cancel() {
+                    streamControllers.delete(channelId);
+                  }
+                });
+                
+                // Create and return the Response with the stream. Response()
+                // requires status in [200, 599]; an opaque/no-cors fetch
+                // forwards status 0, which would throw here and escape the
+                // resolver, hanging the artifact's await. Surface it as a
+                // network-error-shaped rejection instead.
+                try {
+                  resolve(new Response(stream, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: response.headers
+                  }));
+                } catch (err) {
+                  streamControllers.delete(channelId);
+                  reject(new TypeError(
+                    'Bridge fetch: unconstructable response (status ' + response.status + ')'
+                  ));
+                }
+              },
+              reject,
+              channelId
+            });
+            
+            realParent.postMessage({
+              type: 'proxyFetch',
+              id,
+              url,
+              init,
+              channelId
+            }, '*');
+          });
+        };
+
+        window.addEventListener('message', async (event) => {
+          // Only the embedding parent may drive the bridge — sibling and
+          // nested frames can also postMessage into this window.
+          if (event.source !== realParent) return;
+          if (event.data.type === 'takeScreenshot') {
+            // Echo the request's nonce so the requester can correlate the
+            // reply to ITS request — a reply without the expected nonce
+            // (e.g. from a stale pre-remount artifact) is ignored upstream.
+            const screenshotNonce = event.data.nonce;
+            const rootElement = document.getElementById('artifacts-component-root-html');
+            if (!rootElement) {
+              realParent.postMessage({
+                type: 'screenshotError',
+                nonce: screenshotNonce,
+                error: new Error('Root element not found'),
+              }, '*');
+              return;
+            }
+            // Catch CDN load failures (htmlToImage undefined) and toPng errors
+            // so the parent always gets a response instead of hanging forever.
+            try {
+              const screenshot = await htmlToImage.toPng(rootElement, {
+                imagePlaceholder:
+                  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdjePDgwX8ACOQDoNsk0PMAAAAASUVORK5CYII=",
+              });
+              realParent.postMessage({
+                type: 'screenshotData',
+                nonce: screenshotNonce,
+                data: screenshot,
+              }, '*');
+            } catch (err) {
+              realParent.postMessage({
+                type: 'screenshotError',
+                nonce: screenshotNonce,
+                error: err instanceof Error ? err : new Error(String(err)),
+              }, '*');
+            }
+          } else if (event.data.type === 'claudeComplete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.completion);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'proxyFetchResponse') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+              callbacksMap.delete(event.data.id);
+            } else {
+              // Initial response with headers, status, etc.
+              callback.resolve({
+                status: event.data.status,
+                statusText: event.data.statusText,
+                headers: event.data.headers
+              });
+              // Don't delete the callback yet if streaming
+              if (!event.data.body) {
+                callbacksMap.delete(event.data.id);
+              }
+            }
+          } else if (event.data.type === 'proxyFetchStream') {
+            // Handle streaming data chunks
+            const controller = streamControllers.get(event.data.channelId);
+            if (controller) {
+              if (event.data.error) {
+                controller.error(new Error(event.data.error));
+                streamControllers.delete(event.data.channelId);
+              } else if (event.data.done) {
+                controller.close();
+                streamControllers.delete(event.data.channelId);
+                // Clean up the callback
+                const callback = Array.from(callbacksMap.entries()).find(
+                  ([_, value]) => value.channelId === event.data.channelId
+                );
+                if (callback) {
+                  callbacksMap.delete(callback[0]);
+                }
+              } else if (event.data.chunk) {
+                controller.enqueue(new Uint8Array(event.data.chunk));
+              }
+            }
+          } else if (event.data.type === 'storageGet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageSet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageDelete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageList') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          }
+        });
+
+        window.addEventListener('click', (event) => {
+          const isEl = event.target instanceof HTMLElement;
+          if (!isEl) return;
+    
+          // find ancestor links
+          const linkEl = event.target.closest("a");
+          if (!linkEl || !linkEl.href) return;
+    
+          event.preventDefault();
+          event.stopImmediatePropagation();
+    
+          if (linkEl.href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(linkEl.href);
+            if (!blob) return;
+            void blob.arrayBuffer().then((data) => {
+              realParent.postMessage({
+                type: "downloadFile",
+                filename: linkEl.download,
+                data,
+                mimeType: blob.type || "application/octet-stream",
+              });
+            });
+          } else if (linkEl.href.startsWith("data:")) {
+            const [header, base64Data] = linkEl.href.split(",");
+            const mimeMatch = header.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+            const binaryString = atob(base64Data);
+            const data = Uint8Array.from(binaryString, (c) =>
+              c.charCodeAt(0),
+            ).buffer;
+            realParent.postMessage({
+              type: "downloadFile",
+              filename: linkEl.download,
+              data,
+              mimeType,
+            });
+          } else {
+            let linkUrl;
+            try {
+              linkUrl = new URL(linkEl.href);
+            } catch (error) {
+              return;
+            }
+    
+            if (linkUrl.hostname === window.location.hostname) return;
+      
+            realParent.postMessage({
+              type: 'openExternal',
+              href: linkEl.href,
+            }, '*');
+          }
+      });
+
+        const originalOpen = window.open;
+        window.open = function (url) {
+          realParent.postMessage({
+            type: "openExternal",
+            href: url,
+          }, "*");
+        };
+
+        window.addEventListener('error', (event) => {
+          realParent.postMessage({ type: 'console', message: 'Uncaught Error: ' + event.message }, '*');
+        });
+      })();
+    </script>
+  
+<meta charset="UTF-8">
+<title>작업사진 앱 제작 가이드</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Malgun Gothic','Apple SD Gothic Neo',Arial,sans-serif;
+  background:#F5F7FA;color:#1A2332;line-height:1.8;font-size:15px;}
+
+/* 커버 */
+.cover{background:linear-gradient(135deg,#1E3A5F,#2E5F9E);color:#fff;
+  padding:80px 60px;text-align:center;min-height:300px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.cover h1{font-size:32px;font-weight:900;letter-spacing:2px;margin-bottom:12px;}
+.cover .sub{font-size:16px;opacity:0.8;margin-bottom:8px;}
+.cover .date{font-size:13px;opacity:0.6;margin-top:20px;}
+.cover .badge{background:rgba(255,255,255,0.2);border-radius:20px;
+  padding:6px 20px;font-size:13px;margin-top:10px;display:inline-block;}
+
+/* 다운로드 버튼 */
+.dl-bar{background:#fff;padding:16px 40px;text-align:center;
+  border-bottom:1px solid #E0E8F0;position:sticky;top:0;z-index:100;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);}
+.dl-btn{background:linear-gradient(135deg,#2E5F9E,#1E3A5F);color:#fff;
+  border:none;border-radius:10px;padding:10px 28px;font-size:14px;
+  font-weight:700;cursor:pointer;margin:0 6px;}
+.dl-btn:hover{opacity:0.9;}
+.dl-btn.green{background:linear-gradient(135deg,#27AE60,#1E8449);}
+
+/* 본문 */
+.container{max-width:900px;margin:0 auto;padding:40px 40px 80px;}
+
+/* 챕터 */
+.chapter{background:#fff;border-radius:16px;padding:40px;margin-bottom:32px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.07);}
+.chapter-num{font-size:12px;font-weight:700;color:#2E5F9E;letter-spacing:2px;
+  text-transform:uppercase;margin-bottom:8px;}
+.chapter h2{font-size:24px;font-weight:800;color:#1A2332;
+  border-bottom:3px solid #2E5F9E;padding-bottom:12px;margin-bottom:24px;}
+
+/* 섹션 */
+.section{margin-bottom:28px;}
+.section h3{font-size:17px;font-weight:700;color:#2E5F9E;margin-bottom:10px;
+  display:flex;align-items:center;gap:8px;}
+.section h3::before{content:'';display:inline-block;width:4px;height:18px;
+  background:#2E5F9E;border-radius:2px;}
+.section h4{font-size:15px;font-weight:700;color:#1A2332;margin:14px 0 6px;}
+p{margin-bottom:10px;color:#2D3748;}
+
+/* 흐름도 */
+.flow{display:flex;flex-wrap:wrap;gap:0;margin:20px 0;}
+.flow-item{flex:1;min-width:120px;text-align:center;position:relative;}
+.flow-box{background:linear-gradient(135deg,#EBF2FF,#D6E8FF);border:2px solid #2E5F9E;
+  border-radius:12px;padding:14px 8px;margin:0 4px;}
+.flow-box .icon{font-size:24px;margin-bottom:6px;}
+.flow-box .label{font-size:12px;font-weight:700;color:#1E3A5F;}
+.flow-box .desc{font-size:10px;color:#5A7A9A;margin-top:4px;}
+.flow-arrow{display:flex;align-items:center;justify-content:center;
+  font-size:20px;color:#2E5F9E;padding:0 2px;min-width:20px;}
+
+/* 코드 블록 */
+.code{background:#1A2332;color:#E2E8F0;border-radius:10px;
+  padding:16px 20px;margin:10px 0;font-family:'Courier New',monospace;
+  font-size:13px;line-height:1.6;overflow-x:auto;}
+.code .comment{color:#68D391;}
+.code .cmd{color:#FBD38D;}
+.code .str{color:#FC8181;}
+
+/* 단계 */
+.steps{counter-reset:step;}
+.step{counter-increment:step;display:flex;gap:14px;margin-bottom:16px;
+  padding:14px;background:#F7FAFC;border-radius:10px;
+  border-left:4px solid #2E5F9E;}
+.step-num{background:#2E5F9E;color:#fff;border-radius:50%;
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;flex-shrink:0;margin-top:2px;}
+.step-content{flex:1;}
+.step-content b{color:#1E3A5F;font-size:15px;}
+.step-content p{margin:4px 0 0;font-size:14px;color:#4A5568;}
+
+/* 표 */
+table{width:100%;border-collapse:collapse;margin:14px 0;}
+th{background:#1E3A5F;color:#fff;padding:10px 14px;text-align:left;font-size:14px;}
+td{padding:10px 14px;border-bottom:1px solid #E2E8F0;font-size:14px;}
+tr:nth-child(even) td{background:#F7FAFC;}
+
+/* 알림 박스 */
+.notice{border-radius:10px;padding:14px 18px;margin:14px 0;font-size:14px;}
+.notice.blue{background:#EBF8FF;border-left:4px solid #2E5F9E;color:#1E3A5F;}
+.notice.green{background:#F0FFF4;border-left:4px solid #27AE60;color:#1A4731;}
+.notice.yellow{background:#FFFBEB;border-left:4px solid #F6C90E;color:#744210;}
+.notice.red{background:#FFF5F5;border-left:4px solid #E74C3C;color:#742A2A;}
+
+/* 배지 */
+.badge-row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;}
+.badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;}
+.badge.blue{background:#EBF2FF;color:#2E5F9E;}
+.badge.green{background:#F0FFF4;color:#27AE60;}
+.badge.orange{background:#FFF3E0;color:#E67E22;}
+.badge.red{background:#FFF5F5;color:#E74C3C;}
+
+/* 인쇄 */
+@media print{
+  .dl-bar{display:none;}
+  .chapter{box-shadow:none;border:1px solid #E0E8F0;}
+  body{background:#fff;}
+}
+</style>
+</head>
+<body id="artifacts-component-root-html">
+
+<!-- 다운로드 바 -->
+<div class="dl-bar">
+  <span style="font-size:14px;font-weight:700;color:#1A2332;margin-right:12px;">
+    📄 작업사진 앱 제작 가이드
+  </span>
+  <button class="dl-btn green" onclick="window.print()">
+    🖨️ PDF로 저장 (인쇄 → PDF 선택)
+  </button>
+  <button class="dl-btn" onclick="downloadHTML()">
+    💾 HTML 파일 다운로드
+  </button>
+</div>
+
+<!-- 커버 -->
+<div class="cover">
+  <div style="font-size:48px;margin-bottom:16px;">📷</div>
+  <h1>작업사진 앱 제작 가이드</h1>
+  <div class="sub">웹 제작부터 스토어 배포까지 완벽 정리</div>
+  <div class="badge">SHAHEEN PROJECT — Instrument &amp; Electric Work</div>
+  <div class="date">작성일: 2026년 6월 15일</div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════════════════════ -->
+<!-- CHAPTER 1: 전체 흐름 요약 -->
+<!-- ═══════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-num">Chapter 01</div>
+  <h2>전체 흐름 요약</h2>
+
+  <div class="section">
+    <h3>프로젝트 개요</h3>
+    <p>현장 작업 사진을 촬영하고, 사진에 작업 정보(날짜, TAG번호, 작업분류, 구역, 팀명, 특이사항)를 자동으로 합성하여 저장·공유하는 모바일 웹앱입니다.</p>
+    <div class="badge-row">
+      <span class="badge blue">HTML/CSS/JS</span>
+      <span class="badge green">GitHub Pages</span>
+      <span class="badge orange">Expo (React Native)</span>
+      <span class="badge red">원스토어 / 갤럭시스토어</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>전체 흐름도</h3>
+    <div class="flow">
+      <div class="flow-item">
+        <div class="flow-box">
+          <div class="icon">🌐</div>
+          <div class="label">웹앱 제작</div>
+          <div class="desc">HTML/CSS/JS</div>
+        </div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="flow-box">
+          <div class="icon">📤</div>
+          <div class="label">GitHub 배포</div>
+          <div class="desc">무료 호스팅</div>
+        </div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="flow-box">
+          <div class="icon">📱</div>
+          <div class="label">Expo 앱 변환</div>
+          <div class="desc">WebView APK</div>
+        </div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="flow-box">
+          <div class="icon">🏪</div>
+          <div class="label">스토어 등록</div>
+          <div class="desc">원스토어/갤럭시</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>단계별 요약</h3>
+    <table>
+      <tbody><tr>
+        <th>단계</th>
+        <th>작업 내용</th>
+        <th>도구</th>
+        <th>비용</th>
+      </tr>
+      <tr><td>1단계</td><td>웹앱 HTML 제작</td><td>Claude AI</td><td>무료</td></tr>
+      <tr><td>2단계</td><td>GitHub 저장소 생성 및 파일 업로드</td><td>GitHub</td><td>무료</td></tr>
+      <tr><td>3단계</td><td>GitHub Pages로 웹 배포</td><td>GitHub Pages</td><td>무료</td></tr>
+      <tr><td>4단계</td><td>Expo 프로젝트 생성 및 WebView 설정</td><td>Node.js, Expo CLI</td><td>무료</td></tr>
+      <tr><td>5단계</td><td>EAS로 Android APK 빌드</td><td>EAS CLI</td><td>무료</td></tr>
+      <tr><td>6단계</td><td>원스토어 / 갤럭시스토어 등록</td><td>각 스토어 콘솔</td><td>무료</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="section">
+    <h3>앱 주요 기능</h3>
+    <table>
+      <tbody><tr><th>기능</th><th>설명</th></tr>
+      <tr><td>📷 사진 촬영</td><td>4:3 비율로 자동 크롭, 카메라/갤러리 선택</td></tr>
+      <tr><td>🏷️ 정보 합성</td><td>상단: 작업분류, 하단: 날짜/TAG/구역/팀명</td></tr>
+      <tr><td>📂 개별 저장</td><td>촬영마다 자동 다운로드 저장</td></tr>
+      <tr><td>🖼️ 사진 목록</td><td>촬영한 사진 썸네일 목록 표시</td></tr>
+      <tr><td>🔄 신규/수정</td><td>작업 구분 라디오 버튼 선택</td></tr>
+      <tr><td>19종 작업분류</td><td>DCS Panel ~ Scaffolding 등</td></tr>
+    </tbody></table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ -->
+<!-- CHAPTER 2: 웹앱 제작 -->
+<!-- ═══════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-num">Chapter 02</div>
+  <h2>웹앱 제작 (HTML)</h2>
+
+  <div class="section">
+    <h3>사용 기술</h3>
+    <p>별도 프레임워크 없이 순수 <b>HTML + CSS + JavaScript</b> 로 제작하여 모든 브라우저에서 동작합니다.</p>
+    <div class="notice blue">
+      💡 Claude AI를 활용하여 코드를 생성하고 반복 수정하는 방식으로 개발하였습니다.
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>핵심 기능 구현</h3>
+
+    <h4>① 4:3 사진 크롭</h4>
+    <p>촬영된 사진을 Canvas API를 사용해 4:3 비율로 자동 크롭합니다.</p>
+    <div class="code">
+<span class="comment">// 4:3 비율로 이미지 크롭</span>
+<span class="cmd">function</span> crop43(img){
+  var r = 4/3;
+  var cols, cH, ox=0, oy=0;
+  <span class="cmd">if</span>(sW/sH &gt; r){ cH=sH; cW=sH*r; ox=(sW-cW)/2; }
+  <span class="cmd">else</span>         { cW=sW; cH=sW/r; oy=(sH-cH)/2; }
+  <span class="comment">// Canvas에 크롭된 이미지 그리기</span>
+  ctx.drawImage(img, ox, oy, cW, cH, 0, 0, cW, cH);
+}
+    </div>
+
+    <h4>② 사진 정보 합성</h4>
+    <p>Canvas API로 사진 위에 텍스트를 직접 그려서 합성합니다.</p>
+    <div class="code">
+<span class="comment">// 상단: 작업분류</span>
+ctx.fillStyle = <span class="str">"#FFD600"</span>;
+ctx.fillText(cat, padX, padY);
+
+<span class="comment">// 하단 2행 2열: 날짜/TAG, 구역/팀명</span>
+botRows = [
+  [date + <span class="str">"  "</span> + time, tag],
+  [loc, leader]
+];
+    </div>
+
+    <h4>③ 개별 파일 저장</h4>
+    <div class="code">
+<span class="comment">// dataURL → Blob → 다운로드</span>
+var a = document.createElement(<span class="str">"a"</span>);
+a.href = dataUrl;
+a.download = <span class="str">"WORK_신규_20260610_0941_PT-2101.jpg"</span>;
+a.click();
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>작업분류 목록 (19종)</h3>
+    <div class="badge-row">
+      <span class="badge blue">DCS Panel</span>
+      <span class="badge blue">LCP</span>
+      <span class="badge blue">Junction Box</span>
+      <span class="badge blue">Field Instrument</span>
+      <span class="badge blue">Cable Duct</span>
+      <span class="badge blue">Cable Tray</span>
+      <span class="badge blue">Conduit Pipe</span>
+      <span class="badge blue">Air Pipe</span>
+      <span class="badge blue">Hook Up</span>
+      <span class="badge blue">Stanchion</span>
+      <span class="badge blue">Support</span>
+      <span class="badge blue">Connection</span>
+      <span class="badge blue">Line Check</span>
+      <span class="badge blue">Loop Test</span>
+      <span class="badge blue">Instrument Calibration</span>
+      <span class="badge blue">Steam Tracing Tube</span>
+      <span class="badge blue">Steam Tracing Insulation</span>
+      <span class="badge orange">비계설치</span>
+      <span class="badge orange">기타</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ -->
+<!-- CHAPTER 3: GitHub 배포 -->
+<!-- ═══════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-num">Chapter 03</div>
+  <h2>GitHub Pages 배포</h2>
+
+  <div class="section">
+    <h3>GitHub 계정 및 저장소 생성</h3>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <b>GitHub 접속 및 로그인</b>
+        <p>github.com 접속 → 계정 로그인</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <b>새 저장소 생성</b>
+        <p>우측 상단 + → New repository → 이름: shaheen-photo → Public 선택 → Add README 체크 → Create repository</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <b>index.html 파일 업로드</b>
+        <p>Add file → Upload files → index.html 드래그 앤 드롭 → Commit changes</p>
+      </div>
+    </div>
+    <div class="notice yellow">
+      ⚠️ 파일명이 반드시 <b>index.html</b> 이어야 합니다. index.html.txt 로 저장되지 않도록 주의!
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>GitHub Pages 활성화</h3>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <b>Settings 탭 클릭</b>
+        <p>저장소 상단 메뉴에서 Settings 클릭</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <b>Pages 메뉴 선택</b>
+        <p>좌측 메뉴 → Pages 클릭</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <b>Branch 설정</b>
+        <p>Source: Deploy from a branch → Branch: main / (root) → Save</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <b>URL 확인 (3~5분 대기)</b>
+        <p>https://faraoh77777.github.io/shaheen-photo/</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>파일 업데이트 방법</h3>
+    <div class="notice blue">
+      코드 수정 후 GitHub에 다시 업로드하면 자동으로 반영됩니다.
+    </div>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <b>기존 파일 삭제</b>
+        <p>index.html 클릭 → ⋮ → Delete file → Commit changes</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <b>새 파일 업로드</b>
+        <p>Add file → Upload files → 새 index.html 업로드 → Commit changes</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ -->
+<!-- CHAPTER 4: Expo APK 빌드 -->
+<!-- ═══════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-num">Chapter 04</div>
+  <h2>Expo로 Android APK 빌드</h2>
+
+  <div class="section">
+    <h3>사전 준비</h3>
+    <table>
+      <tbody><tr><th>필요 항목</th><th>설치 방법</th><th>확인 명령어</th></tr>
+      <tr><td>Node.js (LTS)</td><td>nodejs.org에서 다운로드</td><td>node --version</td></tr>
+      <tr><td>npm</td><td>Node.js 설치 시 자동 포함</td><td>npm --version</td></tr>
+      <tr><td>EAS CLI</td><td>npm install -g eas-cli</td><td>eas --version</td></tr>
+      <tr><td>Expo 계정</td><td>expo.dev에서 무료 가입</td><td>eas login</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="section">
+    <h3>프로젝트 생성 및 설정</h3>
+
+    <h4>① Expo 프로젝트 생성</h4>
+    <div class="code">
+cd Desktop
+npx create-expo-app@4.0.0 shaheen-photo
+<span class="comment"># SDK 버전 선택: Latest (SDK 56) → Enter</span>
+cd shaheen-photo
+    </div>
+
+    <h4>② WebView 패키지 설치</h4>
+    <div class="code">
+npx expo install react-native-webview
+    </div>
+
+    <h4>③ App.js 수정</h4>
+    <div class="code">
+notepad App.js
+<span class="comment"># 아래 코드로 전체 교체 후 저장</span>
+    </div>
+    <div class="code">
+import { StatusBar } from <span class="str">'expo-status-bar'</span>;
+import { WebView } from <span class="str">'react-native-webview'</span>;
+import { SafeAreaView, StyleSheet } from <span class="str">'react-native'</span>;
+
+export default <span class="cmd">function</span> App() {
+  return (
+    &lt;SafeAreaView style={styles.container}&gt;
+      &lt;StatusBar style=<span class="str">"light"</span> backgroundColor=<span class="str">"#1E3A5F"</span>/&gt;
+      &lt;WebView
+        source={{ uri: <span class="str">'https://faraoh77777.github.io/shaheen-photo/'</span> }}
+        style={styles.webview}
+        allowsInlineMediaPlayback={true}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+      /&gt;
+    &lt;/SafeAreaView&gt;
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex:1, backgroundColor:<span class="str">'#1E3A5F'</span> },
+  webview:   { flex:1 },
+});
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>EAS 빌드</h3>
+
+    <h4>① Expo 로그인</h4>
+    <div class="code">
+eas login
+<span class="comment"># 브라우저에서 로그인 완료</span>
+    </div>
+
+    <h4>② EAS 설정 (Git 없이)</h4>
+    <div class="code">
+set EAS_NO_VCS=1
+eas build:configure
+<span class="comment"># "Would you like to automatically create an EAS project?" → Y</span>
+<span class="comment"># "Which platforms?" → All → Enter</span>
+    </div>
+
+    <h4>③ APK 빌드</h4>
+    <div class="code">
+eas build -p android --profile preview
+<span class="comment"># Android application id: com.faraoh.shaheenphoto</span>
+<span class="comment"># Generate a new Android Keystore? → yes</span>
+<span class="comment"># 빌드 완료까지 10~15분 대기</span>
+    </div>
+
+    <div class="notice green">
+      ✅ 빌드 완료 시 APK 다운로드 링크가 터미널에 표시됩니다.<br>
+      또는 https://expo.dev 에서 다운로드 가능합니다.
+    </div>
+
+    <div class="notice yellow">
+      ⚠️ 빌드 진행 상황 확인:<br>
+      https://expo.dev/accounts/faraoh/projects/shaheen-photo/builds/
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ -->
+<!-- CHAPTER 5: 스토어 등록 -->
+<!-- ═══════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-num">Chapter 05</div>
+  <h2>스토어 등록 (원스토어 / 갤럭시스토어)</h2>
+
+  <div class="section">
+    <h3>스토어 비교</h3>
+    <table>
+      <tbody><tr><th>스토어</th><th>등록비</th><th>심사 기간</th><th>대상</th></tr>
+      <tr><td>원스토어</td><td>무료</td><td>3~5일</td><td>Android 전체</td></tr>
+      <tr><td>갤럭시스토어</td><td>무료</td><td>1~3일</td><td>삼성 기기</td></tr>
+      <tr><td>구글 플레이</td><td>$25 (1회)</td><td>1~3일</td><td>Android 전체</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="section">
+    <h3>원스토어 등록 방법</h3>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <b>개발자 등록</b>
+        <p>dev.onestore.co.kr 접속 → 개발자 등록 → 무료 가입</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <b>앱 등록</b>
+        <p>앱 등록 클릭 → 아래 정보 입력</p>
+      </div>
+    </div>
+    <table>
+      <tbody><tr><th>항목</th><th>내용</th></tr>
+      <tr><td>앱 이름</td><td>작업 사진</td></tr>
+      <tr><td>카테고리</td><td>생산성</td></tr>
+      <tr><td>APK 파일</td><td>app-release-signed.apk 업로드</td></tr>
+      <tr><td>아이콘</td><td>512×512 PNG</td></tr>
+      <tr><td>스크린샷</td><td>2장 이상</td></tr>
+      <tr><td>설명</td><td>현장 작업 사진 촬영 및 정보 합성 앱</td></tr>
+    </tbody></table>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <b>심사 제출</b>
+        <p>모든 정보 입력 후 심사 제출 → 3~5일 후 승인</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>갤럭시스토어 등록 방법</h3>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <b>판매자 등록</b>
+        <p>seller.samsungapps.com 접속 → 판매자 등록 → 무료 가입</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <b>앱 등록</b>
+        <p>앱 등록 → APK 업로드 → 스크린샷 4장 이상 → 설명 입력</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <b>심사 제출</b>
+        <p>심사 제출 → 1~3일 후 승인</p>
+      </div>
+    </div>
+    <div class="notice blue">
+      💡 스토어 등록 전 모바일에서 APK 직접 설치 후 충분히 테스트하세요.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ -->
+<!-- CHAPTER 6: 문제 해결 -->
+<!-- ═══════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-num">Chapter 06</div>
+  <h2>자주 발생하는 문제 및 해결 방법</h2>
+
+  <div class="section">
+    <h3>GitHub Pages 관련</h3>
+    <table>
+      <tbody><tr><th>문제</th><th>원인</th><th>해결</th></tr>
+      <tr><td>페이지가 비어있음</td><td>index.html 미업로드</td><td>파일명 index.html 확인 후 재업로드</td></tr>
+      <tr><td>파일명이 index.html.txt</td><td>메모장 저장 오류</td><td>파일형식을 "모든 파일"로 저장</td></tr>
+      <tr><td>업데이트 안됨</td><td>캐시 문제</td><td>Ctrl+Shift+R (강력 새로고침)</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="section">
+    <h3>Expo / EAS 빌드 관련</h3>
+    <table>
+      <tbody><tr><th>문제</th><th>원인</th><th>해결</th></tr>
+      <tr><td>eas 명령어 없음</td><td>EAS CLI 미설치</td><td>npm install -g eas-cli</td></tr>
+      <tr><td>git command not found</td><td>Git 미설치</td><td>set EAS_NO_VCS=1 후 재실행</td></tr>
+      <tr><td>프로젝트 이름 오류</td><td>URL 비친화적 문자</td><td>영문 소문자+숫자만 사용</td></tr>
+      <tr><td>build:configure 실패</td><td>Git 설치 오류</td><td>set EAS_NO_VCS=1 설정</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="section">
+    <h3>모바일 동작 관련</h3>
+    <table>
+      <tbody><tr><th>문제</th><th>원인</th><th>해결</th></tr>
+      <tr><td>사진 공유 안됨</td><td>인앱 브라우저</td><td>Chrome/Safari로 직접 접속</td></tr>
+      <tr><td>다운로드 폴더 없음</td><td>iOS 정책</td><td>파일 앱 → 다운로드에서 확인</td></tr>
+      <tr><td>카메라 안열림</td><td>권한 미허용</td><td>브라우저 카메라 권한 허용</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="section">
+    <h3>중요 URL 정리</h3>
+    <table>
+      <tbody><tr><th>서비스</th><th>URL</th></tr>
+      <tr><td>웹앱 (GitHub Pages)</td><td>https://faraoh77777.github.io/shaheen-photo/</td></tr>
+      <tr><td>GitHub 저장소</td><td>https://github.com/faraoh77777/shaheen-photo</td></tr>
+      <tr><td>Expo 프로젝트</td><td>https://expo.dev/accounts/faraoh/projects/shaheen-photo</td></tr>
+      <tr><td>원스토어 개발자</td><td>dev.onestore.co.kr</td></tr>
+      <tr><td>갤럭시스토어 판매자</td><td>seller.samsungapps.com</td></tr>
+    </tbody></table>
+  </div>
+</div>
+
+<!-- 푸터 -->
+<div style="text-align:center;padding:30px;color:#8A9BAC;font-size:13px;">
+  SHAHEEN PROJECT — Instrument &amp; Electric Work<br>
+  작업사진 앱 제작 가이드 © 2026
+</div>
+
+</div><!-- /container -->
+
+<script>
+function downloadHTML(){
+  var html = document.documentElement.outerHTML;
+  var blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'SHAHEEN_웹제작_스토어배포_가이드.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+</script>
+
+
+</body></html>

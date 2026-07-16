@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>작업일보 · work-report</title>
+<style>
+:root{
+  --brand-1:#1E3A5F; --brand-2:#2E5F9E; --bg:#F0F4F8; --lbl:#5A7A9A;
+  --m-시공:#2E5F9E; --m-품질:#27AE60; --m-자재:#A0703A; --m-안전:#F39C12; --m-화기:#C0392B;
+  --font-body:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --font-mono:"SFMono-Regular",Consolas,Menlo,monospace;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:24px 16px 60px;}
+
+.pdf-note{max-width:900px; margin:0 auto 14px; display:flex; gap:8px; align-items:flex-start; background:rgba(46,95,158,0.1); border:1px solid rgba(46,95,158,0.25); border-radius:10px; padding:10px 14px; font-size:12px; color:#33404f; line-height:1.6;}
+.pdf-note b{color:var(--brand-2);}
+.pdf-sheet{background:#fff; color:#1A2332; width:100%; max-width:900px; margin:0 auto; padding:32px 36px; box-shadow:0 20px 50px rgba(0,0,0,0.15); border-radius:2px;}
+
+.doc-topline{display:flex; gap:14px; margin-bottom:16px;}
+.doc-titlebox{flex:1; display:flex; align-items:center; justify-content:center; border:3px solid #1A2332; font-size:25px; font-weight:800; color:#1A2332;}
+.doc-titlebox span{letter-spacing:14px; text-indent:14px;}
+.doc-approval{border-collapse:collapse; font-size:11px; text-align:center; flex-shrink:0;}
+.doc-approval td{border:1px solid #1A2332; width:56px; padding:0; color:var(--lbl);}
+.doc-approval tr:first-child td{background:#F2F5F9; font-weight:700; color:#1A2332; height:22px; font-size:11px;}
+.doc-approval tr:last-child td{height:46px;}
+
+.doc-info{width:100%; border-collapse:collapse; font-size:12px; margin-bottom:14px; table-layout:fixed;}
+.doc-info th{background:#F2F5F9; border:1px solid #C8D2DE; padding:7px 10px; text-align:left; font-weight:700; color:#3C4A5C; width:96px; font-size:11.5px;}
+.doc-info td{border:1px solid #C8D2DE; padding:7px 10px; color:#1A2332; font-family:var(--font-mono);}
+
+.doc-rostersec-head{background:var(--brand-1); color:#fff; font-size:12px; font-weight:800; padding:7px 12px; border-radius:4px 4px 0 0;}
+.doc-rostersec-head span{font-weight:600; opacity:.85; font-family:var(--font-mono); float:right;}
+.doc-roster{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:4px;}
+.doc-roster th{background:#3C5A7C; color:#fff; padding:6px 8px; font-size:10.5px; font-weight:700; text-align:center; border:1px solid #DCE3EC;}
+.doc-roster td{border:1px solid #DCE3EC; padding:6px 8px; color:#1A2332; vertical-align:top;}
+.doc-roster td.team{font-weight:700; background:#F7FAFC;}
+.doc-roster td.cnt{text-align:center; font-family:var(--font-mono);}
+.doc-roster td.names{text-align:left; line-height:1.75;}
+.doc-roster .me{font-weight:800; color:var(--brand-2);}
+.doc-roster-note{font-size:10px; color:var(--lbl); margin:6px 0 16px;}
+
+.doc-body{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:18px;}
+.doc-body th{background:var(--brand-1); color:#fff; padding:8px 5px; font-size:10.5px; font-weight:700; text-align:center;}
+.doc-body td{border:1px solid #DCE3EC; padding:6px 5px; text-align:center; color:#1A2332; font-family:var(--font-mono);}
+.doc-body td.al{text-align:left; font-family:var(--font-body);}
+.doc-body td.note{text-align:left; font-family:var(--font-body); color:#6B7D93; font-size:11px;}
+.doc-body tbody tr:nth-child(even){background:#FAFBFD;}
+.doc-tag{display:inline-block; font-size:10px; font-weight:700; color:#fff; padding:2px 7px; border-radius:3px; font-family:var(--font-body);}
+.doc-thumb{width:36px; height:36px; margin:0 auto; border-radius:4px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px;}
+
+.doc-photosec-head{background:var(--brand-2); color:#fff; font-size:12px; font-weight:800; padding:7px 12px; border-radius:4px 4px 0 0;}
+.doc-photosec-head span{font-weight:600; opacity:.85; font-family:var(--font-mono); float:right;}
+.doc-photogrid{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:#DCE3EC; border:1px solid #DCE3EC; border-top:none; margin-bottom:16px;}
+.doc-photo{background:#fff;}
+.doc-photo .ph{height:82px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:22px;}
+.doc-photo .cap{font-size:10px; padding:6px 7px; color:#3C4A5C; line-height:1.45; text-align:center;}
+.doc-photo .cap b{display:block; color:#1A2332; font-size:10.5px; margin-bottom:1px;}
+
+.doc-note{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:18px;}
+.doc-note th{background:#F2F5F9; border:1px solid #C8D2DE; padding:8px 10px; width:82px; text-align:left; font-weight:700; color:#3C4A5C; vertical-align:top;}
+.doc-note td{border:1px solid #C8D2DE; padding:8px 10px; color:#1A2332; line-height:1.65;}
+
+.doc-sign{display:flex; justify-content:flex-end; align-items:center; gap:20px; font-size:11.5px; color:#3C4A5C;}
+.doc-sign .stampbox{display:inline-block; width:32px; height:32px; border:1px solid #C8D2DE; border-radius:50%; vertical-align:middle; margin-left:6px;}
+
+.pdf-actions{max-width:900px; margin:16px auto 0; display:flex; gap:8px; justify-content:flex-end; align-items:center;}
+.pdf-actions button{border:none; border-radius:8px; padding:10px 16px; font-size:13px; font-weight:700; cursor:pointer; font-family:var(--font-body);}
+.pdf-actions .primary{background:linear-gradient(135deg,var(--brand-2),var(--brand-1)); color:#fff;}
+.pdf-actions .ghost{background:rgba(127,127,127,0.14); color:#33404f;}
+.pdf-actions .submitted-pill{margin-right:auto; font-size:12px; font-weight:700; color:var(--ok, #27AE60); background:rgba(39,174,96,0.12); padding:6px 12px; border-radius:20px;}
+
+.toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); padding:10px 20px; border-radius:10px; font-size:14px; font-weight:700; color:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.2); opacity:0; pointer-events:none; transition:opacity .25s; white-space:nowrap; z-index:9998;}
+.toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="pdf-note">
+  <span style="font-size:15px;">ℹ️</span>
+  <span>1단계: <b>서식 디자인</b>입니다. 작업자 화면의 카드 UI가 아니라, 실제 결재·공유용 문서처럼 보이도록 별도로 설계했습니다. work-log의 excel_builder/pdf_export를 재사용하는 실제 <b>POST /api/report-pdf</b> 연동은 다음 단계에서 진행합니다.</span>
+</div>
+
+<div class="pdf-sheet" id="pdfSheet">
+
+  <div class="doc-topline">
+    <div class="doc-titlebox"><span>작업일보</span></div>
+    <table class="doc-approval">
+      <tr><td>작성</td><td>검토</td><td>승인</td></tr>
+      <tr><td></td><td></td><td></td></tr>
+    </table>
+  </div>
+
+  <table class="doc-info">
+    <tr><th>공사명</th><td colspan="3">S-OIL SHAHEEN Project 계장공사 3공구(PKG-1)</td></tr>
+    <tr><th>작성일자</th><td id="docDate">-</td><th>날씨</th><td>맑음 · 32℃ <span style="font-size:9.5px;color:var(--lbl);">(임시값 — 날씨 데이터 미연동)</span></td></tr>
+    <tr><th>작성자</th><td id="docWriter">-</td><th>총 출력인원</th><td id="docCrewCount">-</td></tr>
+  </table>
+
+  <div class="doc-rostersec-head">출력 인원 명단 <span id="docRosterCount">-</span></div>
+  <table class="doc-roster">
+    <thead><tr><th style="width:98px;">팀명</th><th style="width:38px;">인원</th><th>성명</th></tr></thead>
+    <tbody id="docRosterBody"><tr><td colspan="3" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+  </table>
+  <div class="doc-roster-note">✓ 표시는 앱 GPS 출력체크 완료자입니다. 회원가입 시 선택한 소속팀·팀장 정보가 자동으로 연결되어, 출력체크 때 팀을 다시 고를 필요가 없습니다.</div>
+
+  <table class="doc-body">
+    <thead>
+      <tr><th style="width:26px;">No</th><th style="width:60px;">공종</th><th>작업내용</th><th style="width:44px;">단위</th><th style="width:44px;">수량</th><th style="width:50px;">진행상황</th><th style="width:44px;">사진</th><th>비고</th></tr>
+    </thead>
+    <tbody id="docBodyRows"><tr><td colspan="8" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+  </table>
+
+  <div class="doc-photosec-head">사진 첨부 <span id="docPhotoCount">-</span></div>
+  <div class="doc-photogrid" id="docPhotoGrid"></div>
+
+  <table class="doc-note">
+    <tr><th>특이사항</th><td id="docNoteCell">-</td></tr>
+  </table>
+
+  <div class="doc-sign">
+    <div>작성자 <span class="stampbox"></span></div>
+    <div>확인자 <span class="stampbox"></span></div>
+  </div>
+
+</div>
+
+<div class="pdf-actions" id="pdfActions">
+  <button class="ghost" id="backBtn" onclick="history.length>1?history.back():location.href='index.html';">← 입력화면으로</button>
+  <button class="primary" id="submitBtn" style="display:none;" onclick="doSubmitReport()">📤 일보 전송</button>
+  <button class="primary" onclick="showToast('📄 PDF 다운로드 (목업 — 실제 파일 생성은 다음 단계)','var(--brand-2)');">📄 PDF 다운로드</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+function showToast(msg, color){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.style.background=color; t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer=setTimeout(function(){t.classList.remove('show');}, 2400);
+}
+
+var SUPABASE_URL='https://dteljgmdbfyxubtpogcj.supabase.co';
+var SUPABASE_KEY='sb_publishable_VC2GcwpxDg_zVbFgOnpfzg__sictyqc';
+var sbClient = (typeof supabase!=='undefined') ? supabase.createClient(SUPABASE_URL,SUPABASE_KEY) : null;
+
+var MENU_COLOR = {'시공':'var(--m-시공)','품질':'var(--m-품질)','자재':'var(--m-자재)','안전':'var(--m-안전)','화기/유도':'var(--m-화기)'};
+var UNIT_LABEL = {'EA':'EA','M':'M','PT':'Point'};
+
+function todayStr(){
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function myDraftId(){
+  var team = localStorage.getItem('member_team') || '미지정';
+  return team+'_'+todayStr();
+}
+
+var viewingOtherReport = false; // ?id=로 남의(또는 이미 제출된) 일보를 조회 전용으로 보는 중인지
+
+function renderReport(row){
+  document.getElementById('docDate').textContent = row.date || '-';
+  document.getElementById('docWriter').textContent = (localStorage.getItem('member_name')||'-') + ' (' + (row.team||'-') + ')';
+
+  var crew = Array.isArray(row.crew) ? row.crew : [];
+  document.getElementById('docCrewCount').textContent = crew.length + '명';
+  document.getElementById('docRosterCount').textContent = crew.length + '명 · ' + (row.team||'-');
+  var myName = localStorage.getItem('member_name')||'';
+  document.getElementById('docRosterBody').innerHTML = crew.length
+    ? '<tr><td class="team">'+(row.team||'-')+'</td><td class="cnt">'+crew.length+'명</td><td class="names">'
+      + crew.map(function(c){ return c.name===myName ? '<span class="me">'+c.name+'✓</span>' : c.name; }).join(', ')
+      + '</td></tr>'
+    : '<tr><td colspan="3" style="text-align:center;color:var(--lbl);">출력체크 기록 없음</td></tr>';
+
+  var items = Array.isArray(row.items) ? row.items : [];
+  document.getElementById('docBodyRows').innerHTML = items.length
+    ? items.map(function(it,i){
+        return '<tr>'
+          +'<td>'+(i+1)+'</td>'
+          +'<td><span class="doc-tag" style="background:'+(MENU_COLOR[it.menu]||'#888')+';">'+(it.menu||'-')+'</span></td>'
+          +'<td class="al">'+(it.cat||'-')+' · '+(it.tag||'-')+'</td>'
+          +'<td>'+(UNIT_LABEL[it.unit]||it.unit||'-')+'</td>'
+          +'<td>'+(it.qty!=null?it.qty:'-')+'</td>'
+          +'<td>'+(it.status||'-')+'</td>'
+          +'<td>'+(it.photo?'<div class="doc-thumb" style="background:'+(MENU_COLOR[it.menu]||'#888')+';">🖼</div>':'-')+'</td>'
+          +'<td class="note">'+(it.note||'-')+'</td>'
+        +'</tr>';
+      }).join('')
+    : '<tr><td colspan="8" style="text-align:center;color:var(--lbl);">입력된 항목 없음</td></tr>';
+
+  var photoItems = items.filter(function(it){ return it.photo; });
+  document.getElementById('docPhotoCount').textContent = photoItems.length + '건 · 원본 work_photos 보관';
+  document.getElementById('docPhotoGrid').innerHTML = photoItems.length
+    ? photoItems.map(function(it){
+        return '<div class="doc-photo"><div class="ph" style="background:'+(MENU_COLOR[it.menu]||'#888')+';">🖼️</div><div class="cap"><b>'+(it.tag||'-')+'</b>'+(it.cat||'')+'</div></div>';
+      }).join('')
+    : '<div style="padding:14px; color:var(--lbl); font-size:12px;">첨부된 사진 없음</div>';
+
+  var notes = items.map(function(it){ return it.note; }).filter(Boolean);
+  document.getElementById('docNoteCell').textContent = notes.length ? notes.join(' / ') : '특이사항 없음';
+
+  var submitBtn = document.getElementById('submitBtn');
+  if(row.status==='submitted' || viewingOtherReport){
+    submitBtn.style.display='none';
+    if(row.status==='submitted'){
+      var pill=document.createElement('span');
+      pill.className='submitted-pill'; pill.textContent='✅ 제출완료';
+      document.getElementById('pdfActions').prepend(pill);
+    }
+  } else {
+    submitBtn.style.display='';
+  }
+}
+
+async function doSubmitReport(){
+  if(!sbClient) return;
+  var id = myDraftId();
+  var up = await sbClient.from('daily_reports').update({status:'submitted', submitted_at:new Date().toISOString()}).eq('id', id);
+  if(up.error){ showToast('❌ 전송 실패: '+up.error.message, 'var(--brand-2)'); return; }
+  showToast('✅ 전송 완료 — 관리자·팀원 전체 일보 목록에 표시됩니다', 'var(--brand-2)');
+  document.getElementById('submitBtn').style.display='none';
+  var pill=document.createElement('span');
+  pill.className='submitted-pill'; pill.textContent='✅ 제출완료';
+  document.getElementById('pdfActions').prepend(pill);
+}
+
+(async function initReportPdf(){
+  if(!sbClient){ showToast('❌ Supabase 연결 실패', 'var(--brand-2)'); return; }
+  var params = new URLSearchParams(location.search);
+  var qid = params.get('id');
+  var id = qid || myDraftId();
+  viewingOtherReport = !!qid;
+  if(viewingOtherReport) document.getElementById('backBtn').textContent = '← 목록으로';
+  var res = await sbClient.from('daily_reports').select('*').eq('id', id).single();
+  if(res.error || !res.data){ showToast('❌ 일보를 불러오지 못했습니다', 'var(--brand-2)'); return; }
+  renderReport(res.data);
+})();
+</script>
+</body>
+</html>
