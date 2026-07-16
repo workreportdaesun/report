@@ -54,7 +54,8 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
   <div class="admin-head">
     <div>
       <h2>work-report · 관리자</h2>
-      <div class="proj">S-OIL SHAHEEN Project 계장공사 3공구(PKG-1)</div>
+      <div class="proj" id="hdrProject" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">S-OIL SHAHEEN Project 계장공사 3공구(PKG-1)</div>
+      <div class="proj" id="hdrCompany" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
     </div>
     <div style="font-size:12px;color:var(--lbl);" id="hdrDate"></div>
   </div>
@@ -122,6 +123,12 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 document.getElementById('hdrDate').textContent = new Date().toLocaleDateString('ko-KR', {year:'numeric', month:'2-digit', day:'2-digit', weekday:'short'});
+(function(){
+  var p=localStorage.getItem('member_project')||'';
+  var c=localStorage.getItem('member_company')||'';
+  if(p) document.getElementById('hdrProject').textContent=p;
+  if(c) document.getElementById('hdrCompany').textContent=c;
+})();
 function showAdminTab(btn, key){
   document.querySelectorAll('.admin-tab').forEach(function(b){ b.classList.remove('active'); });
   btn.classList.add('active');
