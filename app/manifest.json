@@ -1,6 +1,6 @@
 {
-  "name": "Work Report",
-  "short_name": "Work Report",
+  "name": "작업일보",
+  "short_name": "작업일보",
   "start_url": "login.html",
   "display": "standalone",
   "background_color": "#F0F4F8",
