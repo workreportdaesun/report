@@ -139,18 +139,6 @@ textarea.f{resize:none; height:44px;}
 .mycombo-opt:hover{background:var(--field-bg);}
 .mycombo-opt.sel{color:var(--brand-2); font-weight:800; background:var(--field-bg);}
 
-/* ── 작업사진: 진짜 shoot 웹앱을 iframe으로 끼워 스와이프로 오간다 ── */
-#pane-report{position:relative; overflow:hidden; padding:0; border:none; box-shadow:none; background:none;}
-.swipe-track{display:flex; width:200%; transition:transform .28s cubic-bezier(.22,.68,0,1);}
-.swipe-track.dragging{transition:none;}
-.swipe-page{width:50%; flex-shrink:0; box-sizing:border-box; min-width:0;}
-#swipePageReport{padding-right:6px;}
-#swipePagePhoto{display:flex; flex-direction:column; height:calc(100vh - 150px); min-height:540px; padding-left:6px;}
-.swipe-photo-head{display:flex; justify-content:flex-end; margin-bottom:6px;}
-.swipe-back-btn{border:1.5px solid var(--field-bd); background:var(--field-bg); color:var(--brand-2); border-radius:8px; padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; font-family:var(--font-body);}
-.shoot-frame{flex:1; width:100%; border:0; border-radius:12px; background:var(--field-bg);}
-.swipe-edge-hint{position:absolute; top:50%; right:0; transform:translateY(-50%); width:22px; height:64px; background:var(--brand-2); color:#fff; border:none; border-radius:10px 0 0 10px; font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:-2px 0 8px rgba(0,0,0,0.15); z-index:5;}
-
 .geo-box{background:var(--field-bg); border:1.5px dashed var(--field-bd); border-radius:12px; padding:18px; text-align:center; margin-bottom:10px;}
 .geo-box .pin{font-size:30px;}
 .geo-box .status{font-size:14px; font-weight:700; margin-top:8px; color:var(--ink);}
@@ -184,8 +172,6 @@ textarea.f{resize:none; height:44px;}
 
 <!-- ══ 일보입력 ══ -->
 <div class="worker-pane active" id="pane-report">
-<div class="swipe-track" id="reportSwipeTrack">
-<div class="swipe-page" id="swipePageReport">
 
   <!-- 입력 카드 -->
   <div class="card" id="inputCard" style="display:none;">
@@ -209,11 +195,11 @@ textarea.f{resize:none; height:44px;}
     <div class="flbl">비고</div>
     <textarea class="f" id="noteInput" placeholder="특이사항..."></textarea>
 
-    <div class="flbl">📷 사진촬영 <span style="text-transform:none;font-weight:400;color:var(--muted);">— 화면을 왼쪽으로 밀면 작업사진으로 이동합니다</span></div>
-    <div class="cam-box" id="camBox">
+    <div class="flbl">📷 사진촬영 <span style="text-transform:none;font-weight:400;color:var(--muted);">— 탭하면 작업사진 앱으로 이동합니다</span></div>
+    <div class="cam-box" id="camBox" onclick="goToShootPage()">
       <div class="cam-placeholder" id="camPlaceholder">
         <div style="font-size:22px;">📷</div>
-        <p>왼쪽으로 밀어서 촬영하기</p>
+        <p>탭하여 작업사진으로 이동</p>
       </div>
       <div class="corner tl"></div><div class="corner tr"></div>
       <div class="corner bl"></div><div class="corner br"></div>
@@ -234,17 +220,6 @@ textarea.f{resize:none; height:44px;}
 
   <button class="sbtn sbtn-send" id="sendBtn" onclick="previewReport()" disabled>📄 미리보기</button>
 
-</div>
-
-<div class="swipe-page" id="swipePagePhoto">
-  <div class="swipe-photo-head">
-    <button type="button" class="swipe-back-btn" onclick="goToReportPane()">→ 작업일보로</button>
-  </div>
-  <iframe id="shootFrame" class="shoot-frame" src="about:blank" allow="camera"></iframe>
-</div>
-
-</div>
-<button type="button" class="swipe-edge-hint" id="swipeEdgeHint" onclick="toggleSwipePane()" aria-label="작업사진으로 이동">📷</button>
 </div>
 <!-- ══ 일보입력 끝 ══ -->
 
@@ -518,6 +493,7 @@ function openCardForCat(menu, cat){
   addEntryRow();
   document.getElementById('inputCard').style.display = 'block';
   document.getElementById('inputCard').scrollIntoView({behavior:'smooth', block:'nearest'});
+  refreshPhotoLinkage();
 }
 function addEntryRow(prefill){
   var tbody = document.getElementById('entryRows');
@@ -675,15 +651,11 @@ function renderCheckinList(){
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   작업사진: 진짜 shoot 웹앱(workreportdaesun/shoot)을 iframe으로 끼워서 스와이프로 오간다.
-   같은 도메인(workreportdaesun.github.io)이라 로그인(member_id 등 localStorage)이 그대로
-   공유되고, shoot는 이미 active_menu/last_category localStorage 키를 초기값으로 읽으므로
-   report는 이동 직전에 그 값만 심어주면 된다. 사진 유무는 work_photos를 다시 조회해서
-   반영한다(로컬 상태에 의존하지 않음 — Supabase가 진짜 소스).
+   작업사진: 진짜 shoot 웹앱(workreportdaesun/shoot)은 별도 페이지다. 사진은
+   Supabase(work_photos)가 진짜 소스라서 report와 실시간으로 화면을 이어붙일
+   필요가 없다 — 이동 직전 활성 공종/분류/기기번호만 localStorage로 넘겨주고,
+   돌아왔을 때(페이지 로드 시) work_photos를 다시 조회해서 반영한다.
    ══════════════════════════════════════════════════════════════════ */
-var swipeState = 0; // 0=작업일보, 1=작업사진
-var shootFrameLoaded = false;
-
 function setCamBoxState(has){
   hasPhoto = has;
   var box=document.getElementById('camBox'), ph=document.getElementById('camPlaceholder');
@@ -691,21 +663,10 @@ function setCamBoxState(has){
   box.classList.toggle('has-photo', has);
   ph.innerHTML = has
     ? '<div style="font-size:28px;">🖼️</div><p style="color:#2E5F9E;">촬영 완료 · 사진 연동됨</p>'
-    : '<div style="font-size:22px;">📷</div><p>왼쪽으로 밀어서 촬영하기</p>';
+    : '<div style="font-size:22px;">📷</div><p>탭하여 작업사진으로 이동</p>';
 }
 
-function setSwipePage(state){
-  swipeState = state;
-  document.getElementById('reportSwipeTrack').style.transform = 'translateX(' + (state===0 ? '0' : '-50%') + ')';
-  document.getElementById('swipeEdgeHint').style.display = state===0 ? 'flex' : 'none';
-  if(state===1) enterPhotoPane(); else leavePhotoPane();
-}
-function goToPhotoPane(){ setSwipePage(1); }
-function goToReportPane(){ setSwipePage(0); }
-function toggleSwipePane(){ setSwipePage(swipeState===0 ? 1 : 0); }
-window.swipeToReport = goToReportPane; // shoot iframe(같은 오리진)이 직접 호출해서 돌아옴
-
-function enterPhotoPane(){
+function goToShootPage(){
   try{
     var tagVal='';
     var tagInputs=document.getElementById('entryRows').querySelectorAll('[data-f="tag"]');
@@ -714,12 +675,9 @@ function enterPhotoPane(){
     if(activeCat) localStorage.setItem('last_category', activeCat);
     if(tagVal) localStorage.setItem('shoot_prefill_tag', tagVal); else localStorage.removeItem('shoot_prefill_tag');
   }catch(e){}
-  document.getElementById('shootFrame').src = '/shoot/index.html?embedded=1&t=' + Date.now();
-  shootFrameLoaded = true;
+  location.href = '/shoot/index.html?embedded=1';
 }
-function leavePhotoPane(){
-  if(shootFrameLoaded) refreshPhotoLinkage();
-}
+
 async function refreshPhotoLinkage(){
   if(!sbClient || !activeMenu) return;
   try{
@@ -736,43 +694,6 @@ async function refreshPhotoLinkage(){
     if(activeCat) setCamBoxState(!!catsWithPhoto[activeCat]);
   }catch(e){ console.error('사진 연동 확인 실패', e); }
 }
-
-/* ── 스와이프 제스처(터치 드래그) ── */
-(function(){
-  var track = document.getElementById('reportSwipeTrack');
-  var startX=0, startY=0, deltaX=0, dragging=false, decided=false;
-  track.addEventListener('touchstart', function(e){
-    if(e.touches.length!==1) return;
-    startX=e.touches[0].clientX; startY=e.touches[0].clientY;
-    deltaX=0; dragging=true; decided=false;
-    track.classList.add('dragging');
-  }, {passive:true});
-  track.addEventListener('touchmove', function(e){
-    if(!dragging) return;
-    var dx=e.touches[0].clientX-startX, dy=e.touches[0].clientY-startY;
-    if(!decided){
-      if(Math.abs(dx)<8 && Math.abs(dy)<8) return;
-      decided = Math.abs(dx)>Math.abs(dy);
-      if(!decided){ dragging=false; track.classList.remove('dragging'); return; }
-    }
-    deltaX=dx;
-    var base = swipeState===0 ? 0 : -50;
-    var pct = base + (dx / track.offsetWidth * 100);
-    pct = Math.max(-50, Math.min(0, pct));
-    track.style.transform = 'translateX(' + pct + '%)';
-    e.preventDefault();
-  }, {passive:false});
-  track.addEventListener('touchend', function(){
-    if(!dragging) return;
-    dragging=false;
-    track.classList.remove('dragging');
-    var threshold = track.offsetWidth * 0.18;
-    if(swipeState===0 && deltaX < -threshold) setSwipePage(1);
-    else if(swipeState===1 && deltaX > threshold) setSwipePage(0);
-    else setSwipePage(swipeState);
-    deltaX=0;
-  });
-})();
 
 function renderItemList(){
   var wrap=document.getElementById('itemList');
