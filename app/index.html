@@ -669,8 +669,9 @@ function goToShootPage(){
   location.href = '/shoot/index.html';
 }
 
-/* work_photos(사진)에서 (공종,분류,기기번호) 조합이 아직 items[]에 없으면 임시
-   항목으로 자동 추가한다 — 작업자는 수량·특이사항만 확인/수정하면 됨. 진행상황은
+/* work_photos(사진)에서 (공종,기기번호) 조합이 아직 items[]에 없으면 임시 항목으로
+   자동 추가한다 — 작업자는 수량·특이사항만 확인/수정하면 됨. 같은 공종 안에서
+   기기번호가 중복되면(분류가 다르더라도) 최초 1건만 항목으로 반영한다. 진행상황은
    시공+신규 메뉴에서 shoot가 넘긴 하위단계(진행중/완료)와 정확히 일치할 때만
    매핑하고, 그 외에는 비워둔다(shoot에 대응 값이 없어서 자동 판단이 불가능함).
    오늘 찍은 사진은 공종에 상관없이 전부 조회한다(작업자가 shoot에서 어떤 공종을
@@ -682,12 +683,12 @@ async function refreshPhotoLinkage(){
     if(res.error || !res.data) return;
 
     var catsWithPhoto = {};
-    var photoByKey = {}; // "menu|cat|tag" -> {menu, cat, tag, note, work_type} (최초 1건만 사용)
+    var photoByKey = {}; // "menu|tag" -> {menu, cat, tag, note, work_type} (공종+기기번호가 같으면 분류가 달라도 최초 1건만 사용)
     res.data.forEach(function(r){
       if(!r.menu || !r.cat) return;
       catsWithPhoto[r.cat] = true;
       if(!r.tag) return;
-      var key = r.menu + '|' + r.cat + '|' + r.tag;
+      var key = r.menu + '|' + r.tag;
       if(!photoByKey[key]) photoByKey[key] = {menu:r.menu, cat:r.cat, tag:r.tag, note:r.note||'', work_type:r.work_type||''};
     });
 
@@ -698,7 +699,7 @@ async function refreshPhotoLinkage(){
     });
 
     var existingKeys = {};
-    items.forEach(function(it){ existingKeys[it.menu+'|'+it.cat+'|'+it.tag] = true; });
+    items.forEach(function(it){ existingKeys[it.menu+'|'+it.tag] = true; });
     var added = 0;
     Object.keys(photoByKey).forEach(function(key){
       if(existingKeys[key]) return;
