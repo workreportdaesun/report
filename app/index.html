@@ -678,19 +678,51 @@ function goToShootPage(){
   location.href = '/shoot/index.html?embedded=1';
 }
 
+/* work_photos(사진)에서 (분류,기기번호) 조합이 아직 items[]에 없으면 임시 항목으로
+   자동 추가한다 — 작업자는 수량·특이사항만 확인/수정하면 됨. 진행상황은 시공+신규
+   메뉴에서 shoot가 넘긴 하위단계(진행중/완료)와 정확히 일치할 때만 매핑하고,
+   그 외에는 비워둔다(shoot에 대응 값이 없어서 자동 판단이 불가능함). */
 async function refreshPhotoLinkage(){
   if(!sbClient || !activeMenu) return;
   try{
-    var res = await sbClient.from('work_photos').select('cat').eq('date', todayStr()).eq('menu', activeMenu);
+    var res = await sbClient.from('work_photos').select('tag,cat,note,work_type').eq('date', todayStr()).eq('menu', activeMenu);
     if(res.error || !res.data) return;
+
     var catsWithPhoto = {};
-    res.data.forEach(function(r){ if(r.cat) catsWithPhoto[r.cat]=true; });
+    var photoByKey = {}; // "cat|tag" -> {cat, tag, note, work_type} (최초 1건만 사용)
+    res.data.forEach(function(r){
+      if(!r.cat) return;
+      catsWithPhoto[r.cat] = true;
+      if(!r.tag) return;
+      var key = r.cat + '|' + r.tag;
+      if(!photoByKey[key]) photoByKey[key] = {cat:r.cat, tag:r.tag, note:r.note||'', work_type:r.work_type||''};
+    });
+
     var changed=false;
     items.forEach(function(it){
       var has = !!catsWithPhoto[it.cat];
       if(it.photo!==has){ it.photo=has; changed=true; }
     });
-    if(changed) renderItemList();
+
+    var existingKeys = {};
+    items.forEach(function(it){ existingKeys[it.cat+'|'+it.tag] = true; });
+    var added = 0;
+    Object.keys(photoByKey).forEach(function(key){
+      if(existingKeys[key]) return;
+      var p = photoByKey[key];
+      var status = (activeMenu==='시공' && (p.work_type==='진행중' || p.work_type==='완료')) ? p.work_type : '';
+      items.push({menu:activeMenu, cat:p.cat, tag:p.tag, qty:1, unit:unitOf(p.cat), status:status, note:p.note, photo:true, autoImported:true});
+      added++;
+    });
+
+    if(added || changed){
+      renderItemList();
+      document.getElementById('sendBtn').disabled = items.length===0;
+    }
+    if(added){
+      upsertDailyReport({items:items, status:'draft'});
+      showToast('📷 촬영된 항목 '+added+'건이 자동으로 추가됐습니다 — 수량·특이사항을 확인해주세요', 'var(--brand-2)');
+    }
     if(activeCat) setCamBoxState(!!catsWithPhoto[activeCat]);
   }catch(e){ console.error('사진 연동 확인 실패', e); }
 }
@@ -703,7 +735,7 @@ function renderItemList(){
     return '<div class="item-card">'
       +'<div class="item-bar" style="background:'+MENU_COLOR[it.menu]+';"></div>'
       +'<div class="item-thumb">'+(it.photo?'🖼️':'—')+'</div>'
-      +'<div class="item-body"><div class="item-title">'+it.cat+' · '+it.tag+'</div><div class="item-sub">'+it.menu+' · '+it.qty+' '+UNIT_LABEL[it.unit]+' · '+it.status+'</div></div>'
+      +'<div class="item-body"><div class="item-title">'+it.cat+' · '+it.tag+(it.autoImported?' <span style="font-size:9.5px;font-weight:800;color:var(--brand-2);background:var(--field-bg);padding:1px 5px;border-radius:8px;">📷 자동입력</span>':'')+'</div><div class="item-sub">'+it.menu+' · '+it.qty+' '+UNIT_LABEL[it.unit]+' · '+(it.status||'-')+'</div></div>'
       +'<button type="button" class="item-edit" onclick="editItem('+idx+')" aria-label="수정">✏️</button>'
       +'</div>';
   }).join('');
