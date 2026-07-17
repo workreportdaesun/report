@@ -151,12 +151,6 @@ textarea.f{resize:none; height:44px;}
 .shoot-frame{flex:1; width:100%; border:0; border-radius:12px; background:var(--field-bg);}
 .swipe-edge-hint{position:absolute; top:50%; right:0; transform:translateY(-50%); width:22px; height:64px; background:var(--brand-2); color:#fff; border:none; border-radius:10px 0 0 10px; font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:-2px 0 8px rgba(0,0,0,0.15); z-index:5;}
 
-/* 사진촬영 화면으로 넘어가 있는 동안: report 헤더/탭바를 숨기고 화면 전체를 shoot에 내준다 */
-body.photo-fullscreen{padding:0;}
-body.photo-fullscreen .app-header,body.photo-fullscreen .worker-tabs{display:none;}
-body.photo-fullscreen #swipePagePhoto{height:100vh; padding-left:0;}
-body.photo-fullscreen .shoot-frame{border-radius:0;}
-
 .geo-box{background:var(--field-bg); border:1.5px dashed var(--field-bd); border-radius:12px; padding:18px; text-align:center; margin-bottom:10px;}
 .geo-box .pin{font-size:30px;}
 .geo-box .status{font-size:14px; font-weight:700; margin-top:8px; color:var(--ink);}
@@ -704,7 +698,6 @@ function setSwipePage(state){
   swipeState = state;
   document.getElementById('reportSwipeTrack').style.transform = 'translateX(' + (state===0 ? '0' : '-50%') + ')';
   document.getElementById('swipeEdgeHint').style.display = state===0 ? 'flex' : 'none';
-  document.body.classList.toggle('photo-fullscreen', state===1);
   if(state===1) enterPhotoPane(); else leavePhotoPane();
 }
 function goToPhotoPane(){ setSwipePage(1); }
