@@ -161,7 +161,7 @@ function myDraftId(){
 
 var viewingOtherReport = false; // ?id=로 남의(또는 이미 제출된) 일보를 조회 전용으로 보는 중인지
 
-function renderReport(row){
+async function renderReport(row){
   document.getElementById('docDate').textContent = row.date || '-';
   document.getElementById('docWriter').textContent = (localStorage.getItem('member_name')||'-') + ' (' + (row.team||'-') + ')';
 
@@ -176,6 +176,18 @@ function renderReport(row){
     : '<tr><td colspan="3" style="text-align:center;color:var(--lbl);">출력체크 기록 없음</td></tr>';
 
   var items = Array.isArray(row.items) ? row.items : [];
+
+  var workPhotos = [];
+  if(sbClient && row.date){
+    try{
+      var photoRes = await sbClient.from('work_photos').select('*').eq('date', row.date);
+      if(!photoRes.error && photoRes.data) workPhotos = photoRes.data;
+    }catch(e){ /* 조회 실패 시 빈 목록으로 진행 */ }
+  }
+  var itemPhotos = items.map(function(it){
+    return workPhotos.filter(function(p){ return p.menu===it.menu && p.cat===it.cat; });
+  });
+
   document.getElementById('docBodyRows').innerHTML = items.length
     ? items.map(function(it,i){
         return '<tr>'
@@ -185,18 +197,21 @@ function renderReport(row){
           +'<td>'+(UNIT_LABEL[it.unit]||it.unit||'-')+'</td>'
           +'<td>'+(it.qty!=null?it.qty:'-')+'</td>'
           +'<td>'+(it.status||'-')+'</td>'
-          +'<td>'+(it.photo?'<div class="doc-thumb" style="background:'+(MENU_COLOR[it.menu]||'#888')+';">🖼</div>':'-')+'</td>'
+          +'<td>'+(itemPhotos[i].length?'<div class="doc-thumb" style="background:'+(MENU_COLOR[it.menu]||'#888')+';">🖼</div>':'-')+'</td>'
           +'<td class="note">'+(it.note||'-')+'</td>'
         +'</tr>';
       }).join('')
     : '<tr><td colspan="8" style="text-align:center;color:var(--lbl);">입력된 항목 없음</td></tr>';
 
-  var photoItems = items.filter(function(it){ return it.photo; });
-  document.getElementById('docPhotoCount').textContent = photoItems.length + '건 · 원본 work_photos 보관';
-  document.getElementById('docPhotoGrid').innerHTML = photoItems.length
-    ? photoItems.map(function(it){
-        return '<div class="doc-photo"><div class="ph" style="background:'+(MENU_COLOR[it.menu]||'#888')+';">🖼️</div><div class="cap"><b>'+(it.tag||'-')+'</b>'+(it.cat||'')+'</div></div>';
-      }).join('')
+  var photoCards = [];
+  items.forEach(function(it,i){
+    itemPhotos[i].forEach(function(p){
+      photoCards.push('<div class="doc-photo"><img class="ph" src="'+p.photo_url+'" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;display:block;"><div class="cap"><b>'+(it.tag||'-')+'</b>'+(it.cat||'')+'</div></div>');
+    });
+  });
+  document.getElementById('docPhotoCount').textContent = photoCards.length + '건 · work_photos 연동';
+  document.getElementById('docPhotoGrid').innerHTML = photoCards.length
+    ? photoCards.join('')
     : '<div style="padding:14px; color:var(--lbl); font-size:12px;">첨부된 사진 없음</div>';
 
   var notes = items.map(function(it){ return it.note; }).filter(Boolean);
@@ -236,7 +251,7 @@ async function doSubmitReport(){
   if(viewingOtherReport) document.getElementById('backBtn').textContent = '← 목록으로';
   var res = await sbClient.from('daily_reports').select('*').eq('id', id).single();
   if(res.error || !res.data){ showToast('❌ 일보를 불러오지 못했습니다', 'var(--brand-2)'); return; }
-  renderReport(res.data);
+  await renderReport(res.data);
 })();
 </script>
 </body>

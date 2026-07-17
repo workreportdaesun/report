@@ -139,32 +139,6 @@ textarea.f{resize:none; height:44px;}
 .mycombo-opt:hover{background:var(--field-bg);}
 .mycombo-opt.sel{color:var(--brand-2); font-weight:800; background:var(--field-bg);}
 
-/* ── work-shoot 창(위성 앱) — 📷 사진촬영 시 전체화면으로 열림 ── */
-.shoot-overlay{position:fixed; inset:0; background:#0b0f14; display:none; flex-direction:column; z-index:9999;}
-.shoot-overlay.show{display:flex; animation:shootIn .18s ease-out;}
-@keyframes shootIn{from{opacity:0; transform:scale(.97);} to{opacity:1; transform:scale(1);}}
-.shoot-head{background:linear-gradient(135deg,#1c2733,#0f1620); padding:14px 16px 12px; color:#fff; flex-shrink:0;}
-.shoot-head-top{display:flex; justify-content:space-between; align-items:center;}
-.shoot-app-title{font-size:15px; font-weight:800; display:flex; align-items:center; gap:6px;}
-.shoot-close{border:none; background:rgba(255,255,255,0.12); color:#fff; width:26px; height:26px; border-radius:50%; font-size:13px; cursor:pointer;}
-.shoot-app-sub{font-size:10.5px; color:#8FA6BE; margin-top:2px;}
-.shoot-context{display:flex; flex-wrap:wrap; gap:6px; padding:12px 16px 0;}
-.shoot-chip{background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14); color:#D6E2EE; font-size:10.5px; font-weight:700; padding:5px 10px; border-radius:20px;}
-.shoot-chip b{color:#7FB0E6; font-weight:800;}
-.shoot-view{flex:1; display:flex; align-items:center; justify-content:center; padding:20px;}
-.shoot-finder{width:100%; height:100%; max-height:420px; border:2px dashed rgba(255,255,255,0.25); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; background:#12181f; cursor:pointer;}
-.shoot-finder.captured{border-style:solid; border-color:#7FB0E6; background:linear-gradient(135deg,#1c3350,#0f1c2c);}
-.shoot-finder p{color:#7A93AC; font-size:13px; font-weight:700; margin-top:8px;}
-.shoot-finder .cap-icon{font-size:34px;}
-.shoot-foot{padding:14px 16px calc(20px + env(safe-area-inset-bottom,0px)); flex-shrink:0;}
-.shoot-shutter-row{display:flex; align-items:center; justify-content:center; margin-bottom:12px;}
-.shoot-shutter{width:64px; height:64px; border-radius:50%; border:4px solid #fff; background:transparent; cursor:pointer; position:relative; padding:0;}
-.shoot-shutter::after{content:''; position:absolute; inset:4px; border-radius:50%; background:#fff;}
-.shoot-shutter:active::after{background:#cdd7e0;}
-.shoot-status{text-align:center; font-size:11.5px; color:#8FA6BE; margin-bottom:10px; min-height:14px;}
-.shoot-return{width:100%; padding:12px; border:none; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer; font-family:var(--font-body); background:linear-gradient(135deg,#7FB0E6,#3d6da3); color:#fff; display:none;}
-.shoot-return.show{display:block;}
-
 .geo-box{background:var(--field-bg); border:1.5px dashed var(--field-bd); border-radius:12px; padding:18px; text-align:center; margin-bottom:10px;}
 .geo-box .pin{font-size:30px;}
 .geo-box .status{font-size:14px; font-weight:700; margin-top:8px; color:var(--ink);}
@@ -221,11 +195,11 @@ textarea.f{resize:none; height:44px;}
     <div class="flbl">비고</div>
     <textarea class="f" id="noteInput" placeholder="특이사항..."></textarea>
 
-    <div class="flbl">📷 사진촬영 <span style="text-transform:none;font-weight:400;color:var(--muted);">— 탭하면 work-shoot 창이 열립니다</span></div>
+    <div class="flbl">📷 사진촬영 <span style="text-transform:none;font-weight:400;color:var(--muted);">— 탭하면 작업사진 앱으로 이동합니다</span></div>
     <div class="cam-box" id="camBox" onclick="openShootWindow()">
       <div class="cam-placeholder" id="camPlaceholder">
         <div style="font-size:22px;">📷</div>
-        <p>탭하여 work-shoot 열기</p>
+        <p>탭하여 작업사진으로 이동</p>
       </div>
       <div class="corner tl"></div><div class="corner tr"></div>
       <div class="corner bl"></div><div class="corner br"></div>
@@ -301,31 +275,6 @@ textarea.f{resize:none; height:44px;}
         <div class="mycombo-list" id="modalCatComboList"></div>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- ══ work-shoot 창(위성 앱) — 📷 사진촬영 시 열림, 현재 공종/작업분류/기기번호 자동입력 ══ -->
-<div class="shoot-overlay" id="shootOverlay">
-  <div class="shoot-head">
-    <div class="shoot-head-top">
-      <div class="shoot-app-title"><img src="icon-mark.png" alt="" style="width:18px;height:18px;border-radius:5px;vertical-align:-4px;margin-right:5px;">work photo</div>
-      <button type="button" class="shoot-close" onclick="closeShootWindow()" aria-label="닫기">✕</button>
-    </div>
-    <div class="shoot-app-sub">작업일보에서 이동됨 · 촬영 후 자동으로 돌아갑니다</div>
-  </div>
-  <div class="shoot-context" id="shootContext"></div>
-  <div class="shoot-view">
-    <div class="shoot-finder" id="shootFinder" onclick="captureShootPhoto()">
-      <div class="cap-icon" id="shootFinderIcon">📷</div>
-      <p id="shootFinderText">탭하여 촬영</p>
-      <div class="corner tl"></div><div class="corner tr"></div>
-      <div class="corner bl"></div><div class="corner br"></div>
-    </div>
-  </div>
-  <div class="shoot-foot">
-    <div class="shoot-shutter-row"><button type="button" class="shoot-shutter" onclick="captureShootPhoto()" aria-label="촬영"></button></div>
-    <div class="shoot-status" id="shootStatus">기기번호·작업분류 자동입력됨</div>
-    <button type="button" class="shoot-return" id="shootReturnBtn" onclick="closeShootWindow()">✅ 촬영 완료 · 작업일보로 복귀</button>
   </div>
 </div>
 
@@ -539,7 +488,8 @@ function openCardForCat(menu, cat){
   document.getElementById('entryTagTh').textContent = cfg.tagLabel;
   document.getElementById('noteInput').value = '';
   document.getElementById('camBox').classList.remove('has-photo');
-  document.getElementById('camPlaceholder').innerHTML = '<div style="font-size:22px;">📷</div><p>탭하여 work-shoot 열기</p>';
+  document.getElementById('camPlaceholder').style.cssText = '';
+  document.getElementById('camPlaceholder').innerHTML = '<div style="font-size:22px;">📷</div><p>탭하여 작업사진으로 이동</p>';
   document.getElementById('entryRows').innerHTML = '';
   addEntryRow();
   document.getElementById('inputCard').style.display = 'block';
@@ -591,7 +541,8 @@ function saveEntryRows(){
   document.getElementById('noteInput').value = '';
   hasPhoto = false;
   document.getElementById('camBox').classList.remove('has-photo');
-  document.getElementById('camPlaceholder').innerHTML = '<div style="font-size:22px;">📷</div><p>탭하여 work-shoot 열기</p>';
+  document.getElementById('camPlaceholder').style.cssText = '';
+  document.getElementById('camPlaceholder').innerHTML = '<div style="font-size:22px;">📷</div><p>탭하여 작업사진으로 이동</p>';
 }
 function editItem(idx){
   var it = items[idx];
@@ -705,47 +656,55 @@ function renderCheckinList(){
     return '<div class="checkin-log"><div class="t">✅</div><div class="b"><div class="name">'+c.time+' 출력체크</div><div class="meta">현장까지 '+formatDist(c.dist)+'</div></div></div>';
   }).join('');
 }
-/* ── work-shoot 창: 사진촬영 이동 + 자동입력 + 촬영 후 자동복귀 ── */
-var shootCaptured = false;
+/* ── 작업사진(shoot) 앱으로 실제 이동 + 복귀 시 실제 사진 연결 ── */
+var SHOOT_HANDOFF_KEY = 'shoot_handoff_draft';
 function openShootWindow(){
-  shootCaptured = false;
-  document.getElementById('shootFinder').classList.remove('captured');
-  document.getElementById('shootFinderIcon').textContent = '📷';
-  document.getElementById('shootFinderText').textContent = '탭하여 촬영';
-  document.getElementById('shootReturnBtn').classList.remove('show');
-  document.getElementById('shootStatus').textContent = '기기번호·작업분류 자동입력됨';
-
-  var tagVal = '';
-  var tagInputs = document.getElementById('entryRows').querySelectorAll('[data-f="tag"]');
-  for(var i=tagInputs.length-1; i>=0; i--){ if(tagInputs[i].value.trim()){ tagVal = tagInputs[i].value.trim(); break; } }
-  var cfg = MENU_CONFIG[activeMenu];
-  document.getElementById('shootContext').innerHTML =
-    '<span class="shoot-chip">공종 <b>'+activeMenu+'</b></span>'
-    +'<span class="shoot-chip">'+cfg.catStepLabel.replace('선택','')+' <b>'+(activeCat||'-')+'</b></span>'
-    +'<span class="shoot-chip">'+cfg.tagLabel+' <b>'+(tagVal||'미입력')+'</b></span>';
-
-  document.getElementById('shootOverlay').classList.add('show');
+  var rows = [];
+  document.getElementById('entryRows').querySelectorAll('tr').forEach(function(tr){
+    rows.push({
+      tag: tr.querySelector('[data-f="tag"]').value,
+      qty: tr.querySelector('[data-f="qty"]').value,
+      status: tr.querySelector('[data-f="status"]').value
+    });
+  });
+  var draft = {menu:activeMenu, cat:activeCat, note:document.getElementById('noteInput').value, rows:rows};
+  try{ localStorage.setItem(SHOOT_HANDOFF_KEY, JSON.stringify(draft)); }catch(e){}
+  try{ localStorage.setItem('active_menu', activeMenu); localStorage.setItem('last_category', activeCat); }catch(e){}
+  location.href = '/shoot/index.html';
 }
-function captureShootPhoto(){
-  if(shootCaptured) return;
-  shootCaptured = true;
-  document.getElementById('shootFinder').classList.add('captured');
-  document.getElementById('shootFinderIcon').textContent = '🖼️';
-  document.getElementById('shootFinderText').textContent = '촬영 완료';
-  document.getElementById('shootStatus').textContent = 'work_photos 업로드 중...';
-  setTimeout(function(){
-    document.getElementById('shootStatus').textContent = '업로드 완료 · report_id로 항목과 연결됨';
-    document.getElementById('shootReturnBtn').classList.add('show');
-  }, 700);
-}
-function closeShootWindow(){
-  document.getElementById('shootOverlay').classList.remove('show');
-  if(shootCaptured){
-    hasPhoto = true;
-    document.getElementById('camBox').classList.add('has-photo');
-    document.getElementById('camPlaceholder').innerHTML = '<div style="font-size:28px;">🖼️</div><p style="color:#2E5F9E;">촬영 완료 · 작업일보로 복귀됨</p>';
-    showToast('📷 work-shoot에서 복귀 · 사진 연결됨', 'var(--brand-2)');
+async function restoreShootHandoff(){
+  var raw;
+  try{ raw = localStorage.getItem(SHOOT_HANDOFF_KEY); }catch(e){ raw = null; }
+  if(!raw) return;
+  var draft;
+  try{ draft = JSON.parse(raw); }catch(e){ localStorage.removeItem(SHOOT_HANDOFF_KEY); return; }
+
+  openCardForCat(draft.menu, draft.cat);
+  document.getElementById('noteInput').value = draft.note || '';
+  document.getElementById('entryRows').innerHTML = '';
+  (draft.rows && draft.rows.length ? draft.rows : [null]).forEach(function(r){ addEntryRow(r); });
+
+  if(sbClient){
+    try{
+      var res = await sbClient.from('work_photos').select('*')
+        .eq('date', todayStr()).eq('menu', draft.menu).eq('cat', draft.cat)
+        .order('time', {ascending:false});
+      var photos = (!res.error && res.data) ? res.data : [];
+      if(photos.length){
+        hasPhoto = true;
+        document.getElementById('camBox').classList.add('has-photo');
+        var camPh = document.getElementById('camPlaceholder');
+        camPh.style.cssText = 'position:absolute;inset:0;';
+        camPh.innerHTML =
+          '<img src="'+photos[0].photo_url+'" style="width:100%;height:100%;object-fit:cover;">'
+          +'<p style="position:absolute;bottom:6px;left:0;right:0;text-align:center;color:#fff;background:rgba(0,0,0,0.45);font-size:11px;padding:3px 0;margin:0;">'+photos.length+'장 연결됨</p>';
+        showToast('📷 작업사진에서 복귀 · '+photos.length+'장 연결됨', 'var(--brand-2)');
+      } else {
+        showToast('⚠️ 연결된 사진을 찾지 못했습니다', 'var(--err)');
+      }
+    }catch(e){ showToast('⚠️ 사진 조회 실패', 'var(--err)'); }
   }
+  localStorage.removeItem(SHOOT_HANDOFF_KEY);
 }
 function renderItemList(){
   var wrap=document.getElementById('itemList');
@@ -786,6 +745,7 @@ subscribeSettingsRealtime();
     }
   }catch(e){}
 })();
+restoreShootHandoff();
 </script>
 </body>
 </html>
