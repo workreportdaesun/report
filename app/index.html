@@ -381,8 +381,8 @@ textarea.f{resize:none; height:44px;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/2.0.0-beta.8/piexif.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-var SUPABASE_URL='https://dteljgmdbfyxubtpogcj.supabase.co';
-var SUPABASE_KEY='sb_publishable_VC2GcwpxDg_zVbFgOnpfzg__sictyqc';
+var SUPABASE_URL='https://feymoykefzfwucbrqoja.supabase.co';
+var SUPABASE_KEY='sb_publishable_ANT6G7_ka3IPHRk_4vLtBg_7G9NWW7i';
 var sbClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 /* ── 로그인 가드: work-shoot과 동일한 localStorage 키(member_id) 사용 ── */
@@ -1317,9 +1317,9 @@ async function sendToSupabase(){
     try{
       var filePath=(p.info.date||'nodate')+'/'+p.filename;
       var uploadType=(p.blob&&p.blob.type)||'image/jpeg';
-      var storageRes=await sbClient.storage.from('work-photo').upload(filePath,p.blob,{contentType:uploadType,upsert:true});
+      var storageRes=await sbClient.storage.from('work-gallery').upload(filePath,p.blob,{contentType:uploadType,upsert:true});
       if(storageRes.error){ failed.push({p:p,err:'[Storage] '+storageRes.error.message}); continue; }
-      var photoUrl=sbClient.storage.from('work-photo').getPublicUrl(filePath).data.publicUrl;
+      var photoUrl=sbClient.storage.from('work-gallery').getPublicUrl(filePath).data.publicUrl;
       var insertData={
         date:p.info.date||'', time:p.info.time||'', tag:p.info.tag||'',
         cat:p.info.cat||'', loc:p.info.loc||'', work_type:p.info.wt||'',
