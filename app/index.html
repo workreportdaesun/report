@@ -139,45 +139,17 @@ textarea.f{resize:none; height:44px;}
 .mycombo-opt:hover{background:var(--field-bg);}
 .mycombo-opt.sel{color:var(--brand-2); font-weight:800; background:var(--field-bg);}
 
-/* ── report 내장형 촬영 오버레이(shoot 카메라 포팅) ── */
-.shoot-embed-overlay{position:fixed; inset:0; background:var(--bg); z-index:9999; display:none; overflow-y:auto; padding:10px 10px 30px;}
-.shoot-embed-overlay.show{display:block;}
-.shoot-embed-head{display:flex; justify-content:space-between; align-items:center; background:linear-gradient(135deg,var(--brand-1),var(--brand-2)); border-radius:12px; padding:12px 14px; margin-bottom:10px; color:#fff;}
-.shoot-embed-title{font-size:15px; font-weight:800; display:flex; align-items:center; gap:6px;}
-.shoot-embed-title span{font-size:11px; font-weight:400; opacity:.8;}
-.shoot-embed-close{border:none; background:rgba(255,255,255,0.15); color:#fff; width:30px; height:30px; border-radius:50%; font-size:14px; cursor:pointer; flex-shrink:0;}
-.shoot-embed-body{max-width:520px; margin:0 auto;}
-
-#shootCamModal{display:none; position:fixed; inset:0; background:#000; z-index:10000; align-items:center; justify-content:center;}
-#shootCamViewport{position:relative; overflow:hidden; background:#000; touch-action:none;}
-#shootCamVideo{width:100%; height:100%; object-fit:cover; display:block; transform-origin:center center;}
-#shootCamCloseBtn{position:absolute; top:14px; right:14px; width:38px; height:38px; border-radius:50%; background:rgba(0,0,0,0.5); color:#fff; border:none; font-size:18px; cursor:pointer;}
-#shootCamShotBtn{position:absolute; bottom:26px; left:50%; transform:translateX(-50%); width:70px; height:70px; border-radius:50%; background:#fff; border:5px solid rgba(255,255,255,0.5); cursor:pointer;}
-#shootCamZoomWrap{position:absolute; bottom:114px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:8px; width:70%; max-width:260px; z-index:2;}
-#shootCamZoomLabel{color:#fff; font-size:12px; font-weight:800; min-width:36px; text-align:right; text-shadow:0 1px 2px rgba(0,0,0,0.8);}
-#shootCamZoomSlider{flex:1;}
-#shootCamRatioBadge{position:absolute; top:14px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.55); color:#fff; font-size:13px; font-weight:800; padding:5px 14px; border-radius:20px; letter-spacing:0.5px; pointer-events:none; z-index:2;}
-.cam-guide-line{position:absolute; background:rgba(255,255,255,0.4); pointer-events:none;}
-.cam-guide-line.v{width:1px; top:0; bottom:0;}
-.cam-guide-line.h{height:1px; left:0; right:0;}
-#shootCamViewport .corner{border-color:#fff; filter:drop-shadow(0 0 2px rgba(0,0,0,0.8));}
-
-.list-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
-.list-title{font-size:12px; font-weight:700; color:var(--ink);}
-.list-count{font-size:12px; font-weight:800; color:var(--brand-2);}
-.saved-list{display:grid; grid-template-columns:repeat(4,1fr); gap:6px;}
-.saved-item{position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; border:2px solid var(--field-bd); box-shadow:0 1px 4px rgba(0,0,0,0.08);}
-.saved-item img{width:100%; height:100%; object-fit:cover;}
-.del-btn{position:absolute; top:2px; right:2px; background:rgba(231,76,60,0.9); border:none; border-radius:50%; width:20px; height:20px; color:#fff; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:800;}
-.num-badge{position:absolute; bottom:2px; left:4px; font-size:10px; color:#fff; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,0.6);}
-
-.mic-row{display:flex; gap:6px; align-items:stretch;}
-.mic-btn{flex-shrink:0; width:44px; border:1.5px solid var(--field-bd); border-radius:8px; background:var(--field-bg); font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s,border-color .15s;}
-.mic-btn:active{background:#EAF0F8;}
-.mic-btn.listening{background:#FDEDEC; border-color:#E74C3C; animation:micpulse .8s infinite alternate;}
-@keyframes micpulse{from{box-shadow:0 0 0 0 rgba(231,76,60,0.4);} to{box-shadow:0 0 0 5px rgba(231,76,60,0);}}
-.ratio-btn{border:1.5px solid var(--field-bd); background:var(--field-bg); color:var(--lbl); border-radius:6px; padding:5px 10px; font-size:11px; font-weight:800; cursor:pointer;}
-.ratio-btn.active{background:var(--brand-2); border-color:var(--brand-2); color:#fff;}
+/* ── 작업사진: 진짜 shoot 웹앱을 iframe으로 끼워 스와이프로 오간다 ── */
+#pane-report{position:relative; overflow:hidden; padding:0; border:none; box-shadow:none; background:none;}
+.swipe-track{display:flex; width:200%; transition:transform .28s cubic-bezier(.22,.68,0,1);}
+.swipe-track.dragging{transition:none;}
+.swipe-page{width:50%; flex-shrink:0; box-sizing:border-box; min-width:0;}
+#swipePageReport{padding-right:6px;}
+#swipePagePhoto{display:flex; flex-direction:column; height:calc(100vh - 150px); min-height:540px; padding-left:6px;}
+.swipe-photo-head{display:flex; justify-content:flex-end; margin-bottom:6px;}
+.swipe-back-btn{border:1.5px solid var(--field-bd); background:var(--field-bg); color:var(--brand-2); border-radius:8px; padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; font-family:var(--font-body);}
+.shoot-frame{flex:1; width:100%; border:0; border-radius:12px; background:var(--field-bg);}
+.swipe-edge-hint{position:absolute; top:50%; right:0; transform:translateY(-50%); width:22px; height:64px; background:var(--brand-2); color:#fff; border:none; border-radius:10px 0 0 10px; font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:-2px 0 8px rgba(0,0,0,0.15); z-index:5;}
 
 .geo-box{background:var(--field-bg); border:1.5px dashed var(--field-bd); border-radius:12px; padding:18px; text-align:center; margin-bottom:10px;}
 .geo-box .pin{font-size:30px;}
@@ -212,6 +184,8 @@ textarea.f{resize:none; height:44px;}
 
 <!-- ══ 일보입력 ══ -->
 <div class="worker-pane active" id="pane-report">
+<div class="swipe-track" id="reportSwipeTrack">
+<div class="swipe-page" id="swipePageReport">
 
   <!-- 입력 카드 -->
   <div class="card" id="inputCard" style="display:none;">
@@ -235,11 +209,11 @@ textarea.f{resize:none; height:44px;}
     <div class="flbl">비고</div>
     <textarea class="f" id="noteInput" placeholder="특이사항..."></textarea>
 
-    <div class="flbl">📷 사진촬영 <span style="text-transform:none;font-weight:400;color:var(--muted);">— 탭하면 작업사진 앱으로 이동합니다</span></div>
-    <div class="cam-box" id="camBox" onclick="openShootWindow()">
+    <div class="flbl">📷 사진촬영 <span style="text-transform:none;font-weight:400;color:var(--muted);">— 화면을 왼쪽으로 밀면 작업사진으로 이동합니다</span></div>
+    <div class="cam-box" id="camBox">
       <div class="cam-placeholder" id="camPlaceholder">
         <div style="font-size:22px;">📷</div>
-        <p>탭하여 작업사진으로 이동</p>
+        <p>왼쪽으로 밀어서 촬영하기</p>
       </div>
       <div class="corner tl"></div><div class="corner tr"></div>
       <div class="corner bl"></div><div class="corner br"></div>
@@ -258,8 +232,19 @@ textarea.f{resize:none; height:44px;}
     <div id="itemList"><div class="empty-msg">아직 입력한 항목이 없습니다</div></div>
   </div>
 
-  <button class="sbtn sbtn-send" id="sendBtn" onclick="previewReport()" disabled>📄 PDF 보기</button>
+  <button class="sbtn sbtn-send" id="sendBtn" onclick="previewReport()" disabled>📄 미리보기</button>
 
+</div>
+
+<div class="swipe-page" id="swipePagePhoto">
+  <div class="swipe-photo-head">
+    <button type="button" class="swipe-back-btn" onclick="goToReportPane()">→ 작업일보로</button>
+  </div>
+  <iframe id="shootFrame" class="shoot-frame" src="about:blank" allow="camera"></iframe>
+</div>
+
+</div>
+<button type="button" class="swipe-edge-hint" id="swipeEdgeHint" onclick="toggleSwipePane()" aria-label="작업사진으로 이동">📷</button>
 </div>
 <!-- ══ 일보입력 끝 ══ -->
 
@@ -316,64 +301,6 @@ textarea.f{resize:none; height:44px;}
       </div>
     </div>
   </div>
-</div>
-
-<!-- ══ report 내장형 실제 촬영(shoot 저장소 카메라 코드 포팅, 카카오 전송 제외) ══ -->
-<div class="shoot-embed-overlay" id="shootEmbedOverlay">
-  <div class="shoot-embed-head">
-    <div class="shoot-embed-title">📷 사진촬영 <span id="shootEmbedContext"></span></div>
-    <button type="button" class="shoot-embed-close" onclick="closeEmbeddedShoot()" aria-label="닫기">✕</button>
-  </div>
-  <div class="shoot-embed-body">
-    <div class="mic-row">
-      <input type="text" id="shootTagInput" class="entry-cell" placeholder="기기번호/태그" oninput="this.value=this.value.toUpperCase()" style="flex:1;">
-      <button type="button" class="mic-btn" id="shootMicTag" onclick="startSTT('shootTagInput','shootMicTag')" title="음성 입력">🎙️</button>
-    </div>
-
-    <div style="display:flex;gap:4px;justify-content:flex-end;margin:8px 0;">
-      <button type="button" id="shootRatioBtn67" class="ratio-btn" onclick="setCaptureRatio('6:7')">6:7</button>
-      <button type="button" id="shootRatioBtn169" class="ratio-btn" onclick="setCaptureRatio('16:9')">16:9</button>
-      <label for="shootGalleryFileInput" id="shootGalleryPickBtn" class="ratio-btn" style="display:inline-block;">🖼 갤러리에서 추가</label>
-    </div>
-    <div class="cam-box" id="shootCamBox">
-      <div class="cam-placeholder" style="text-align:center;pointer-events:none;">
-        <div style="font-size:22px;">📷</div>
-        <p>탭하여 촬영</p>
-      </div>
-      <div class="corner tl"></div><div class="corner tr"></div>
-      <div class="corner bl"></div><div class="corner br"></div>
-    </div>
-    <input type="file" id="shootFileInput" accept="image/*" capture="environment" style="display:none"/>
-    <input type="file" id="shootGalleryFileInput" accept="image/*" multiple style="display:none"/>
-
-    <div class="card" id="shootListCard" style="display:none;box-shadow:none;border:1px solid var(--field-bd);margin-top:10px;">
-      <div class="list-header">
-        <div><span class="list-title">촬영된 사진</span> <span class="list-count" id="shootPhotoCount">0</span><span class="list-title">장</span></div>
-      </div>
-      <div class="saved-list" id="shootSavedList"></div>
-      <button class="sbtn sbtn-send" id="shootSendBtn" onclick="sendToSupabase()">☁️ 전송하기</button>
-      <button class="sbtn sbtn-outline" id="shootFolderBtn" onclick="pickSaveFolder()" style="display:none;">📁 저장 폴더 지정</button>
-    </div>
-  </div>
-</div>
-
-<div id="shootCamModal">
-  <div id="shootCamViewport">
-    <video id="shootCamVideo" autoplay playsinline muted></video>
-    <div class="cam-guide-line v" style="left:33.333%;"></div>
-    <div class="cam-guide-line v" style="left:66.666%;"></div>
-    <div class="cam-guide-line h" style="top:33.333%;"></div>
-    <div class="cam-guide-line h" style="top:66.666%;"></div>
-    <div class="corner tl"></div><div class="corner tr"></div>
-    <div class="corner bl"></div><div class="corner br"></div>
-    <div id="shootCamRatioBadge">6:7</div>
-  </div>
-  <button id="shootCamCloseBtn" onclick="closeCamera()">✕</button>
-  <div id="shootCamZoomWrap">
-    <span id="shootCamZoomLabel">1.0x</span>
-    <input type="range" id="shootCamZoomSlider" min="1" max="3" step="0.1" value="1"/>
-  </div>
-  <button id="shootCamShotBtn" onclick="captureShot()"></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -586,9 +513,7 @@ function openCardForCat(menu, cat){
   document.getElementById('cardTitle').textContent = activeCat;
   document.getElementById('entryTagTh').textContent = cfg.tagLabel;
   document.getElementById('noteInput').value = '';
-  document.getElementById('camBox').classList.remove('has-photo');
-  document.getElementById('camPlaceholder').style.cssText = '';
-  document.getElementById('camPlaceholder').innerHTML = '<div style="font-size:22px;">📷</div><p>탭하여 작업사진으로 이동</p>';
+  setCamBoxState(false);
   document.getElementById('entryRows').innerHTML = '';
   addEntryRow();
   document.getElementById('inputCard').style.display = 'block';
@@ -638,10 +563,7 @@ function saveEntryRows(){
   document.getElementById('entryRows').innerHTML = '';
   addEntryRow();
   document.getElementById('noteInput').value = '';
-  hasPhoto = false;
-  document.getElementById('camBox').classList.remove('has-photo');
-  document.getElementById('camPlaceholder').style.cssText = '';
-  document.getElementById('camPlaceholder').innerHTML = '<div style="font-size:22px;">📷</div><p>탭하여 작업사진으로 이동</p>';
+  setCamBoxState(false);
 }
 function editItem(idx){
   var it = items[idx];
@@ -653,11 +575,7 @@ function editItem(idx){
   document.getElementById('entryRows').innerHTML = '';
   addEntryRow({tag:it.tag, qty:it.qty, status:it.status});
   document.getElementById('noteInput').value = it.note || '';
-  hasPhoto = it.photo;
-  if(hasPhoto){
-    document.getElementById('camBox').classList.add('has-photo');
-    document.getElementById('camPlaceholder').innerHTML = '<div style="font-size:28px;">🖼️</div><p style="color:#2E5F9E;">촬영 완료 · 사진 삽입됨</p>';
-  }
+  setCamBoxState(!!it.photo);
   showToast('✏️ 수정 모드 — 값을 고친 뒤 저장하세요', 'var(--brand-2)');
 }
 function closeCard(){
@@ -755,676 +673,107 @@ function renderCheckinList(){
     return '<div class="checkin-log"><div class="t">✅</div><div class="b"><div class="name">'+c.time+' 출력체크</div><div class="meta">현장까지 '+formatDist(c.dist)+'</div></div></div>';
   }).join('');
 }
+
 /* ══════════════════════════════════════════════════════════════════
-   report 내장형 실제 촬영(shoot 저장소의 카메라/업로드 코드 포팅) — 아래 블록 전체.
-   카카오 전송은 제외했고, 공종/분류는 report 자체 선택(activeMenu/activeCat)을 재사용한다.
-   ⚠️ 카메라·업로드 로직을 고칠 때는 report와 shoot(workreportdaesun/shoot) 양쪽을
-      함께 확인할 것 — 같은 기능이 두 저장소에 각각 구현되어 있다.
+   작업사진: 진짜 shoot 웹앱(workreportdaesun/shoot)을 iframe으로 끼워서 스와이프로 오간다.
+   같은 도메인(workreportdaesun.github.io)이라 로그인(member_id 등 localStorage)이 그대로
+   공유되고, shoot는 이미 active_menu/last_category localStorage 키를 초기값으로 읽으므로
+   report는 이동 직전에 그 값만 심어주면 된다. 사진 유무는 work_photos를 다시 조회해서
+   반영한다(로컬 상태에 의존하지 않음 — Supabase가 진짜 소스).
    ══════════════════════════════════════════════════════════════════ */
-var CROP_TARGET_W = 1600;
-var savedPhotos = [], lockedInfo = null;
-var DB_NAME = "report-work-photo-db", DB_VERSION = 2, STORE_NAME = "photos", SETTINGS_STORE = "settings", dbPromise = null;
-function openDB(){
-  if(dbPromise) return dbPromise;
-  dbPromise = new Promise(function(resolve,reject){
-    var req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = function(){
-      var db = req.result;
-      if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME,{keyPath:"id",autoIncrement:true});
-      if(!db.objectStoreNames.contains(SETTINGS_STORE)) db.createObjectStore(SETTINGS_STORE,{keyPath:"key"});
-    };
-    req.onsuccess = function(){ resolve(req.result); };
-    req.onerror = function(){ reject(req.error); };
-  });
-  return dbPromise;
-}
-async function persistFolderHandle(handle){
-  try{
-    var db = await openDB();
-    var tx = db.transaction(SETTINGS_STORE,'readwrite');
-    tx.objectStore(SETTINGS_STORE).put({key:'folderHandle', value:handle});
-  }catch(e){ console.warn('폴더 정보 저장 실패', e); }
-}
-async function loadSavedFolderHandle(){
-  if(isMobileShoot || !window.showDirectoryPicker) return;
-  try{
-    var db = await openDB();
-    var rec = await new Promise(function(resolve){
-      var tx = db.transaction(SETTINGS_STORE,'readonly');
-      var req = tx.objectStore(SETTINGS_STORE).get('folderHandle');
-      req.onsuccess = function(){ resolve(req.result); };
-      req.onerror = function(){ resolve(null); };
-    });
-    if(rec && rec.value){
-      dirHandle = rec.value;
-      document.getElementById('shootFolderBtn').textContent = '📁 ' + dirHandle.name;
-    }
-  }catch(e){ console.warn('폴더 정보 불러오기 실패', e); }
-}
-async function dbAddPhoto(p){
-  var db = await openDB();
-  return new Promise(function(resolve,reject){
-    var tx = db.transaction(STORE_NAME,"readwrite");
-    var req = tx.objectStore(STORE_NAME).add({filename:p.filename, blob:p.blob, info:p.info});
-    req.onsuccess = function(){ resolve(req.result); };
-    req.onerror = function(){ reject(req.error); };
-  });
-}
-async function dbDeletePhoto(id){
-  if(id == null) return;
-  var db = await openDB();
-  return new Promise(function(resolve,reject){
-    var tx = db.transaction(STORE_NAME,"readwrite");
-    tx.objectStore(STORE_NAME).delete(id);
-    tx.oncomplete = function(){ resolve(); };
-    tx.onerror = function(){ reject(tx.error); };
-  });
-}
-async function restoreSavedPhotos(){
-  try{
-    var db = await openDB();
-    var rows = await new Promise(function(resolve,reject){
-      var tx = db.transaction(STORE_NAME,"readonly");
-      var req = tx.objectStore(STORE_NAME).getAll();
-      req.onsuccess = function(){ resolve(req.result); };
-      req.onerror = function(){ reject(req.error); };
-    });
-    if(!rows.length) return;
-    savedPhotos = rows.map(function(r){
-      return {dataUrl:URL.createObjectURL(r.blob), filename:r.filename, blob:r.blob, info:r.info, dbId:r.id};
-    });
-    updateShootList();
-    showToast('📷 미전송 사진 '+savedPhotos.length+'장 복원됨', 'var(--brand-2)');
-  }catch(e){ console.error("사진 복원 실패", e); }
+var swipeState = 0; // 0=작업일보, 1=작업사진
+var shootFrameLoaded = false;
+
+function setCamBoxState(has){
+  hasPhoto = has;
+  var box=document.getElementById('camBox'), ph=document.getElementById('camPlaceholder');
+  if(!box||!ph) return;
+  box.classList.toggle('has-photo', has);
+  ph.innerHTML = has
+    ? '<div style="font-size:28px;">🖼️</div><p style="color:#2E5F9E;">촬영 완료 · 사진 연동됨</p>'
+    : '<div style="font-size:22px;">📷</div><p>왼쪽으로 밀어서 촬영하기</p>';
 }
 
-var dirHandle = null;
-var isMobileShoot = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-var camStream = null, camTrack = null;
-var RATIO_VALUES = {"6:7":6/7, "16:9":16/9};
-var RATIO_BTN_IDS = {"6:7":"shootRatioBtn67", "16:9":"shootRatioBtn169"};
-function normRatioMode(mode){ return RATIO_VALUES.hasOwnProperty(mode) ? mode : "6:7"; }
-var captureRatio = RATIO_VALUES[normRatioMode(localStorage.getItem("capture_ratio"))];
-function setCaptureRatio(mode){
-  mode = normRatioMode(mode);
-  captureRatio = RATIO_VALUES[mode];
-  localStorage.setItem("capture_ratio", mode);
-  Object.keys(RATIO_BTN_IDS).forEach(function(m){
-    document.getElementById(RATIO_BTN_IDS[m]).classList.toggle("active", m===mode);
-  });
-  if(document.getElementById("shootCamModal").style.display==="flex") sizeShootCamViewport();
+function setSwipePage(state){
+  swipeState = state;
+  document.getElementById('reportSwipeTrack').style.transform = 'translateX(' + (state===0 ? '0' : '-50%') + ')';
+  document.getElementById('swipeEdgeHint').style.display = state===0 ? 'flex' : 'none';
+  if(state===1) enterPhotoPane(); else leavePhotoPane();
 }
-function sizeShootCamViewport(){
-  var vw=window.innerWidth, vh=window.innerHeight;
-  var w,h;
-  if(vw/vh>captureRatio){ h=vh; w=Math.round(h*captureRatio); }
-  else{ w=vw; h=Math.round(w/captureRatio); }
-  var vp=document.getElementById("shootCamViewport");
-  vp.style.width=w+"px";
-  vp.style.height=h+"px";
-}
-window.addEventListener("resize", function(){
-  if(document.getElementById("shootCamModal").style.display==="flex") sizeShootCamViewport();
-});
-window.addEventListener("orientationchange", function(){
-  setTimeout(function(){
-    if(document.getElementById("shootCamModal").style.display==="flex") sizeShootCamViewport();
-  }, 250);
-});
-async function openCamera(){
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    document.getElementById("shootFileInput").click();
-    return;
-  }
-  var stream=null;
-  var videoConstraints={facingMode:{exact:"environment"}, aspectRatio:{ideal:captureRatio}, width:{ideal:1920}, height:{ideal:1920}};
+function goToPhotoPane(){ setSwipePage(1); }
+function goToReportPane(){ setSwipePage(0); }
+function toggleSwipePane(){ setSwipePage(swipeState===0 ? 1 : 0); }
+window.swipeToReport = goToReportPane; // shoot iframe(같은 오리진)이 직접 호출해서 돌아옴
+
+function enterPhotoPane(){
   try{
-    stream = await navigator.mediaDevices.getUserMedia({video:videoConstraints, audio:false});
-  }catch(e1){
-    try{
-      videoConstraints.facingMode="environment";
-      stream = await navigator.mediaDevices.getUserMedia({video:videoConstraints, audio:false});
-    }catch(e2){
-      try{
-        stream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
-      }catch(e3){
-        document.getElementById("shootFileInput").click();
-        return;
-      }
-    }
-  }
-  camStream=stream;
-  camTrack=stream.getVideoTracks()[0]||null;
-  document.getElementById("shootCamVideo").srcObject=stream;
-  document.getElementById("shootCamRatioBadge").textContent=normRatioMode(localStorage.getItem("capture_ratio"));
-  sizeShootCamViewport();
-  setupZoom();
-  document.getElementById("shootCamModal").style.display="flex";
-}
-function closeCamera(){
-  if(camStream){ camStream.getTracks().forEach(function(t){t.stop();}); camStream=null; camTrack=null; }
-  document.getElementById("shootCamModal").style.display="none";
-  document.getElementById("shootCamVideo").style.transform="scale(1)";
-}
-var zoomLevel=1, digitalZoom=true;
-function setupZoom(){
-  zoomLevel=1; digitalZoom=true;
-  document.getElementById("shootCamVideo").style.transform="scale(1)";
-  var slider=document.getElementById("shootCamZoomSlider");
-  slider.min=1; slider.max=3; slider.step=0.1; slider.value=1;
-  document.getElementById("shootCamZoomLabel").textContent="1.0x";
-  try{
-    var caps=camTrack&&camTrack.getCapabilities?camTrack.getCapabilities():null;
-    if(caps&&caps.zoom){
-      digitalZoom=false;
-      slider.min=caps.zoom.min; slider.max=caps.zoom.max; slider.step=caps.zoom.step||0.1;
-      var cur=(camTrack.getSettings&&camTrack.getSettings().zoom)||caps.zoom.min;
-      slider.value=cur; zoomLevel=parseFloat(cur);
-      document.getElementById("shootCamZoomLabel").textContent=zoomLevel.toFixed(1)+"x";
-    }
+    var tagVal='';
+    var tagInputs=document.getElementById('entryRows').querySelectorAll('[data-f="tag"]');
+    for(var i=tagInputs.length-1;i>=0;i--){ if(tagInputs[i].value.trim()){ tagVal=tagInputs[i].value.trim(); break; } }
+    if(activeMenu) localStorage.setItem('active_menu', activeMenu);
+    if(activeCat) localStorage.setItem('last_category', activeCat);
+    if(tagVal) localStorage.setItem('shoot_prefill_tag', tagVal); else localStorage.removeItem('shoot_prefill_tag');
   }catch(e){}
+  document.getElementById('shootFrame').src = '/shoot/index.html?embedded=1&t=' + Date.now();
+  shootFrameLoaded = true;
 }
-function applyZoom(newZoom){
-  var slider=document.getElementById("shootCamZoomSlider");
-  var min=parseFloat(slider.min), max=parseFloat(slider.max);
-  zoomLevel=Math.min(max,Math.max(min,newZoom));
-  slider.value=zoomLevel;
-  document.getElementById("shootCamZoomLabel").textContent=zoomLevel.toFixed(1)+"x";
-  if(digitalZoom){
-    document.getElementById("shootCamVideo").style.transform="scale("+zoomLevel+")";
-  }else if(camTrack){
-    camTrack.applyConstraints({advanced:[{zoom:zoomLevel}]}).catch(function(e){console.error("줌 적용 실패",e);});
-  }
+function leavePhotoPane(){
+  if(shootFrameLoaded) refreshPhotoLinkage();
 }
-var pinchStartDist=null, pinchStartZoom=1;
-function touchDist(touches){
-  var dx=touches[0].clientX-touches[1].clientX;
-  var dy=touches[0].clientY-touches[1].clientY;
-  return Math.sqrt(dx*dx+dy*dy);
-}
-function applyDigitalZoom(source,zoom){
-  if(zoom<=1) return source;
-  var sw=source.width, sh=source.height;
-  var cw=sw/zoom, ch=sh/zoom;
-  var ox=(sw-cw)/2, oy=(sh-ch)/2;
-  var cv=document.createElement("canvas");
-  cv.width=sw; cv.height=sh;
-  cv.getContext("2d").drawImage(source,ox,oy,cw,ch,0,0,sw,sh);
-  return cv;
-}
-function playShutterSound(){
+async function refreshPhotoLinkage(){
+  if(!sbClient || !activeMenu) return;
   try{
-    var ctx=new (window.AudioContext||window.webkitAudioContext)();
-    var o=ctx.createOscillator(), g=ctx.createGain();
-    o.type="square";
-    o.frequency.setValueAtTime(1200,ctx.currentTime);
-    g.gain.setValueAtTime(0.35,ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.09);
-    o.connect(g); g.connect(ctx.destination);
-    o.start(); o.stop(ctx.currentTime+0.09);
-    o.onended=function(){ctx.close();};
-  }catch(e){}
-}
-async function captureShot(){
-  var video=document.getElementById("shootCamVideo");
-  if(!video.videoWidth) return;
-  playShutterSound();
-  var cv=null;
-  if(window.ImageCapture && camTrack){
-    try{
-      var imageCapture=new ImageCapture(camTrack);
-      var blob=await imageCapture.takePhoto();
-      var bitmap=await createImageBitmap(blob);
-      cv=document.createElement("canvas");
-      cv.width=bitmap.width; cv.height=bitmap.height;
-      cv.getContext("2d").drawImage(bitmap,0,0);
-    }catch(e){ console.error("고화질 촬영 실패, 미리보기 프레임으로 대체",e); cv=null; }
-  }
-  if(!cv){
-    cv=document.createElement("canvas");
-    cv.width=video.videoWidth; cv.height=video.videoHeight;
-    cv.getContext("2d").drawImage(video,0,0,cv.width,cv.height);
-  }
-  if(digitalZoom&&zoomLevel>1) cv=applyDigitalZoom(cv,zoomLevel);
-  closeCamera();
-  var now=new Date();
-  processCapturedFrame(cv, now.toISOString().slice(0,10), now.toTimeString().slice(0,5));
+    var res = await sbClient.from('work_photos').select('cat').eq('date', todayStr()).eq('menu', activeMenu);
+    if(res.error || !res.data) return;
+    var catsWithPhoto = {};
+    res.data.forEach(function(r){ if(r.cat) catsWithPhoto[r.cat]=true; });
+    var changed=false;
+    items.forEach(function(it){
+      var has = !!catsWithPhoto[it.cat];
+      if(it.photo!==has){ it.photo=has; changed=true; }
+    });
+    if(changed) renderItemList();
+    if(activeCat) setCamBoxState(!!catsWithPhoto[activeCat]);
+  }catch(e){ console.error('사진 연동 확인 실패', e); }
 }
 
-function crop34(img){
-  var sW=img.width, sH=img.height, r=captureRatio, cW,cH,ox=0,oy=0;
-  if(sW/sH>r){ cH=sH; cW=Math.round(sH*r); ox=Math.round((sW-cW)/2); }
-  else{ cW=sW; cH=Math.round(sW/r); oy=Math.round((sH-cH)/2); }
-  var outW=CROP_TARGET_W, outH=Math.round(outW/r);
-  var c=document.createElement("canvas");
-  c.width=outW; c.height=outH; c._w=outW; c._h=outH;
-  c.getContext("2d").drawImage(img,ox,oy,cW,cH,0,0,outW,outH);
-  return c;
-}
-function loadImg(e){
-  var file=e.target.files[0]; if(!file) return;
-  var reader=new FileReader();
-  reader.onload=function(ev){
-    var autoDate="", autoTime="";
-    try{
-      var exifObj=piexif.load(ev.target.result);
-      var dt=exifObj["Exif"]&&exifObj["Exif"][piexif.ExifIFD.DateTimeOriginal];
-      if(dt&&dt.length>=16){ autoDate=dt.slice(0,10).replace(/:/g,"-"); autoTime=dt.slice(11,16); }
-    }catch(ex){}
-    if(!autoDate){
-      var now=new Date();
-      autoDate=now.toISOString().slice(0,10);
-      autoTime=now.toTimeString().slice(0,5);
-    }
-    var img=new Image();
-    img.onload=function(){ processCapturedFrame(img,autoDate,autoTime); };
-    img.src=ev.target.result;
-  };
-  reader.readAsDataURL(file);
-  e.target.value="";
-}
-function loadOneGalleryFile(file){
-  return new Promise(function(resolve){
-    var reader=new FileReader();
-    reader.onload=function(ev){
-      var autoDate="", autoTime="";
-      try{
-        var exifObj=piexif.load(ev.target.result);
-        var dt=exifObj["Exif"]&&exifObj["Exif"][piexif.ExifIFD.DateTimeOriginal];
-        if(dt&&dt.length>=16){ autoDate=dt.slice(0,10).replace(/:/g,"-"); autoTime=dt.slice(11,16); }
-      }catch(ex){}
-      if(!autoDate){
-        var now=new Date();
-        autoDate=now.toISOString().slice(0,10);
-        autoTime=now.toTimeString().slice(0,5);
-      }
-      processGalleryFrame(file, ev.target.result, autoDate, autoTime).then(resolve).catch(resolve);
-    };
-    reader.onerror=function(){ resolve(); };
-    reader.readAsDataURL(file);
-  });
-}
-async function loadImgsFromGallery(e){
-  var files=Array.prototype.slice.call(e.target.files||[]);
-  e.target.value="";
-  if(!files.length) return;
-  var btn=document.getElementById("shootGalleryPickBtn");
-  var origText=btn?btn.textContent:"";
-  for(var i=0;i<files.length;i++){
-    if(btn) btn.textContent="🖼 "+(i+1)+"/"+files.length+" 처리 중...";
-    await loadOneGalleryFile(files[i]);
-  }
-  if(btn) btn.textContent=origText;
-}
-
-function currentFormInfo(autoDate,autoTime){
-  return {
-    date:autoDate, time:autoTime,
-    tag:document.getElementById("shootTagInput").value.trim(),
-    cat:activeCat||'',
-    loc:'', note:document.getElementById('noteInput').value.trim(),
-    wt:'', menu:activeMenu
-  };
-}
-function applyCapturedInfoAndAdd(source, info){
-  var loadedImg=crop34(source);
-  lockedInfo=info;
-  document.getElementById("shootCamBox").innerHTML=
-    '<img src="'+loadedImg.toDataURL()+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px;"/>'
-    +'<div class="corner tl"></div><div class="corner tr"></div>'
-    +'<div class="corner bl"></div><div class="corner br"></div>';
-  autoAddPhoto(loadedImg);
-}
-function processCapturedFrame(source,autoDate,autoTime){
-  applyCapturedInfoAndAdd(source, currentFormInfo(autoDate,autoTime));
-}
-async function addOriginalGalleryPhoto(file, rawDataUrl, info){
-  var photo={dataUrl:rawDataUrl, filename:file.name, blob:file, info:info, source:'gallery'};
-  savedPhotos.push(photo);
-  document.getElementById("shootCamBox").innerHTML=
-    '<img src="'+rawDataUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px;"/>'
-    +'<div class="corner tl"></div><div class="corner tr"></div>'
-    +'<div class="corner bl"></div><div class="corner br"></div>';
-  updateShootList();
-  showToast('📷 추가 완료! 총 '+savedPhotos.length+'장', 'var(--brand-2)');
-  try{ photo.dbId=await dbAddPhoto(photo); }catch(e){ console.error("사진 저장 실패", e); }
-}
-async function processGalleryFrame(file,rawDataUrl,autoDate,autoTime){
-  var info={date:autoDate,time:autoTime, tag:"",cat:activeCat||'',loc:"",note:"",wt:"", menu:activeMenu};
-  await addOriginalGalleryPhoto(file, rawDataUrl, info);
-}
-
-function renderShootCanvas(loadedImg){
-  var cv=document.createElement("canvas");
-  var W=loadedImg._w, H=loadedImg._h;
-  cv.width=W; cv.height=H;
-  var ctx=cv.getContext("2d");
-  ctx.drawImage(loadedImg,0,0);
-
-  var memberName=localStorage.getItem("member_name")||"";
-  var lines=[lockedInfo.cat||'-', lockedInfo.tag||'-'];
-  if(memberName) lines.push(memberName);
-  lines.push(lockedInfo.date+"  "+lockedInfo.time);
-  if(lockedInfo.note) lines.push(lockedInfo.note);
-
-  var fs=Math.max(20,Math.round(H*0.031));
-  var padX=Math.round(W*0.022), padY=Math.round(fs*0.55);
-  ctx.font="bold "+fs+"px Arial,sans-serif";
-  var maxTxtW=0;
-  lines.forEach(function(l){ maxTxtW=Math.max(maxTxtW, ctx.measureText(l).width); });
-  while(fs>16 && maxTxtW>W*0.75){
-    fs--; ctx.font="bold "+fs+"px Arial,sans-serif"; maxTxtW=0;
-    lines.forEach(function(l){ maxTxtW=Math.max(maxTxtW, ctx.measureText(l).width); });
-  }
-  var lh=Math.round(fs*1.3);
-  padX=Math.round(W*0.022); padY=Math.round(fs*0.55);
-  var boxW=maxTxtW+padX*2, boxH=lines.length*lh+padY*2;
-  ctx.fillStyle="rgba(0,0,0,0.6)";
-  ctx.fillRect(W-boxW,H-boxH,boxW,boxH);
-  ctx.textBaseline="top"; ctx.textAlign="right";
-  ctx.font="bold "+fs+"px Arial,sans-serif";
-  ctx.lineJoin="round"; ctx.miterLimit=2;
-  ctx.lineWidth=Math.max(2,Math.round(fs*0.12));
-  ctx.strokeStyle="#000000"; ctx.fillStyle="#FFFFFF";
-  lines.forEach(function(line,i){
-    var x=W-padX, y=(H-boxH)+padY+i*lh;
-    ctx.strokeText(line,x,y);
-    ctx.fillText(line,x,y);
-  });
-  return cv;
-}
-
-function sanitizeForFilename(str){
-  return str?String(str).trim().replace(/[^\x00-\x7F]/g,"").replace(/[\\\/:*?"<>|&]/g,"").replace(/\s+/g,"_").replace(/^[_\-]+|[_\-]+$/g,"").slice(0,30):"";
-}
-function sanitizeForFilenameKr(str){
-  return str?String(str).trim().replace(/[\\\/:*?"<>|&]/g,"").replace(/\s+/g,"_").replace(/^[_\-]+|[_\-]+$/g,"").slice(0,30):"";
-}
-function buildShootFileName(idx){
-  var cat=sanitizeForFilename(lockedInfo.cat)||'etc';
-  var tag=sanitizeForFilename(lockedInfo.tag)||'NONAME';
-  var name=sanitizeForFilenameKr(localStorage.getItem("member_name")||"");
-  var note=sanitizeForFilenameKr(lockedInfo.note);
-  var parts=["WORK",(lockedInfo.date||"").replace(/-/g,""),(lockedInfo.time||"").replace(":",""),cat,tag];
-  if(name) parts.push(name);
-  if(note) parts.push(note);
-  parts.push(idx);
-  var fname=parts.join("_")+".jpg";
-  return fname.length>200?fname.slice(0,196)+".jpg":fname;
-}
-function buildInfoText(info){
-  return info.cat+"  기기번호:"+info.tag+"  날짜:"+info.date+" "+info.time+(info.note?"  특이사항:"+info.note:"");
-}
-function strToXPBytes(str){
-  var bytes=[], s=String(str||"");
-  for(var i=0;i<s.length;i++){ var c=s.charCodeAt(i); bytes.push(c&0xff,(c>>8)&0xff); }
-  bytes.push(0,0); return bytes;
-}
-function strToUserCommentBinary(str){
-  var bin="", s=String(str||"");
-  for(var i=0;i<s.length;i++){ var c=s.charCodeAt(i); bin+=String.fromCharCode(c&0xff)+String.fromCharCode((c>>8)&0xff); }
-  return "UNICODE "+bin;
-}
-function embedExif(dataUrl,info){
-  try{
-    if(typeof piexif==="undefined") return dataUrl;
-    var ft=buildInfoText(info);
-    var z={};
-    z[piexif.ImageIFD.XPTitle]=strToXPBytes(info.tag);
-    z[piexif.ImageIFD.XPSubject]=strToXPBytes(info.cat);
-    z[piexif.ImageIFD.XPComment]=strToXPBytes(ft);
-    var ex={};
-    ex[piexif.ExifIFD.UserComment]=strToUserCommentBinary(ft);
-    var dd=(info.date||"").replace(/-/g,":");
-    var dt=info.time||"00:00"; if(dt.length===5) dt+=":00";
-    if(dd) ex[piexif.ExifIFD.DateTimeOriginal]=dd+" "+dt;
-    return piexif.insert(piexif.dump({"0th":z,"Exif":ex}), dataUrl);
-  }catch(e){ return dataUrl; }
-}
-function autoAddPhoto(loadedImg){
-  var cv=renderShootCanvas(loadedImg);
-  var fname=buildShootFileName(savedPhotos.length+1);
-  var rawDataUrl=cv.toDataURL("image/jpeg",0.92);
-  var info={date:lockedInfo.date,time:lockedInfo.time,tag:lockedInfo.tag,cat:lockedInfo.cat,loc:'',note:lockedInfo.note,wt:'',menu:lockedInfo.menu};
-  var dataUrl=embedExif(rawDataUrl,info);
-  var byteStr=atob(dataUrl.split(",")[1]);
-  var ab=new ArrayBuffer(byteStr.length);
-  var ia=new Uint8Array(ab);
-  for(var i=0;i<byteStr.length;i++) ia[i]=byteStr.charCodeAt(i);
-  var blob=new Blob([ab],{type:"image/jpeg"});
-  var photo={dataUrl:dataUrl, filename:fname, blob:blob, info:info};
-  savedPhotos.push(photo);
-  updateShootList();
-  showToast('📷 추가 완료! 총 '+savedPhotos.length+'장', 'var(--brand-2)');
-  setTimeout(resetShootCam, 800);
-  dbAddPhoto(photo).then(function(id){ photo.dbId=id; }).catch(function(e){ console.error("사진 저장 실패", e); });
-}
-function updateShootList(){
-  var cnt=savedPhotos.length;
-  document.getElementById("shootPhotoCount").textContent=cnt;
-  document.getElementById("shootListCard").style.display=cnt>0?"block":"none";
-  var list=document.getElementById("shootSavedList");
-  var html="";
-  savedPhotos.forEach(function(p,i){
-    html+='<div class="saved-item"><img src="'+p.dataUrl+'"/><button class="del-btn" onclick="removeShootPhoto('+i+')">✕</button><span class="num-badge">'+(i+1)+'</span></div>';
-  });
-  list.innerHTML=html||'<div style="grid-column:span 4;text-align:center;padding:12px;color:var(--muted);font-size:13px;">촬영된 사진이 없습니다</div>';
-}
-window.removeShootPhoto=function(idx){
-  var p=savedPhotos[idx];
-  savedPhotos.splice(idx,1);
-  updateShootList();
-  if(p&&p.dbId!=null) dbDeletePhoto(p.dbId).catch(function(e){ console.error("사진 삭제 실패", e); });
-};
-function resetShootCam(){
-  lockedInfo=null;
-  document.getElementById("shootFileInput").value="";
-  document.getElementById("shootCamBox").innerHTML=
-    '<div class="cam-placeholder" style="text-align:center;pointer-events:none;">'
-    +'<div style="font-size:22px;">📷</div><p>탭하여 촬영</p>'
-    +'<p style="font-size:12px;color:var(--brand-2);margin-top:4px;font-weight:700;">저장: '+savedPhotos.length+'장</p></div>'
-    +'<div class="corner tl"></div><div class="corner tr"></div>'
-    +'<div class="corner bl"></div><div class="corner br"></div>';
-}
-
-async function pickSaveFolder(){
-  if(!window.showDirectoryPicker){ showToast('⚠️ Chrome/Edge 데스크탑 전용 기능입니다.', 'var(--err)'); return; }
-  try{
-    dirHandle=await window.showDirectoryPicker({mode:'readwrite',startIn:'downloads'});
-    document.getElementById('shootFolderBtn').textContent='📁 '+dirHandle.name;
-    showToast('📁 저장 폴더: '+dirHandle.name, 'var(--brand-2)');
-    persistFolderHandle(dirHandle);
-  }catch(e){
-    if(e.name!=='AbortError') showToast('⚠️ 폴더 선택 실패: '+e.message, 'var(--err)');
-  }
-}
-async function ensureFolderPermission(handle){
-  try{ var result=await handle.requestPermission({mode:'readwrite'}); return result==='granted'; }
-  catch(e){ return false; }
-}
-function downloadAllShootPhotos(photos){
-  photos.forEach(function(p,i){
-    setTimeout(function(){
-      var a=document.createElement('a');
-      a.href=p.dataUrl; a.download=p.filename;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    }, i*300);
-  });
-}
-async function autoSaveShootToDevice(photos){
-  if(dirHandle&&!isMobileShoot&&!(await ensureFolderPermission(dirHandle))){
-    showToast('⚠️ 폴더 접근 권한이 만료되었습니다. 폴더를 다시 지정해주세요.', 'var(--err)');
-    downloadAllShootPhotos(photos);
-    setTimeout(function(){ finishSendShoot(photos); }, photos.length*300+2000);
-    return;
-  }
-  if(dirHandle&&!isMobileShoot){
-    var cnt=0,lastErr='';
-    for(var i=0;i<photos.length;i++){
-      var p=photos[i];
-      try{
-        var ab=await new Promise(function(res,rej){
-          var fr=new FileReader();
-          fr.onload=function(e){ res(e.target.result); };
-          fr.onerror=rej;
-          fr.readAsArrayBuffer(p.blob);
-        });
-        var menuFolder=(p.info&&p.info.menu)||"시공";
-        var catFolder=(p.info&&p.info.cat)||"기타";
-        var menuDir=await dirHandle.getDirectoryHandle(menuFolder,{create:true});
-        var catDir=await menuDir.getDirectoryHandle(catFolder,{create:true});
-        var fh=await catDir.getFileHandle(p.filename,{create:true});
-        var w=await fh.createWritable();
-        await w.write(new Uint8Array(ab));
-        await w.close();
-        cnt++;
-      }catch(e){ lastErr=e.message||String(e); console.error('파일저장실패',p.filename,e); }
-    }
-    if(cnt>0){ showToast('📁 '+dirHandle.name+'에 '+cnt+'장 저장 완료!', 'var(--brand-2)'); setTimeout(function(){finishSendShoot(photos);},2000); }
-    else{ showToast('⚠️ 폴더 저장 실패: '+lastErr, 'var(--err)'); downloadAllShootPhotos(photos); setTimeout(function(){finishSendShoot(photos);},photos.length*300+2000); }
-  } else {
-    downloadAllShootPhotos(photos);
-    setTimeout(function(){ finishSendShoot(photos); }, photos.length*300+2000);
-  }
-}
-function finishSendShoot(photos){
-  photos.forEach(function(p){
-    if(p&&p.dbId!=null) dbDeletePhoto(p.dbId).catch(function(e){ console.error("사진 삭제 실패", e); });
-  });
-  if(!savedPhotos.length){
-    lockedInfo=null;
-    document.getElementById('shootFileInput').value='';
-    document.getElementById('shootTagInput').value='';
-    resetShootCam();
-  }
-  updateShootList();
-}
-
-async function sendToSupabase(){
-  if(!savedPhotos.length){ showToast('⚠️ 전송할 사진이 없습니다.', 'var(--err)'); return; }
-  if(!sbClient){ showToast('⚠️ Supabase 연결 실패', 'var(--err)'); return; }
-  if(!isMobileShoot && window.showDirectoryPicker && !dirHandle){
-    var wantsFolder=confirm('기기에 사진을 저장할 폴더가 지정되지 않았습니다.\n\n지금 폴더를 지정하시겠습니까?\n(취소하면 다운로드 폴더에 개별 저장됩니다)');
-    if(wantsFolder) await pickSaveFolder();
-  }
-  var btn=document.getElementById('shootSendBtn');
-  btn.disabled=true;
-  var total=savedPhotos.length;
-  var succeeded=[], failed=[];
-  for(var i=0;i<total;i++){
-    var p=savedPhotos[i];
-    btn.textContent='⏳ 전송 중... ('+(i+1)+'/'+total+'장)';
-    try{
-      var filePath=(p.info.date||'nodate')+'/'+p.filename;
-      var uploadType=(p.blob&&p.blob.type)||'image/jpeg';
-      var storageRes=await sbClient.storage.from('work-gallery').upload(filePath,p.blob,{contentType:uploadType,upsert:true});
-      if(storageRes.error){ failed.push({p:p,err:'[Storage] '+storageRes.error.message}); continue; }
-      var photoUrl=sbClient.storage.from('work-gallery').getPublicUrl(filePath).data.publicUrl;
-      var insertData={
-        date:p.info.date||'', time:p.info.time||'', tag:p.info.tag||'',
-        cat:p.info.cat||'', loc:p.info.loc||'', work_type:p.info.wt||'',
-        note:p.info.note||'', photo_url:photoUrl,
-        sender:localStorage.getItem('member_name')||localStorage.getItem('senderName')||'',
-        menu:p.info.menu||''
-      };
-      var OPTIONAL_COLS=['sender','menu'];
-      var dbRes=await sbClient.from('work_photos').insert(insertData);
-      var attempts=0;
-      while(dbRes.error&&attempts<OPTIONAL_COLS.length){
-        var msg=(dbRes.error.message||'').toLowerCase();
-        var stripped=false;
-        for(var k=0;k<OPTIONAL_COLS.length;k++){
-          var col=OPTIONAL_COLS[k];
-          if((col in insertData)&&msg.includes(col)){ delete insertData[col]; stripped=true; break; }
-        }
-        if(!stripped) break;
-        dbRes=await sbClient.from('work_photos').insert(insertData);
-        attempts++;
-      }
-      if(dbRes.error){ failed.push({p:p,err:'[DB] '+dbRes.error.message}); continue; }
-      succeeded.push(p);
-    }catch(e){ failed.push({p:p,err:e.message||String(e)}); }
-  }
-  btn.disabled=false;
-  btn.textContent='☁️ 전송하기';
-
-  savedPhotos=failed.map(function(f){ return f.p; });
-  updateShootList();
-  if(succeeded.length){
-    var toDeviceSave=succeeded.filter(function(p){ return p.source!=='gallery'; });
-    var galleryOnly=succeeded.filter(function(p){ return p.source==='gallery'; });
-    if(toDeviceSave.length) autoSaveShootToDevice(toDeviceSave);
-    if(galleryOnly.length) finishSendShoot(galleryOnly);
-
-    hasPhoto=true;
-    document.getElementById('camBox').classList.add('has-photo');
-    var camPh=document.getElementById('camPlaceholder');
-    camPh.style.cssText='position:absolute;inset:0;';
-    camPh.innerHTML='<img src="'+succeeded[succeeded.length-1].dataUrl+'" style="width:100%;height:100%;object-fit:cover;">'
-      +'<p style="position:absolute;bottom:6px;left:0;right:0;text-align:center;color:#fff;background:rgba(0,0,0,0.45);font-size:11px;padding:3px 0;margin:0;">'+succeeded.length+'장 업로드됨</p>';
-  }
-
-  if(!failed.length){
-    showToast('✅ 전송 완료! ('+succeeded.length+'장) 저장 중...', 'var(--ok)');
-  } else {
-    console.error('[전송 실패 상세]', failed.map(function(f){ return {filename:f.p.filename, err:f.err}; }));
-    var errList=failed.map(function(f){ return (f.p.filename||f.p.info.tag||'?')+': '+f.err; }).join(' / ');
-    if(succeeded.length){
-      showToast('❌ 전송 실패 '+failed.length+'장 (성공 '+succeeded.length+'장은 목록에서 사라짐) — '+errList, 'var(--err)');
-    } else {
-      showToast('❌ 전송 실패 — '+errList, 'var(--err)');
-    }
-  }
-}
-
-function openEmbeddedShoot(){
-  var tagVal='';
-  var tagInputs=document.getElementById('entryRows').querySelectorAll('[data-f="tag"]');
-  for(var i=tagInputs.length-1;i>=0;i--){ if(tagInputs[i].value.trim()){ tagVal=tagInputs[i].value.trim(); break; } }
-  document.getElementById('shootTagInput').value=tagVal;
-  document.getElementById('shootEmbedContext').textContent='— '+activeMenu+' · '+(activeCat||'-');
-  document.getElementById('shootEmbedOverlay').classList.add('show');
-}
-function closeEmbeddedShoot(){
-  document.getElementById('shootEmbedOverlay').classList.remove('show');
-}
-function openShootWindow(){ openEmbeddedShoot(); }
-
-document.getElementById("shootCamBox").addEventListener("click", openCamera);
-document.getElementById("shootFileInput").addEventListener("change", loadImg);
-document.getElementById("shootGalleryFileInput").addEventListener("change", loadImgsFromGallery);
+/* ── 스와이프 제스처(터치 드래그) ── */
 (function(){
-  var mode=normRatioMode(localStorage.getItem("capture_ratio"));
-  Object.keys(RATIO_BTN_IDS).forEach(function(m){
-    document.getElementById(RATIO_BTN_IDS[m]).classList.toggle("active", m===mode);
+  var track = document.getElementById('reportSwipeTrack');
+  var startX=0, startY=0, deltaX=0, dragging=false, decided=false;
+  track.addEventListener('touchstart', function(e){
+    if(e.touches.length!==1) return;
+    startX=e.touches[0].clientX; startY=e.touches[0].clientY;
+    deltaX=0; dragging=true; decided=false;
+    track.classList.add('dragging');
+  }, {passive:true});
+  track.addEventListener('touchmove', function(e){
+    if(!dragging) return;
+    var dx=e.touches[0].clientX-startX, dy=e.touches[0].clientY-startY;
+    if(!decided){
+      if(Math.abs(dx)<8 && Math.abs(dy)<8) return;
+      decided = Math.abs(dx)>Math.abs(dy);
+      if(!decided){ dragging=false; track.classList.remove('dragging'); return; }
+    }
+    deltaX=dx;
+    var base = swipeState===0 ? 0 : -50;
+    var pct = base + (dx / track.offsetWidth * 100);
+    pct = Math.max(-50, Math.min(0, pct));
+    track.style.transform = 'translateX(' + pct + '%)';
+    e.preventDefault();
+  }, {passive:false});
+  track.addEventListener('touchend', function(){
+    if(!dragging) return;
+    dragging=false;
+    track.classList.remove('dragging');
+    var threshold = track.offsetWidth * 0.18;
+    if(swipeState===0 && deltaX < -threshold) setSwipePage(1);
+    else if(swipeState===1 && deltaX > threshold) setSwipePage(0);
+    else setSwipePage(swipeState);
+    deltaX=0;
   });
 })();
-if(isMobileShoot) document.getElementById('shootFolderBtn').style.display='none';
-restoreSavedPhotos();
-loadSavedFolderHandle();
 
-/* ── 음성 인식(STT) ── */
-var SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-var activeRec=null;
-function startSTT(fieldId,btnId){
-  if(!SpeechRecognition){ showToast('⚠️ 이 브라우저는 음성 인식을 지원하지 않습니다.', 'var(--err)'); return; }
-  var btn=document.getElementById(btnId);
-  if(activeRec){ activeRec.stop(); return; }
-  var rec=new SpeechRecognition();
-  rec.lang="ko-KR"; rec.interimResults=true; rec.maxAlternatives=1;
-  activeRec=rec; btn.classList.add("listening"); btn.textContent="⏹";
-  rec.onresult=function(e){
-    var t="";
-    for(var i=e.resultIndex;i<e.results.length;i++) t+=e.results[i][0].transcript;
-    var el=document.getElementById(fieldId);
-    el.value=fieldId==="shootTagInput"?t.toUpperCase():t;
-    if(e.results[e.results.length-1].isFinal) showToast('🎙️ 음성 입력 완료', 'var(--brand-2)');
-  };
-  rec.onerror=function(e){ if(e.error!=="aborted") showToast('⚠️ 음성 오류: '+e.error, 'var(--err)'); _stopSTT(btn); };
-  rec.onend=function(){ _stopSTT(btn); };
-  rec.start();
-}
-function _stopSTT(btn){ activeRec=null; btn.classList.remove("listening"); btn.textContent="🎙️"; }
 function renderItemList(){
   var wrap=document.getElementById('itemList');
   document.getElementById('itemCount').textContent=items.length;
