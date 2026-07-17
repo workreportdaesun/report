@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-<title>work-report</title>
+<title>작업일보</title>
 <link rel="icon" type="image/png" href="icon-192.png"/>
 <link rel="apple-touch-icon" href="icon-180.png"/>
 <link rel="manifest" href="manifest.json"/>
@@ -182,7 +182,7 @@ textarea.f{resize:none; height:44px;}
 
 <div class="app-header">
   <div>
-    <div class="app-title"><img src="icon-mark.png" alt="">work-report</div>
+    <div class="app-title"><img src="icon-mark.png" alt="">작업일보</div>
     <div class="app-sub" id="hdrProject" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">S-OIL SHAHEEN Project 계장공사 3공구(PKG-1)</div><div class="app-sub" id="hdrCompany" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
     <div class="app-user" id="hdrUser"></div>
   </div>
@@ -311,7 +311,7 @@ textarea.f{resize:none; height:44px;}
       <div class="shoot-app-title"><img src="icon-mark.png" alt="" style="width:18px;height:18px;border-radius:5px;vertical-align:-4px;margin-right:5px;">work photo</div>
       <button type="button" class="shoot-close" onclick="closeShootWindow()" aria-label="닫기">✕</button>
     </div>
-    <div class="shoot-app-sub">work-report에서 이동됨 · 촬영 후 자동으로 돌아갑니다</div>
+    <div class="shoot-app-sub">작업일보에서 이동됨 · 촬영 후 자동으로 돌아갑니다</div>
   </div>
   <div class="shoot-context" id="shootContext"></div>
   <div class="shoot-view">
@@ -325,7 +325,7 @@ textarea.f{resize:none; height:44px;}
   <div class="shoot-foot">
     <div class="shoot-shutter-row"><button type="button" class="shoot-shutter" onclick="captureShootPhoto()" aria-label="촬영"></button></div>
     <div class="shoot-status" id="shootStatus">기기번호·작업분류 자동입력됨</div>
-    <button type="button" class="shoot-return" id="shootReturnBtn" onclick="closeShootWindow()">✅ 촬영 완료 · work-report로 복귀</button>
+    <button type="button" class="shoot-return" id="shootReturnBtn" onclick="closeShootWindow()">✅ 촬영 완료 · 작업일보로 복귀</button>
   </div>
 </div>
 
@@ -743,7 +743,7 @@ function closeShootWindow(){
   if(shootCaptured){
     hasPhoto = true;
     document.getElementById('camBox').classList.add('has-photo');
-    document.getElementById('camPlaceholder').innerHTML = '<div style="font-size:28px;">🖼️</div><p style="color:#2E5F9E;">촬영 완료 · work-report로 복귀됨</p>';
+    document.getElementById('camPlaceholder').innerHTML = '<div style="font-size:28px;">🖼️</div><p style="color:#2E5F9E;">촬영 완료 · 작업일보로 복귀됨</p>';
     showToast('📷 work-shoot에서 복귀 · 사진 연결됨', 'var(--brand-2)');
   }
 }
