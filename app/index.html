@@ -748,7 +748,8 @@ async function refreshPhotoLinkage(manual){
       var p = photoByKey[key];
       var status = p.status;
 
-      if(cardOpen && p.menu===activeMenu && p.cat===activeCat && !filledKeys[key]){
+      if(cardOpen && p.menu===activeMenu && p.cat===activeCat){
+        if(filledKeys[key]) return; // 이미 입력칸에 채워져 있음 — 다시 채우거나 저장목록에 넣지 않음
         var emptyInput = null;
         document.getElementById('entryRows').querySelectorAll('[data-f="tag"]').forEach(function(inp){
           if(!emptyInput && !inp.value.trim()) emptyInput = inp;
