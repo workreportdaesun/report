@@ -709,13 +709,16 @@ async function refreshPhotoLinkage(){
     if(res.error || !res.data) return;
 
     var catsWithPhoto = {};
-    var photoByKey = {}; // "menu|tag" -> {menu, cat, tag, note, work_type} (공종+기기번호가 같으면 분류가 달라도 최초 1건만 사용)
+    // "menu|tag|status" -> {menu, cat, tag, note, status} (공종+기기번호+진행상황이 모두 같아야 중복으로 본다.
+    // 진행중/완료는 같은 기기번호라도 서로 다른 시점의 기록이라 별도 항목으로 취급한다.)
+    var photoByKey = {};
     res.data.forEach(function(r){
       if(!r.menu || !r.cat) return;
       catsWithPhoto[r.cat] = true;
       if(!r.tag) return;
-      var key = r.menu + '|' + r.tag;
-      if(!photoByKey[key]) photoByKey[key] = {menu:r.menu, cat:r.cat, tag:r.tag, note:r.note||'', work_type:r.work_type||''};
+      var status = (r.menu==='시공' && (r.work_type==='진행중' || r.work_type==='완료')) ? r.work_type : '';
+      var key = r.menu + '|' + r.tag + '|' + status;
+      if(!photoByKey[key]) photoByKey[key] = {menu:r.menu, cat:r.cat, tag:r.tag, note:r.note||'', status:status};
     });
 
     var changed=false;
@@ -725,16 +728,17 @@ async function refreshPhotoLinkage(){
     });
 
     var existingKeys = {};
-    items.forEach(function(it){ existingKeys[it.menu+'|'+it.tag] = true; });
+    items.forEach(function(it){ existingKeys[it.menu+'|'+it.tag+'|'+(it.status||'')] = true; });
 
     // 지금 이 (공종,분류)의 입력 카드가 열려 있으면, 저장된 항목이 아니라 입력칸에
-    // 바로 채운다 — 이미 입력칸에 있는 기기번호는 다시 채우지 않도록 먼저 파악해둔다.
+    // 바로 채운다 — 이미 입력칸에 있는 기기번호(+진행상황)는 다시 채우지 않도록 먼저 파악해둔다.
     var cardOpen = document.getElementById('inputCard').style.display !== 'none';
     var filledKeys = {};
     if(cardOpen){
-      document.getElementById('entryRows').querySelectorAll('[data-f="tag"]').forEach(function(inp){
-        var t = inp.value.trim();
-        if(t) filledKeys[activeMenu+'|'+t] = true;
+      document.getElementById('entryRows').querySelectorAll('tr').forEach(function(tr){
+        var t = tr.querySelector('[data-f="tag"]').value.trim();
+        var s = tr.querySelector('[data-f="status"]').value;
+        if(t) filledKeys[activeMenu+'|'+t+'|'+s] = true;
       });
     }
 
@@ -742,7 +746,7 @@ async function refreshPhotoLinkage(){
     Object.keys(photoByKey).forEach(function(key){
       if(existingKeys[key]) return;
       var p = photoByKey[key];
-      var status = (p.menu==='시공' && (p.work_type==='진행중' || p.work_type==='완료')) ? p.work_type : '';
+      var status = p.status;
 
       if(cardOpen && p.menu===activeMenu && p.cat===activeCat && !filledKeys[key]){
         var emptyInput = null;
