@@ -215,6 +215,7 @@ textarea.f{resize:none; height:44px;}
       <span class="list-title">오늘 입력한 항목</span>
       <span class="list-count"><span id="itemCount">0</span>건</span>
     </div>
+    <button type="button" class="sbtn sbtn-outline" style="margin-top:0;margin-bottom:10px;" onclick="refreshPhotoLinkage(true)">🔄 오늘 작업사진 불러오기</button>
     <div id="itemList"><div class="empty-msg">아직 입력한 항목이 없습니다</div></div>
   </div>
 
@@ -512,7 +513,6 @@ function openCardForCat(menu, cat){
 
   document.getElementById('inputCard').style.display = 'block';
   document.getElementById('inputCard').scrollIntoView({behavior:'smooth', block:'nearest'});
-  refreshPhotoLinkage();
 }
 function addEntryRow(prefill){
   var tbody = document.getElementById('entryRows');
@@ -702,7 +702,7 @@ function goToShootPage(){
    매핑하고, 그 외에는 비워둔다(shoot에 대응 값이 없어서 자동 판단이 불가능함).
    오늘 찍은 사진은 공종에 상관없이 전부 조회한다(작업자가 shoot에서 어떤 공종을
    고를지 report는 미리 알 수 없음). */
-async function refreshPhotoLinkage(){
+async function refreshPhotoLinkage(manual){
   if(!sbClient) return;
   try{
     var res = await sbClient.from('work_photos').select('menu,tag,cat,note,work_type').eq('date', todayStr());
@@ -780,6 +780,8 @@ async function refreshPhotoLinkage(){
       showToast('📷 촬영된 항목 '+added+'건이 자동으로 추가됐습니다 — 수량·특이사항을 확인해주세요', 'var(--brand-2)');
     } else if(filled){
       showToast('📷 촬영된 기기번호가 입력칸에 채워졌습니다 — 수량을 확인하고 저장하세요', 'var(--brand-2)');
+    } else if(manual){
+      showToast('✅ 새로 반영할 사진이 없습니다 — 이미 최신 상태입니다', 'var(--ok)');
     }
     if(activeCat && !filled) setCamBoxState(!!catsWithPhoto[activeCat]);
   }catch(e){ console.error('사진 연동 확인 실패', e); }
@@ -858,17 +860,20 @@ function restorePendingEntry(){
   }catch(e){ return false; }
 }
 
-/* 최초 작업분류 선택 이후에는 최종 선택된 작업분류의 입력 카드로 바로 열림 (work-shoot의 last_category 기억 방식과 동일) */
+/* 최초 작업분류 선택 이후에는 최종 선택된 작업분류의 입력 카드로 바로 열림 (work-shoot의 last_category 기억 방식과 동일).
+   사진 자동 반영은 "페이지를 열 때"만 한 번 실행하고, 카드를 열 때마다는 다시 하지 않는다 —
+   입력 중에 예고 없이 항목이 끼어드는 걸 막기 위함. 그 이후엔 "🔄 오늘 작업사진 불러오기"
+   버튼으로 작업자가 원할 때 직접 갱신한다. */
 (function openLastSelectedCat(){
-  if(restorePendingEntry()) return;
-  try{
-    var m = localStorage.getItem(LS_LAST_MENU), c = localStorage.getItem(LS_LAST_CAT);
-    if(m && c && catsByMenu[m] && catsByMenu[m].indexOf(c) !== -1){
-      openCardForCat(m, c); // openCardForCat이 끝에 refreshPhotoLinkage()를 호출함
-      return;
-    }
-  }catch(e){}
-  refreshPhotoLinkage(); // 열려있는 카드가 없어도 오늘 찍은 사진은 페이지 로드 시 한 번 반영
+  if(!restorePendingEntry()){
+    try{
+      var m = localStorage.getItem(LS_LAST_MENU), c = localStorage.getItem(LS_LAST_CAT);
+      if(m && c && catsByMenu[m] && catsByMenu[m].indexOf(c) !== -1){
+        openCardForCat(m, c);
+      }
+    }catch(e){}
+  }
+  refreshPhotoLinkage();
 })();
 </script>
 <script src="/report/nav-fab.js"></script>
