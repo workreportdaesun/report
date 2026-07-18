@@ -487,10 +487,29 @@ function openCardForCat(menu, cat){
   currentTagPh = cfg.tagPh;
   document.getElementById('cardTitle').textContent = activeCat;
   document.getElementById('entryTagTh').textContent = cfg.tagLabel;
-  document.getElementById('noteInput').value = '';
   setCamBoxState(false);
   document.getElementById('entryRows').innerHTML = '';
-  addEntryRow();
+
+  // 이 분류에 사진으로 자동입력된 항목이 있으면, 저장된 목록에서 빼서 입력칸으로
+  // 가져온다 — 작업자는 기기번호는 그대로 두고 수량·특이사항만 확인/수정해서 저장하면 됨.
+  var pulled = [];
+  for(var i=items.length-1;i>=0;i--){
+    if(items[i].autoImported && items[i].menu===menu && items[i].cat===cat){
+      pulled.unshift(items.splice(i,1)[0]);
+    }
+  }
+  if(pulled.length){
+    pulled.forEach(function(it){ addEntryRow({tag:it.tag, qty:it.qty, status:it.status, photo:true}); });
+    document.getElementById('noteInput').value = pulled[0].note || '';
+    setCamBoxState(true);
+    renderItemList();
+    document.getElementById('sendBtn').disabled = items.length===0;
+    upsertDailyReport({items:items, status:'draft'});
+  } else {
+    document.getElementById('noteInput').value = '';
+    addEntryRow();
+  }
+
   document.getElementById('inputCard').style.display = 'block';
   document.getElementById('inputCard').scrollIntoView({behavior:'smooth', block:'nearest'});
   refreshPhotoLinkage();
@@ -501,6 +520,7 @@ function addEntryRow(prefill){
   var qty = prefill ? prefill.qty : 1;
   var status = prefill ? prefill.status : '';
   var tr = document.createElement('tr');
+  if(prefill && prefill.photo) tr.dataset.photo = '1';
   tr.innerHTML =
     '<td><input class="entry-cell" data-f="tag" placeholder="'+currentTagPh+'" value="'+String(tag).replace(/"/g,'&quot;')+'"></td>'
     +'<td><input class="entry-cell" data-f="qty" type="number" min="0" value="'+qty+'"></td>'
@@ -528,7 +548,8 @@ function saveEntryRows(){
     if(!tag) return;
     var qty = Number(tr.querySelector('[data-f="qty"]').value) || 0;
     var status = tr.querySelector('[data-f="status"]').value || '진행중';
-    items.push({menu:activeMenu, cat:activeCat, tag:tag, qty:qty, unit:unit, status:status, note:note, photo:hasPhoto});
+    var photo = tr.dataset.photo === '1' || hasPhoto;
+    items.push({menu:activeMenu, cat:activeCat, tag:tag, qty:qty, unit:unit, status:status, note:note, photo:photo});
     saved++;
   });
   if(!saved){ showToast('⚠️ 저장할 항목이 없습니다', 'var(--err)'); return; }
@@ -548,10 +569,15 @@ function editItem(idx){
   renderItemList();
   document.getElementById('sendBtn').disabled = items.length===0;
   openCardForCat(it.menu, it.cat);
-  document.getElementById('entryRows').innerHTML = '';
-  addEntryRow({tag:it.tag, qty:it.qty, status:it.status});
+  // openCardForCat이 이 분류의 다른 자동입력 항목을 이미 끌어왔을 수 있으니 지우지 않고 이어붙인다.
+  addEntryRow({tag:it.tag, qty:it.qty, status:it.status, photo:it.photo});
+  // 자동으로 딸려온 빈 줄(아무것도 입력 안 된 기본 줄)은 정리
+  var rows = document.getElementById('entryRows').querySelectorAll('tr');
+  rows.forEach(function(tr){
+    if(!tr.querySelector('[data-f="tag"]').value.trim()) tr.remove();
+  });
   document.getElementById('noteInput').value = it.note || '';
-  setCamBoxState(!!it.photo);
+  setCamBoxState(!!it.photo || hasPhoto);
   showToast('✏️ 수정 모드 — 값을 고친 뒤 저장하세요', 'var(--brand-2)');
 }
 function closeCard(){
@@ -700,11 +726,43 @@ async function refreshPhotoLinkage(){
 
     var existingKeys = {};
     items.forEach(function(it){ existingKeys[it.menu+'|'+it.tag] = true; });
-    var added = 0;
+
+    // 지금 이 (공종,분류)의 입력 카드가 열려 있으면, 저장된 항목이 아니라 입력칸에
+    // 바로 채운다 — 이미 입력칸에 있는 기기번호는 다시 채우지 않도록 먼저 파악해둔다.
+    var cardOpen = document.getElementById('inputCard').style.display !== 'none';
+    var filledKeys = {};
+    if(cardOpen){
+      document.getElementById('entryRows').querySelectorAll('[data-f="tag"]').forEach(function(inp){
+        var t = inp.value.trim();
+        if(t) filledKeys[activeMenu+'|'+t] = true;
+      });
+    }
+
+    var added = 0, filled = 0;
     Object.keys(photoByKey).forEach(function(key){
       if(existingKeys[key]) return;
       var p = photoByKey[key];
       var status = (p.menu==='시공' && (p.work_type==='진행중' || p.work_type==='완료')) ? p.work_type : '';
+
+      if(cardOpen && p.menu===activeMenu && p.cat===activeCat && !filledKeys[key]){
+        var emptyInput = null;
+        document.getElementById('entryRows').querySelectorAll('[data-f="tag"]').forEach(function(inp){
+          if(!emptyInput && !inp.value.trim()) emptyInput = inp;
+        });
+        if(emptyInput){
+          emptyInput.value = p.tag;
+          emptyInput.closest('tr').dataset.photo = '1';
+          if(status) emptyInput.closest('tr').querySelector('[data-f="status"]').value = status;
+        } else {
+          addEntryRow({tag:p.tag, qty:1, status:status, photo:true});
+        }
+        if(p.note && !document.getElementById('noteInput').value.trim()) document.getElementById('noteInput').value = p.note;
+        filledKeys[key] = true;
+        setCamBoxState(true);
+        filled++;
+        return;
+      }
+
       items.push({menu:p.menu, cat:p.cat, tag:p.tag, qty:1, unit:unitOf(p.cat), status:status, note:p.note, photo:true, autoImported:true});
       added++;
     });
@@ -716,8 +774,10 @@ async function refreshPhotoLinkage(){
     if(added){
       upsertDailyReport({items:items, status:'draft'});
       showToast('📷 촬영된 항목 '+added+'건이 자동으로 추가됐습니다 — 수량·특이사항을 확인해주세요', 'var(--brand-2)');
+    } else if(filled){
+      showToast('📷 촬영된 기기번호가 입력칸에 채워졌습니다 — 수량을 확인하고 저장하세요', 'var(--brand-2)');
     }
-    if(activeCat) setCamBoxState(!!catsWithPhoto[activeCat]);
+    if(activeCat && !filled) setCamBoxState(!!catsWithPhoto[activeCat]);
   }catch(e){ console.error('사진 연동 확인 실패', e); }
 }
 
