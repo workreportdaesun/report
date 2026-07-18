@@ -288,6 +288,7 @@ async function doSubmitReport(){
   var id = myDraftId();
   var up = await sbClient.from('daily_reports').update({status:'submitted', submitted_at:new Date().toISOString()}).eq('id', id);
   if(up.error){ showToast('❌ 전송 실패: '+up.error.message, 'var(--brand-2)'); return; }
+  try{ sessionStorage.removeItem('wr_pending_entry'); }catch(e){} // 전송 완료됐으니 입력화면 복원용 임시상태는 정리
   showToast('✅ 전송 완료 — 관리자·팀원 전체 일보 목록에 표시됩니다', 'var(--brand-2)');
   document.getElementById('submitBtn').style.display='none';
   var pill=document.createElement('span');

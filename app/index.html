@@ -796,8 +796,33 @@ function renderItemList(){
 }
 /* 제출(status:submitted) 전 PDF로 먼저 검토 — 실제 제출은 report-pdf.html의 "일보 전송" 버튼에서 이뤄진다.
    여기서는 최신 items를 draft로 저장만 하고 이동한다(잘못된 내용이면 뒤로가기로 돌아와 고치고 다시 볼 수 있음). */
+/* 미리보기로 넘어갔다가 전송(제출) 없이 돌아오면, 저장 안 하고 입력 중이던 화면
+   (열려있던 카드/입력칸 내용)이 사라지지 않고 그대로 복원되도록 sessionStorage에 남겨둔다.
+   특히 사진 자동입력으로 저장목록에서 입력칸으로 끌어온 행은 저장을 누르기 전까지는
+   items[]에 없는 상태라, 이걸 안 남기면 미리보기 갔다온 사이에 통째로 사라진다. */
+function savePendingEntryState(){
+  try{
+    if(document.getElementById('inputCard').style.display==='none' || !activeCat){
+      sessionStorage.removeItem('wr_pending_entry');
+      return;
+    }
+    var rows = Array.prototype.map.call(document.querySelectorAll('#entryRows tr'), function(tr){
+      return {
+        tag: tr.querySelector('[data-f="tag"]').value,
+        qty: tr.querySelector('[data-f="qty"]').value,
+        status: tr.querySelector('[data-f="status"]').value,
+        photo: tr.dataset.photo==='1'
+      };
+    }).filter(function(r){ return r.tag.trim(); });
+    sessionStorage.setItem('wr_pending_entry', JSON.stringify({
+      menu: activeMenu, cat: activeCat, rows: rows, note: document.getElementById('noteInput').value
+    }));
+  }catch(e){}
+}
+
 async function previewReport(){
   if(!items.length) return;
+  savePendingEntryState();
   await upsertDailyReport({items:items, status:'draft'});
   location.href='report-pdf.html';
 }
@@ -811,8 +836,27 @@ function showToast(msg, color){
 fetchSettingsFromSupabase();
 subscribeSettingsRealtime();
 
+/* 미리보기 갔다가 전송 없이 돌아온 경우: 저장 안 하고 있던 입력칸 내용을 그대로 복원 */
+function restorePendingEntry(){
+  try{
+    var raw = sessionStorage.getItem('wr_pending_entry');
+    if(!raw) return false;
+    sessionStorage.removeItem('wr_pending_entry');
+    var pending = JSON.parse(raw);
+    if(!catsByMenu[pending.menu] || catsByMenu[pending.menu].indexOf(pending.cat)===-1) return false;
+    openCardForCat(pending.menu, pending.cat);
+    document.getElementById('entryRows').innerHTML = '';
+    pending.rows.forEach(function(r){ addEntryRow({tag:r.tag, qty:r.qty, status:r.status, photo:r.photo}); });
+    if(!pending.rows.length) addEntryRow();
+    document.getElementById('noteInput').value = pending.note || '';
+    if(pending.rows.some(function(r){ return r.photo; })) setCamBoxState(true);
+    return true;
+  }catch(e){ return false; }
+}
+
 /* 최초 작업분류 선택 이후에는 최종 선택된 작업분류의 입력 카드로 바로 열림 (work-shoot의 last_category 기억 방식과 동일) */
 (function openLastSelectedCat(){
+  if(restorePendingEntry()) return;
   try{
     var m = localStorage.getItem(LS_LAST_MENU), c = localStorage.getItem(LS_LAST_CAT);
     if(m && c && catsByMenu[m] && catsByMenu[m].indexOf(c) !== -1){
