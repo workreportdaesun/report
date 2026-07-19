@@ -3,10 +3,10 @@
    <script src="/report/nav-fab.js"></script> 한 줄만 넣으면 됨. */
 (function(){
   var APPS = [
-    { key:'report',   label:'일보',  icon:'📋', url:'/report/app/index.html' },
-    { key:'gallery',  label:'갤러리', icon:'🖼', url:'/gallery/index.html' },
-    { key:'shoot',    label:'사진',  icon:'📷', url:'/shoot/index.html' },
-    { key:'progress', label:'진도',  icon:'📈', url:'/progress/index.html' }
+    { key:'report',   label:'작업일보', icon:'📋', url:'/report/app/index.html' },
+    { key:'gallery',  label:'사진관리', icon:'🖼', url:'/gallery/index.html' },
+    { key:'shoot',    label:'작업사진', icon:'📷', url:'/shoot/index.html' },
+    { key:'progress', label:'공정관리', icon:'📈', url:'/progress/index.html' }
   ];
   var current = null;
   for(var i=0;i<APPS.length;i++){
