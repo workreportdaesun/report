@@ -209,7 +209,10 @@ textarea.f{resize:none; height:44px;}
     <div class="app-sub" id="hdrProject" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">S-OIL SHAHEEN Project 계장공사 3공구(PKG-1)</div><div class="app-sub" id="hdrCompany" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
     <div class="app-user" id="hdrUser"></div>
   </div>
-  <button type="button" class="logout-btn" onclick="logout()">로그아웃</button>
+  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
+    <button type="button" class="logout-btn" onclick="logout()">로그아웃</button>
+    <button type="button" class="logout-btn" onclick="openCatModal()" aria-label="작업분류 선택 열기">⚙️ 작업분류</button>
+  </div>
 </div>
 
 <div class="worker-tabs" id="workerTabsBar">
@@ -220,10 +223,6 @@ textarea.f{resize:none; height:44px;}
 
 <!-- ══ 일보입력 ══ -->
 <div class="worker-pane active" id="pane-report">
-
-  <div class="card" id="reportToolbarRow" style="padding:8px; display:flex; justify-content:flex-end;">
-    <button type="button" class="catpick-gear" onclick="openCatModal()" aria-label="작업분류 선택 열기">⚙️</button>
-  </div>
 
   <!-- 입력 카드 -->
   <div class="card" id="inputCard" style="display:none;">
@@ -589,8 +588,8 @@ function openCatModal(){
   renderModalCatSelect();
   var overlay=document.getElementById('catModalOverlay'), panel=document.getElementById('catModalPanel');
   overlay.classList.add('show');
-  // 항상 같은 기준선(⚙️ 버튼 줄 바로 아래)에서 아래로 드롭다운 — 동적 콘텐츠(입력카드/목록 길이)에 영향받지 않음
-  var anchor=document.getElementById('reportToolbarRow');
+  // 항상 같은 기준선(헤더 바로 아래)에서 아래로 드롭다운 — 동적 콘텐츠(입력카드/목록 길이)에 영향받지 않음
+  var anchor=document.querySelector('.app-header');
   var aRect=anchor.getBoundingClientRect(), oRect=overlay.getBoundingClientRect();
   var offset=Math.max(0, aRect.bottom-oRect.top+8);
   panel.style.marginTop=offset+'px';
