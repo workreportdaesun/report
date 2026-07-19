@@ -63,18 +63,12 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 .doc-photosec-head{background:var(--brand-2); color:#fff; font-size:12px; font-weight:800; padding:7px 12px; border-radius:4px 4px 0 0;}
 .doc-photosec-head span{font-weight:600; opacity:.85; font-family:var(--font-mono); float:right;}
 
-/* 1페이지: 사진 최대 2장, work-log "사진2장(세로)" 비율(1.64:1, 전체 폭) */
-.doc-photogrid2{border:1px solid #DCE3EC; border-top:none; margin-bottom:16px;}
-.doc-photo2{background:#fff; border-bottom:1px solid #DCE3EC;}
-.doc-photo2:last-child{border-bottom:none;}
-.doc-photo2 img{width:100%; aspect-ratio:1.64; object-fit:cover; display:block;}
-.doc-photo2 .cap{font-size:11px; padding:8px 10px; color:#3C4A5C; text-align:center;}
-.doc-photo2 .cap b{display:block; color:#1A2332; font-size:11.5px; margin-bottom:2px;}
+/* 1페이지에는 사진을 넣지 않고, 다음 페이지부터 4장씩(2x2) 이어붙인다. work-log "사진4장" 비율(0.813:1). */
+.doc-photonote{border:1px solid #DCE3EC; border-top:none; padding:14px; font-size:12px; color:var(--lbl); text-align:center; margin-bottom:16px;}
 
-/* 이어지는 사진 페이지: 4장씩(2x2), work-log "사진4장" 비율(0.813:1) */
 .doc-photogrid4{display:grid; grid-template-columns:repeat(2,1fr); gap:2px; background:#DCE3EC; border:1px solid #DCE3EC; border-top:none;}
 .doc-photo4{background:#fff;}
-.doc-photo4 img{width:100%; aspect-ratio:0.813; object-fit:cover; display:block;}
+.doc-photo4 img{width:100%; aspect-ratio:0.813; object-fit:contain; background:#F7FAFC; display:block;}
 .doc-photo4 .cap{font-size:10px; padding:6px 7px; color:#3C4A5C; line-height:1.45; text-align:center;}
 .doc-photo4 .cap b{display:block; color:#1A2332; font-size:10.5px; margin-bottom:1px;}
 
@@ -135,7 +129,7 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
   </table>
 
   <div class="doc-photosec-head">사진 첨부 <span id="docPhotoCount">-</span></div>
-  <div class="doc-photogrid2" id="docPhotoGrid"></div>
+  <div class="doc-photonote" id="docPhotoNote"></div>
 
   <table class="doc-note">
     <tr><th>특이사항</th><td id="docNoteCell">-</td></tr>
@@ -149,7 +143,7 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 </div>
 </div>
 </div>
-<div class="pdf-page-hint">📄 사진은 1페이지에 2장까지만 표시되고, 3번째 사진부터는 4장씩 다음 페이지로 이어집니다.</div>
+<div class="pdf-page-hint">📄 사진은 1페이지에는 표시되지 않고, 다음 페이지부터 4장씩 이어서 표시됩니다.</div>
 
 <div class="pdf-actions" id="pdfActions">
   <button class="ghost" id="backBtn" onclick="history.length>1?history.back():location.href='index.html';">← 입력화면으로</button>
@@ -186,7 +180,7 @@ function myDraftId(){
 
 var viewingOtherReport = false; // ?id=로 남의(또는 이미 제출된) 일보를 조회 전용으로 보는 중인지
 
-/* 3번째 사진부터는 4장씩(2x2) 별도 페이지로 이어붙인다. work-log(사진대지생성기)의 사진4장 레이아웃과 동일한 비율 사용. */
+/* 모든 사진을 1페이지 다음부터 4장씩(2x2) 별도 페이지로 이어붙인다. work-log(사진대지생성기)의 사진4장 레이아웃과 동일한 비율 사용. */
 function buildContinuationPages(photos){
   var root = document.getElementById('pdfPagesRoot');
   root.querySelectorAll('.pdf-page-continuation').forEach(function(el){ el.remove(); });
@@ -258,14 +252,11 @@ async function renderReport(row){
   });
   document.getElementById('docPhotoCount').textContent = allPhotos.length + '건 · work_photos 연동';
 
-  var firstTwo = allPhotos.slice(0,2);
-  document.getElementById('docPhotoGrid').innerHTML = firstTwo.length
-    ? firstTwo.map(function(p){
-        return '<div class="doc-photo2"><img src="'+p.url+'"><div class="cap"><b>'+p.tag+'</b>'+p.cat+'</div></div>';
-      }).join('')
-    : '<div style="padding:14px; color:var(--lbl); font-size:12px;">첨부된 사진 없음</div>';
+  document.getElementById('docPhotoNote').textContent = allPhotos.length
+    ? '총 ' + allPhotos.length + '장 — 다음 페이지부터 확인'
+    : '첨부된 사진 없음';
 
-  buildContinuationPages(allPhotos.slice(2));
+  buildContinuationPages(allPhotos);
 
   var notes = items.map(function(it){ return it.note; }).filter(Boolean);
   document.getElementById('docNoteCell').textContent = notes.length ? notes.join(' / ') : '특이사항 없음';
