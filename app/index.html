@@ -268,14 +268,8 @@ textarea.f{resize:none; height:44px;}
 <!-- ══ 작업사진 (shoot 기능 이식) ══ -->
 <div class="worker-pane" id="pane-shoot">
 
-  <div class="card" style="padding:8px; display:flex; align-items:center; gap:8px;">
-    <div class="menu-tabs" id="shootMenuTabs" style="flex:1;">
-      <button type="button" class="menu-tab" data-m="시공" onclick="setActiveMenu('시공')">시공</button>
-      <button type="button" class="menu-tab" data-m="품질" onclick="setActiveMenu('품질')">품질</button>
-      <button type="button" class="menu-tab" data-m="자재" onclick="setActiveMenu('자재')">자재</button>
-      <button type="button" class="menu-tab" data-m="안전" onclick="setActiveMenu('안전')">안전</button>
-      <button type="button" class="menu-tab" data-m="화기/유도" onclick="setActiveMenu('화기/유도')">화기<br>유도</button>
-    </div>
+  <div class="card" style="padding:8px 12px; display:flex; align-items:center; gap:8px;">
+    <div style="flex:1; min-width:0; font-size:14px; font-weight:800; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="shootActiveCatLabel">시공</div>
     <button type="button" onclick="openSettings()" title="분류/구역 관리" style="flex-shrink:0; width:34px; height:34px; border:1px solid var(--field-bd); border-radius:8px; background:var(--field-bg); font-size:15px; cursor:pointer;">⚙️</button>
     <button type="button" id="shootFolderBtn" onclick="pickSaveFolder()" title="PC 저장 폴더 지정" style="flex-shrink:0; width:34px; height:34px; border:1px solid var(--field-bd); border-radius:8px; background:var(--field-bg); font-size:14px; cursor:pointer;">📁</button>
   </div>
@@ -479,25 +473,33 @@ function logout(){
 var MENU_CONFIG = {
   '시공': {
     items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
-    catStepLabel:'작업분류 선택', tagLabel:'기기번호', tagPh:'PT-2101, EQ-001 등', locLabel:'작업구역'
+    catStepLabel:'작업분류 선택', tagLabel:'기기번호', tagPh:'PT-2101, EQ-001 등', locLabel:'작업구역',
+    statusOptions:['진행중','완료','변경전','변경후']
   },
   '품질': {
     items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
-    catStepLabel:'검사분류 선택', tagLabel:'검사번호', tagPh:'검사번호 입력', locLabel:'작업구역'
+    catStepLabel:'검사분류 선택', tagLabel:'기기번호', tagPh:'검사번호 입력', locLabel:'작업구역',
+    statusOptions:['신규','변경전','변경후']
   },
   '자재': {
     items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
-    catStepLabel:'자재품명 선택', tagLabel:'검수번호/Packing NO.', tagPh:'검수번호 입력', locLabel:'자재보관장소'
+    catStepLabel:'자재품명 선택', tagLabel:'검수번호/Packing NO.', tagPh:'검수번호 입력', locLabel:'자재보관장소',
+    statusOptions:['도급','사급']
   },
   '안전': {
     items:['개인보호구','안전난간','소화기','전기안전','고소작업','위험물보관','비상통로','중장비안전','밀폐공간','낙하물방지','기타'],
-    catStepLabel:'점검항목 선택', tagLabel:'사진제목', tagPh:'사진제목 입력', locLabel:'장소'
+    catStepLabel:'점검항목 선택', tagLabel:'사진제목', tagPh:'사진제목 입력', locLabel:'장소',
+    statusOptions:['현장안전점검','안전용품']
   },
   '화기/유도': {
     items:['용접작업','절단작업','화재감시','가연물제거','방화포','가스누출점검','소화기배치','유도원배치','차량유도','작업구간통제','기타'],
-    catStepLabel:'작업항목 선택', tagLabel:'화기/유도원 이름', tagPh:'이름 입력', locLabel:'구역'
+    catStepLabel:'작업항목 선택', tagLabel:'화기/유도원 이름', tagPh:'이름 입력', locLabel:'구역',
+    statusOptions:['화기감시자','유도원']
   }
 };
+function statusOptionsFor(menu){
+  return (MENU_CONFIG[menu] && MENU_CONFIG[menu].statusOptions) || ['진행중','완료'];
+}
 var MENU_COLOR = {'시공':'var(--m-시공)','품질':'var(--m-품질)','자재':'var(--m-자재)','안전':'var(--m-안전)','화기/유도':'var(--m-화기)'};
 
 /* 작업분류별 수량 단위 자동 인식 — DB(app_settings/작업분류 테이블)에서 내려받을 값을 임시로 하드코딩 */
@@ -545,6 +547,7 @@ function applyRemoteSettings(data){
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalCatSelect();
   }
   if(Array.isArray(data.areas) && data.areas.length){ customAreas = data.areas; }
+  if(typeof window.shootSyncCategory==='function') window.shootSyncCategory();
 }
 async function fetchSettingsFromSupabase(){
   if(!sbClient) return;
@@ -570,6 +573,7 @@ function showWorkerPane(p){
   document.getElementById('wtabReport').classList.toggle('active', p==='report');
   document.getElementById('wtabShoot').classList.toggle('active', p==='shoot');
   document.getElementById('wtabProgress').classList.toggle('active', p==='progress');
+  if(p==='shoot' && typeof window.shootSyncCategory==='function') window.shootSyncCategory();
 }
 /* ── 작업분류 선택 팝업 ── */
 function openCatModal(){
@@ -634,6 +638,7 @@ function openCardForCat(menu, cat){
   currentTagPh = cfg.tagPh;
   document.getElementById('cardTitle').textContent = activeCat;
   document.getElementById('entryTagTh').textContent = cfg.tagLabel;
+  if(typeof window.shootSyncCategory==='function') window.shootSyncCategory();
   setCamBoxState(false);
   document.getElementById('entryRows').innerHTML = '';
 
@@ -667,13 +672,15 @@ function addEntryRow(prefill){
   var status = prefill ? prefill.status : '';
   var tr = document.createElement('tr');
   if(prefill && prefill.photo) tr.dataset.photo = '1';
+  var statusOptsHtml = statusOptionsFor(activeMenu).map(function(s){
+    return '<option'+(status===s?' selected':'')+'>'+s+'</option>';
+  }).join('');
   tr.innerHTML =
     '<td><input class="entry-cell" data-f="tag" placeholder="'+currentTagPh+'" value="'+String(tag).replace(/"/g,'&quot;')+'"></td>'
     +'<td><input class="entry-cell" data-f="qty" type="number" min="0" value="'+qty+'"></td>'
     +'<td><select class="entry-cell" data-f="status" onchange="onRowStatusChange(this)">'
       +'<option value=""'+(status===''?' selected':'')+'>-</option>'
-      +'<option'+(status==='진행중'?' selected':'')+'>진행중</option>'
-      +'<option'+(status==='완료'?' selected':'')+'>완료</option>'
+      +statusOptsHtml
     +'</select></td>'
     +'<td><button type="button" class="entry-del" onclick="this.closest(\'tr\').remove()" aria-label="행 삭제">✕</button></td>';
   tbody.appendChild(tr);
@@ -693,7 +700,7 @@ function saveEntryRows(){
     var tag = tr.querySelector('[data-f="tag"]').value.trim();
     if(!tag) return;
     var qty = Number(tr.querySelector('[data-f="qty"]').value) || 0;
-    var status = tr.querySelector('[data-f="status"]').value || '진행중';
+    var status = tr.querySelector('[data-f="status"]').value || statusOptionsFor(activeMenu)[0];
     var photo = tr.dataset.photo === '1' || hasPhoto;
     items.push({menu:activeMenu, cat:activeCat, tag:tag, qty:qty, unit:unit, status:status, note:note, photo:photo});
     saved++;
@@ -773,10 +780,9 @@ function setCamBoxState(has){
 /* work_photos(사진)에서 (공종,기기번호) 조합이 아직 items[]에 없으면 임시 항목으로
    자동 추가한다 — 작업자는 수량·특이사항만 확인/수정하면 됨. 같은 공종 안에서
    기기번호가 중복되면(분류가 다르더라도) 최초 1건만 항목으로 반영한다. 진행상황은
-   시공+신규 메뉴에서 shoot가 넘긴 하위단계(진행중/완료)와 정확히 일치할 때만
-   매핑하고, 그 외에는 비워둔다(shoot에 대응 값이 없어서 자동 판단이 불가능함).
-   오늘 찍은 사진은 공종에 상관없이 전부 조회한다(작업자가 shoot에서 어떤 공종을
-   고를지 report는 미리 알 수 없음). */
+   해당 공종의 유효 옵션(statusOptionsFor, MENU_CONFIG[menu].statusOptions)과 정확히
+   일치할 때만 매핑하고, 그 외에는 비워둔다. 오늘 찍은 사진은 공종에 상관없이 전부
+   조회한다. */
 async function refreshPhotoLinkage(manual){
   if(!sbClient) return;
   try{
@@ -791,7 +797,7 @@ async function refreshPhotoLinkage(manual){
       if(!r.menu || !r.cat) return;
       catsWithPhoto[r.cat] = true;
       if(!r.tag) return;
-      var status = (r.menu==='시공' && (r.work_type==='진행중' || r.work_type==='완료')) ? r.work_type : '';
+      var status = statusOptionsFor(r.menu).indexOf(r.work_type)!==-1 ? r.work_type : '';
       var key = r.menu + '|' + r.tag + '|' + status;
       if(!photoByKey[key]) photoByKey[key] = {menu:r.menu, cat:r.cat, tag:r.tag, note:r.note||'', status:status};
     });
@@ -954,11 +960,14 @@ function restorePendingEntry(){
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════
-     작업사진 탭 로직 — shoot(workreportdaesun/shoot)의 촬영 기능을 그대로 이식.
-     IIFE로 감싸서 위 report 자체 스크립트(MENUS/catsByMenu/activeMenu/sbClient 등)와
-     이름이 겹쳐도 서로 영향을 주지 않게 격리한다. sbClient만 report 것을 그대로 재사용
-     (같은 Supabase 프로젝트라 새로 만들 필요 없음). onclick="" 에서 호출하는 함수만
-     맨 아래에서 window에 노출한다.
+     작업사진 탭 로직 — shoot(workreportdaesun/shoot)의 촬영 기능을 이식.
+     IIFE로 감싸서 카메라/줌/STT/EXIF워터마크/IndexedDB 등 이 탭 고유 로직은
+     report 자체 스크립트와 이름이 겹쳐도 서로 영향을 주지 않게 격리한다.
+     단, 공종/작업분류 선택(activeMenu/activeCat/catsByMenu/customAreas)과
+     sbClient는 일부러 지역변수로 다시 선언하지 않아서 report 바깥 스코프의 것을
+     그대로 재사용한다 — 헤더 ⚙️작업분류에서 고른 값이 이 탭에도 그대로 적용되고,
+     분류/구역 목록도 하나만 유지된다. onclick="" 에서 호출하는 함수만 맨 아래에서
+     window에 노출한다.
      ══════════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
@@ -1188,56 +1197,10 @@ var CC={
   'Scaffolding':"#7F8C8D",'Others':"#95A5A6",'관리자':"#34495E"
 };
 
-var MENUS=["시공","품질","자재","안전","화기/유도"];
-var DEFAULT_CATS_시공=["DCS Panel","LCP","Junction Box","Field Instrument","Cable Duct","Cable Tray",
-  "Conduit Pipe","Air Pipe","Hook Up","Stanchion","Support","Connection","Line Check","Loop Test",
-  "Leak Test","Instrument Calibration","Steam Tracing Tube","Steam Tracing Insulation","Scaffolding","Others","관리자"];
-var DEFAULT_CATS_안전=["개인보호구","안전난간","소화기","전기안전","고소작업","위험물보관","비상통로","중장비안전","밀폐공간","낙하물방지","기타"];
-var DEFAULT_CATS_화기유도=["용접작업","절단작업","화재감시","가연물제거","방화포","가스누출점검","소화기배치","유도원배치","차량유도","작업구간통제","기타"];
-var DEFAULT_CATS_BY_MENU={"시공":DEFAULT_CATS_시공,"자재":DEFAULT_CATS_시공,"안전":DEFAULT_CATS_안전,"품질":DEFAULT_CATS_시공,"화기/유도":DEFAULT_CATS_화기유도};
-var DEFAULT_AREAS=["SCC","U&O"];
-function loadList(key,def){
-  try{
-    var v=JSON.parse(localStorage.getItem(key));
-    return (Array.isArray(v)&&v.length)?v:def.slice();
-  }catch(e){ return def.slice(); }
-}
-function saveList(key,list){ localStorage.setItem(key,JSON.stringify(list)); }
-
-function fixStaleCategoryDefaults(map){
-  var changed=false;
-  if(map&&JSON.stringify(map["안전"])===JSON.stringify(["기타"])){
-    map["안전"]=DEFAULT_CATS_BY_MENU["안전"].slice(); changed=true;
-  }
-  if(map&&JSON.stringify(map["화기/유도"])===JSON.stringify(DEFAULT_CATS_시공)){
-    map["화기/유도"]=DEFAULT_CATS_BY_MENU["화기/유도"].slice(); changed=true;
-  }
-  if(map&&JSON.stringify(map["자재"])===JSON.stringify(["기타"])){
-    map["자재"]=DEFAULT_CATS_BY_MENU["자재"].slice(); changed=true;
-  }
-  return changed;
-}
-function loadCatsByMenu(){
-  try{
-    var v=JSON.parse(localStorage.getItem("custom_categories_by_menu"));
-    if(v&&typeof v==="object"){
-      MENUS.forEach(function(m){ if(!Array.isArray(v[m])||!v[m].length) v[m]=DEFAULT_CATS_BY_MENU[m].slice(); });
-      fixStaleCategoryDefaults(v);
-      return v;
-    }
-  }catch(e){}
-  var legacy=loadList("custom_categories",DEFAULT_CATS_BY_MENU["시공"]);
-  var obj={};
-  MENUS.forEach(function(m){ obj[m]=(m==="시공")?legacy:DEFAULT_CATS_BY_MENU[m].slice(); });
-  return obj;
-}
-function saveCatsByMenu(){ localStorage.setItem("custom_categories_by_menu",JSON.stringify(catsByMenu)); }
-
-var catsByMenu=loadCatsByMenu();
-var activeMenu=(MENUS.indexOf(localStorage.getItem("shoot_active_menu"))!==-1)?localStorage.getItem("shoot_active_menu"):"시공";
-var customCats=catsByMenu[activeMenu];
-var customAreas=loadList("custom_areas",DEFAULT_AREAS);
-saveCatsByMenu();
+/* 공종(activeMenu)/작업분류(activeCat)/분류목록(catsByMenu)/구역목록(customAreas)은
+   report 바깥 스코프(위쪽 report 자체 스크립트)의 것을 그대로 재사용한다 — 이 IIFE
+   안에서 var로 새로 선언하지 않으면 자동으로 바깥 스코프를 가리키므로, 헤더의
+   ⚙️작업분류에서 고른 값이 작업사진 탭에도 그대로 적용된다. */
 
 var LABELS_BY_MENU={
   "시공":{modPhases:["변경전","변경후"],newPhases:["진행중","완료"]},
@@ -1264,32 +1227,25 @@ function applyMenuLabels(menu){
   document.getElementById("shootWtNew").value=d.wtNew||"신규";
   document.getElementById("shootWtMod").value=d.wtMod||"수정";
 }
-function setActiveMenu(menu){
-  if(MENUS.indexOf(menu)===-1)return;
-  activeMenu=menu;
-  customCats=catsByMenu[activeMenu];
-  localStorage.setItem("shoot_active_menu",menu);
-  document.querySelectorAll("#shootMenuTabs .menu-tab").forEach(function(btn){
-    btn.classList.toggle("active",btn.getAttribute("data-m")===menu);
-  });
+/* report의 activeMenu/activeCat이 바뀔 때마다(⚙️작업분류에서 고를 때, 탭 전환할 때)
+   호출해서 작업사진 탭 화면을 그 값에 맞게 다시 그린다. */
+function shootSyncCategory(){
+  var lbl=document.getElementById("shootActiveCatLabel");
+  if(lbl) lbl.textContent=activeMenu+(activeCat?' · '+activeCat:'');
   applyMenuLabels(activeMenu);
   togglePhaseSelect();
   populateCatSelect();
 }
-document.querySelectorAll("#shootMenuTabs .menu-tab").forEach(function(btn){
-  btn.classList.toggle("active",btn.getAttribute("data-m")===activeMenu);
-});
-applyMenuLabels(activeMenu);
 
 function optionHtml(v){
   var esc=String(v).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
   return '<option value="'+esc+'">'+esc+'</option>';
 }
-function populateCatSelect(preserve){
+function populateCatSelect(){
   var el=document.getElementById("shootInCat");
-  var prev=preserve?el.value:(localStorage.getItem("last_category")||localStorage.getItem("member_category"));
-  el.innerHTML=customCats.map(optionHtml).join('');
-  if(prev&&customCats.indexOf(prev)!==-1) el.value=prev;
+  var opts=catsByMenu[activeMenu]||[];
+  el.innerHTML=opts.map(optionHtml).join('');
+  if(activeCat&&opts.indexOf(activeCat)!==-1) el.value=activeCat;
   updCat();
 }
 function populateAreaSelect(preserve){
@@ -1304,7 +1260,7 @@ function openSettings(){
   var lbl=document.getElementById("shootCatSectionTitle");
   var d=LABELS_BY_MENU[activeMenu]||{};
   if(lbl) lbl.textContent=(d.cat||"작업 분류")+" 관리 ("+activeMenu+")";
-  tempCats=customCats.slice();
+  tempCats=(catsByMenu[activeMenu]||[]).slice();
   tempAreas=customAreas.slice();
   renderCatChips();
   renderAreaChips();
@@ -1314,64 +1270,14 @@ function closeSettings(){
   tempCats=null; tempAreas=null;
   document.getElementById("shootSettingsOverlay").style.display="none";
 }
-async function pushSettingsToSupabase(){
-  if(!sbClient)return;
-  try{
-    var res=await sbClient.from('app_settings').upsert({
-      id:'global',
-      cats_by_menu:catsByMenu,
-      areas:customAreas,
-      updated_at:new Date().toISOString()
-    });
-    if(res.error) console.error("설정 클라우드 동기화 실패",res.error.message);
-  }catch(e){console.error("설정 클라우드 동기화 실패",e);}
-}
-function applyRemoteSettings(data){
-  var changed=false;
-  if(data.cats_by_menu){
-    MENUS.forEach(function(m){
-      if(Array.isArray(data.cats_by_menu[m])&&data.cats_by_menu[m].length){
-        catsByMenu[m]=data.cats_by_menu[m];
-        changed=true;
-      }
-    });
-  }
-  if(Array.isArray(data.areas)&&data.areas.length){ customAreas=data.areas; changed=true; }
-  var fixedStale=fixStaleCategoryDefaults(catsByMenu);
-  if(changed||fixedStale){
-    customCats=catsByMenu[activeMenu];
-    saveCatsByMenu();
-    saveList("custom_areas",customAreas);
-    populateCatSelect(true);
-    populateAreaSelect(true);
-    if(fixedStale) pushSettingsToSupabase();
-  }
-}
-async function fetchSettingsFromSupabase(){
-  if(!sbClient)return;
-  try{
-    var res=await sbClient.from('app_settings').select('*').eq('id','global').single();
-    if(res.error||!res.data)return;
-    applyRemoteSettings(res.data);
-  }catch(e){console.error("설정 클라우드 불러오기 실패",e);}
-}
-function subscribeSettingsRealtime(){
-  if(!sbClient||!sbClient.channel)return;
-  sbClient.channel('app_settings_changes_shoot')
-    .on('postgres_changes',{event:'*',schema:'public',table:'app_settings',filter:'id=eq.global'},function(payload){
-      if(payload.new) applyRemoteSettings(payload.new);
-    })
-    .subscribe();
-}
+/* pushSettingsToSupabase/applyRemoteSettings/fetchSettingsFromSupabase/subscribeSettingsRealtime는
+   report 바깥 스코프의 것을 그대로 쓴다(위 참고) — 여기서 다시 정의하지 않음. */
 
 function saveSettingsChanges(){
   if(!tempCats||!tempAreas)return;
   catsByMenu[activeMenu]=tempCats;
-  customCats=tempCats;
-  saveCatsByMenu();
   customAreas=tempAreas;
-  saveList("custom_areas",customAreas);
-  populateCatSelect(true);
+  populateCatSelect();
   populateAreaSelect(true);
   tempCats=null; tempAreas=null;
   document.getElementById("shootSettingsOverlay").style.display="none";
@@ -1497,9 +1403,10 @@ restoreSavedPhotos();
 loadSavedFolderHandle();
 
 populateAreaSelect();
-populateCatSelect();
-fetchSettingsFromSupabase();
-subscribeSettingsRealtime();
+shootSyncCategory();
+/* app_settings 클라우드 동기화(fetchSettingsFromSupabase/subscribeSettingsRealtime)는
+   report 바깥 스코프에서 이미 한 번 실행되므로 여기서 또 부르지 않는다 — catsByMenu/
+   customAreas가 바깥 것과 같은 객체라 report 쪽 동기화 결과가 여기도 그대로 반영됨. */
 
 document.getElementById("shootCamBox").addEventListener("click",openCamera);
 document.getElementById("shootFileInput").addEventListener("change",loadImg);
@@ -2075,7 +1982,7 @@ function startSTT(fieldId,btnId){
 function _stopSTT(btn){activeRec=null;btn.classList.remove("listening");btn.textContent="🎤";}
 
 // onclick="" 속성에서 직접 호출하는 함수만 전역에 노출
-window.setActiveMenu=setActiveMenu;
+window.shootSyncCategory=shootSyncCategory;
 window.startSTT=startSTT;
 window.setCaptureRatio=setCaptureRatio;
 window.closeCamera=closeCamera;
