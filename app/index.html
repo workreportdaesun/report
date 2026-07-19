@@ -109,12 +109,12 @@ textarea.f{resize:none; height:44px;}
 /* ── 작업분류 선택 팝업 — 전체 화면 오버레이(폰 프레임 없음) ── */
 .cat-modal-overlay{position:fixed; inset:0; background:rgba(12,22,38,0.55); display:none; align-items:flex-start; justify-content:center; z-index:40;}
 .cat-modal-overlay.show{display:flex;}
-.cat-modal{width:100%; max-width:460px; background:var(--card); border-radius:16px; padding:14px 14px 18px; display:flex; flex-direction:column; box-shadow:0 8px 24px rgba(0,0,0,0.3); transform-origin:top center; animation:sheetDown .2s ease-out; margin:0 10px;}
+.cat-modal{width:100%; max-width:460px; max-height:80vh; background:var(--card); border-radius:16px; padding:14px 14px 18px; display:flex; flex-direction:column; box-shadow:0 8px 24px rgba(0,0,0,0.3); transform-origin:top center; animation:sheetDown .2s ease-out; margin:0 10px; overflow:hidden;}
 @keyframes sheetDown{from{transform:scaleY(.88) translateY(-4px); opacity:0;} to{transform:scaleY(1) translateY(0); opacity:1;}}
-.cat-modal-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;}
+.cat-modal-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-shrink:0;}
 .cat-modal-head h3{font-size:15px; font-weight:800; color:var(--ink); margin:0;}
 .cat-modal-close{border:none; background:var(--field-bg); color:var(--lbl); width:26px; height:26px; border-radius:50%; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
-.cat-modal-body{padding-top:2px;}
+.cat-modal-body{padding-top:2px; overflow-y:auto; flex:1; min-height:0;}
 .cat-modal-sublbl{font-size:11px; font-weight:700; color:var(--lbl); letter-spacing:.5px; text-transform:uppercase; margin:14px 0 6px;}
 .cat-modal-sublbl:first-child{margin-top:0;}
 
@@ -568,6 +568,7 @@ function openCatModal(){
   var aRect=anchor.getBoundingClientRect(), oRect=overlay.getBoundingClientRect();
   var offset=Math.max(0, aRect.bottom-oRect.top+8);
   panel.style.marginTop=offset+'px';
+  panel.style.maxHeight=Math.max(200, window.innerHeight-offset-16)+'px';
 }
 function closeCatModal(){
   document.getElementById('catModalOverlay').classList.remove('show');
