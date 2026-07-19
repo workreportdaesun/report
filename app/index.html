@@ -216,11 +216,14 @@ textarea.f{resize:none; height:44px;}
   <button class="worker-tab active" id="wtabReport" onclick="showWorkerPane('report')">📝 일보입력</button>
   <button class="worker-tab" id="wtabShoot" onclick="showWorkerPane('shoot')">📷 작업사진</button>
   <button class="worker-tab" id="wtabProgress" onclick="showWorkerPane('progress')">📈 공정률</button>
-  <button type="button" class="catpick-gear" onclick="openCatModal()" aria-label="작업분류 선택 열기">⚙️</button>
 </div>
 
 <!-- ══ 일보입력 ══ -->
 <div class="worker-pane active" id="pane-report">
+
+  <div class="card" id="reportToolbarRow" style="padding:8px; display:flex; justify-content:flex-end;">
+    <button type="button" class="catpick-gear" onclick="openCatModal()" aria-label="작업분류 선택 열기">⚙️</button>
+  </div>
 
   <!-- 입력 카드 -->
   <div class="card" id="inputCard" style="display:none;">
@@ -586,8 +589,8 @@ function openCatModal(){
   renderModalCatSelect();
   var overlay=document.getElementById('catModalOverlay'), panel=document.getElementById('catModalPanel');
   overlay.classList.add('show');
-  // 항상 같은 기준선(탭바 바로 아래)에서 아래로 드롭다운 — 동적 콘텐츠(입력카드/목록 길이)에 영향받지 않음
-  var anchor=document.getElementById('workerTabsBar');
+  // 항상 같은 기준선(⚙️ 버튼 줄 바로 아래)에서 아래로 드롭다운 — 동적 콘텐츠(입력카드/목록 길이)에 영향받지 않음
+  var anchor=document.getElementById('reportToolbarRow');
   var aRect=anchor.getBoundingClientRect(), oRect=overlay.getBoundingClientRect();
   var offset=Math.max(0, aRect.bottom-oRect.top+8);
   panel.style.marginTop=offset+'px';
