@@ -3,7 +3,7 @@
    한 번 맞히면 이 기기에는 계속 저장돼서(localStorage) 다시 안 물어봄 — PC/모바일 동일하게 동작.
    이 파일 하나만 고치면 gallery/progress 양쪽에 다 반영된다. */
 (function(){
-  var PIN = '3690';
+  var PIN = '0000';
   if(localStorage.getItem('wr_admin_unlocked')==='1') return;
 
   var wrap = document.createElement('div');
