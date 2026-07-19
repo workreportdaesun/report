@@ -246,16 +246,6 @@ textarea.f{resize:none; height:44px;}
     <div class="flbl">비고</div>
     <textarea class="f" id="noteInput" placeholder="특이사항..."></textarea>
 
-    <div class="flbl">📷 사진촬영 <span style="text-transform:none;font-weight:400;color:var(--muted);">— 탭하면 작업사진 앱으로 이동합니다</span></div>
-    <div class="cam-box" id="camBox" onclick="goToShootPage()">
-      <div class="cam-placeholder" id="camPlaceholder">
-        <div style="font-size:22px;">📷</div>
-        <p>탭하여 작업사진으로 이동</p>
-      </div>
-      <div class="corner tl"></div><div class="corner tr"></div>
-      <div class="corner bl"></div><div class="corner br"></div>
-    </div>
-
     <button class="sbtn sbtn-add" onclick="saveEntryRows()">💾 저장</button>
     <button class="sbtn sbtn-outline" onclick="closeCard()">닫기</button>
   </div>
@@ -778,10 +768,6 @@ function setCamBoxState(has){
   ph.innerHTML = has
     ? '<div style="font-size:28px;">🖼️</div><p style="color:#2E5F9E;">촬영 완료 · 사진 연동됨</p>'
     : '<div style="font-size:22px;">📷</div><p>탭하여 작업사진으로 이동</p>';
-}
-
-function goToShootPage(){
-  showWorkerPane('shoot');
 }
 
 /* work_photos(사진)에서 (공종,기기번호) 조합이 아직 items[]에 없으면 임시 항목으로
