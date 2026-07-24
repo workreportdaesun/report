@@ -76,10 +76,26 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
   <!-- 공정률 -->
   <div class="admin-pane active" id="pane-proc">
     <div class="proc-grid" id="procGrid"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
+    </div>
     <table class="dtable">
       <tr><th>작업분류</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>공정률</th></tr>
       <tbody id="procTableRows"><tr><td colspan="6" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
     </table>
+  </div>
+
+  <!-- 계획수량 설정 모달 — 웹관리자가 PC에서만 열 수 있고(⚙️ 버튼 자체를 모바일에선 숨김),
+       여기 들어오기 전까지 표/카드는 항상 보여주기 전용이다 -->
+  <div id="planModalOverlay" onclick="if(event.target===this) closePlanSettings()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9990;align-items:center;justify-content:center;">
+    <div style="background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.3);margin:0 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="font-size:16px;font-weight:800;color:var(--brand-1);margin:0;">계획수량 설정</h3>
+        <button type="button" onclick="closePlanSettings()" style="border:none;background:var(--field-bg);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px;color:var(--lbl);">✕</button>
+      </div>
+      <div id="planModalRows"></div>
+      <button type="button" onclick="savePlanSettings()" style="width:100%;margin-top:14px;background:var(--brand-2);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:800;cursor:pointer;">저장</button>
+    </div>
   </div>
 
   <!-- 출력현황 -->
@@ -148,6 +164,12 @@ function todayStr(){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 
+/* 계획수량 입력은 웹관리자(admin.html) 전용 — 그 중에서도 PC에서만 가능하게, 모바일에서 admin.html을
+   열면(예: 관리자가 폰으로 확인) 다른 화면들과 동일하게 숫자만 보여주고 수정은 막는다. */
+var admIsMobile=/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
+/* renderProcTable 밖(계획수량 수정 후 재렌더)에서도 써야 해서 loadDashboardData가 채운 값을 보관 */
+var dashCatToday={}, dashCatBefore={}, dashCatMenu={}, dashPlanQty={};
+
 /* ── 공정률/출력현황 실데이터 집계 — daily_reports(전체 팀·전체 날짜).items/crew + app_settings.plan_qty/personnel ── */
 async function loadDashboardData(){
   if(!sbClient) return;
@@ -181,6 +203,7 @@ async function loadDashboardData(){
         }
       }
     });
+    dashCatToday=catToday; dashCatBefore=catBefore; dashCatMenu=catMenu; dashPlanQty=planQty;
     renderProcGrid(catToday,catBefore,catMenu,planQty);
     renderProcTable(catToday,catBefore,planQty);
     renderOutGrid(todayCrewByTeam,registeredTeams);
@@ -201,12 +224,16 @@ function renderProcGrid(catToday,catBefore,catMenu,planQty){
     return '<div class="proc-card"><div class="m" style="color:'+m.color+';">'+m.key+'</div><div class="pct">'+pct+'%</div><div class="proc-bar"><div style="width:'+pct+'%;background:'+m.color+';"></div></div><div class="d">계획 '+p+' / 실적 '+a+'</div></div>';
   }).join('');
 }
-function renderProcTable(catToday,catBefore,planQty){
+/* 여기(표/카드)는 항상 보여주기 전용 — 계획수량 수정은 아래 "⚙️ 계획수량 설정" 모달에서만 가능 */
+function getCatList(){
   var cats={};
-  Object.keys(catToday).forEach(function(c){ cats[c]=1; });
-  Object.keys(catBefore).forEach(function(c){ cats[c]=1; });
-  Object.keys(planQty).forEach(function(c){ cats[c]=1; });
-  var list=Object.keys(cats);
+  Object.keys(dashCatToday).forEach(function(c){ cats[c]=1; });
+  Object.keys(dashCatBefore).forEach(function(c){ cats[c]=1; });
+  Object.keys(dashPlanQty).forEach(function(c){ cats[c]=1; });
+  return Object.keys(cats);
+}
+function renderProcTable(catToday,catBefore,planQty){
+  var list=getCatList();
   var wrap=document.getElementById('procTableRows');
   if(!list.length){ wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">데이터가 아직 없습니다</td></tr>'; return; }
   wrap.innerHTML = list.map(function(cat){
@@ -214,6 +241,38 @@ function renderProcTable(catToday,catBefore,planQty){
     var pct = plan>0 ? Math.min(100,Math.round(total/plan*100)) : 0;
     return '<tr><td>'+cat+'</td><td class="mono">'+(plan||'-')+'</td><td class="mono">'+before+'</td><td class="mono">'+today+'</td><td class="mono">'+total+'</td><td>'+pct+'%</td></tr>';
   }).join('');
+}
+/* ── 계획수량 설정 모달 — ⚙️ 버튼을 눌러 들어오기 전까지는 수정 진입로가 아예 없다 ── */
+function openPlanSettings(){
+  var list = getCatList();
+  var wrap = document.getElementById('planModalRows');
+  wrap.innerHTML = !list.length
+    ? '<div style="text-align:center;color:var(--lbl);font-size:13px;padding:14px;">아직 작업분류 데이터가 없습니다.</div>'
+    : list.map(function(cat){
+        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--field-bg);">'
+          +'<span style="font-size:13px;color:var(--ink);">'+cat+'</span>'
+          +'<input type="number" min="0" data-cat="'+cat.replace(/"/g,'&quot;')+'" class="planModalInput" value="'+(dashPlanQty[cat]||'')+'" placeholder="0" style="width:80px;padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);text-align:right;">'
+          +'</div>';
+      }).join('');
+  document.getElementById('planModalOverlay').style.display='flex';
+}
+function closePlanSettings(){
+  document.getElementById('planModalOverlay').style.display='none';
+}
+async function savePlanSettings(){
+  document.querySelectorAll('.planModalInput').forEach(function(inp){
+    var cat = inp.getAttribute('data-cat');
+    var v = Number(inp.value)||0;
+    if(v<=0) delete dashPlanQty[cat]; else dashPlanQty[cat]=v;
+  });
+  renderProcGrid(dashCatToday,dashCatBefore,dashCatMenu,dashPlanQty);
+  renderProcTable(dashCatToday,dashCatBefore,dashPlanQty);
+  closePlanSettings();
+  if(!sbClient) return;
+  try{
+    var res = await sbClient.from('app_settings').upsert({id:'global', plan_qty:dashPlanQty, updated_at:new Date().toISOString()});
+    if(res.error) console.error('계획수량 저장 실패', res.error.message);
+  }catch(e){ console.error('계획수량 저장 실패', e); }
 }
 function renderOutGrid(todayCrewByTeam,registeredTeams){
   var total = Object.keys(todayCrewByTeam).reduce(function(s,t){ return s+todayCrewByTeam[t]; },0);
@@ -291,6 +350,7 @@ async function saveSiteSettings(){
     alert('현장 좌표가 저장되었습니다.');
   }catch(e){ alert('저장 실패: '+e.message); }
 }
+if(admIsMobile){ var _psb=document.getElementById('planSettingsBtn'); if(_psb) _psb.style.display='none'; }
 loadSiteSettings();
 loadDashboardData();
 </script>
