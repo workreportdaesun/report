@@ -40,15 +40,17 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .f{width:100%; background:var(--field-bg); border:1.5px solid var(--field-bd); border-radius:8px; padding:9px 11px; color:var(--ink); font-size:17px; font-family:var(--font-body);}
 textarea.f{resize:none; height:44px;}
 
-/* ── 일보 입력: 자동 증가 행 표 ── */
-.entry-tablewrap{overflow-x:auto; margin-bottom:10px; border:1px solid var(--field-bd); border-radius:10px;}
-.entry-table{width:100%; table-layout:fixed; border-collapse:collapse; font-size:15px; min-width:240px;}
-.entry-table th{background:var(--field-bg); color:var(--lbl); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; padding:6px 2px; text-align:left; border-bottom:1px solid var(--field-bd); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-.entry-table td{padding:4px 2px; border-bottom:1px solid var(--field-bd); vertical-align:middle;}
-.entry-table td:first-child, .entry-table th:first-child{padding-left:5px;}
-.entry-table tr:last-child td{border-bottom:none;}
+/* ── 일보 입력: 자동 증가 행 목록 — 항목당 2줄(1줄:기기번호+규격, 2줄:수량+진행상황+삭제).
+   기기번호에 규격 드롭다운을 같은 줄로 넣을 폭이 안 나와서(좁은 폰 기준 실측) 표 대신 이 구조로 함. */
+.entry-tablewrap{margin-bottom:10px; border:1px solid var(--field-bd); border-radius:10px;}
+.entry-header{display:flex; gap:6px; padding:8px 8px 4px;}
+.entry-header span{font-size:10.5px; font-weight:800; color:var(--lbl); text-transform:uppercase; letter-spacing:.3px;}
+.entry-row{padding:6px 8px; border-bottom:1px solid var(--field-bd);}
+.entry-row:last-child{border-bottom:none;}
+.entry-row-top{display:flex; gap:6px; margin-bottom:4px;}
+.entry-row-bottom{display:flex; gap:6px; align-items:center;}
 .entry-cell{width:100%; background:var(--card); border:1.5px solid var(--field-bd); border-radius:6px; padding:6px 4px; font-size:15px; color:var(--ink); font-family:var(--font-body);}
-.entry-del{border:none; background:none; color:var(--muted); font-size:15px; cursor:pointer; padding:2px 1px; line-height:1;}
+.entry-del{border:none; background:none; color:var(--muted); font-size:15px; cursor:pointer; padding:2px 1px; line-height:1; flex-shrink:0;}
 .entry-del:hover{color:var(--err);}
 
 .menu-tabs{display:flex; gap:4px; flex-wrap:nowrap;}
@@ -224,18 +226,11 @@ textarea.f{resize:none; height:44px;}
     <div class="step-label"><span id="cardTitle"></span></div>
 
     <div class="entry-tablewrap">
-      <table class="entry-table">
-        <colgroup>
-          <col>
-          <col style="width:70px;">
-          <col style="width:64px;">
-          <col style="width:16px;">
-        </colgroup>
-        <thead>
-          <tr><th id="entryTagTh">기기번호</th><th>수량</th><th>진행상황</th><th></th></tr>
-        </thead>
-        <tbody id="entryRows"></tbody>
-      </table>
+      <div class="entry-header">
+        <span style="flex:1;" id="entryTagTh">기기번호</span>
+        <span style="width:96px;flex-shrink:0;">규격</span>
+      </div>
+      <div id="entryRows"></div>
     </div>
 
     <div class="flbl">비고</div>
@@ -447,6 +442,14 @@ textarea.f{resize:none; height:44px;}
         <button type="button" id="modalAreaSaveBtn" onclick="modalAddArea()">추가</button>
       </div>
 
+      <!-- 규격: 지금은 공종/분류 구분 없이 전체 공용 목록. 추후 작업분류별 Supabase 값으로 대체 예정 -->
+      <div class="cat-modal-sublbl">규격 관리</div>
+      <div class="chip-row" id="modalSpecChips"></div>
+      <div class="add-row">
+        <input type="text" id="modalNewSpecInput" class="f" placeholder="새 규격 이름"/>
+        <button type="button" id="modalSpecSaveBtn" onclick="modalAddSpec()">추가</button>
+      </div>
+
       <div class="cat-modal-sublbl">인원 관리</div>
       <div class="chip-row" id="modalPersonnelChips"></div>
       <div class="add-row">
@@ -546,15 +549,20 @@ var customPersonnel = ['1팀(계장)','2팀(계장)','품질팀','안전관리�
 /* 장비현황(장비 목록) — Supabase app_settings.equipment로 동기화됨. 목록 맨 위 "전체장비"는 이 배열에
    포함되지 않는 고정 집계행이고, 이 배열의 각 항목이 그 아래 개별 장비 행이 된다. */
 var customEquipment = ['크레인','지게차','발전기','용접기','에어컴프레서','고소작업대'];
+/* 규격 목록(일보입력 각 행의 규격 드롭다운) — Supabase app_settings.specs로 동기화됨. 지금은
+   공종/분류 구분 없이 전체 공용 하나의 목록이고(설정에서 직접 관리), 나중에 작업분류별로 Supabase에
+   값을 넣으면 그 값을 따라가도록 확장할 예정. 공정률 집계는 규격 구분 없이 분류(cat) 기준 전체수량으로
+   그대로 하므로 여기 값은 집계 로직에 영향을 주지 않는다. */
+var customSpecs = [];
 /* 출력체크 반경 게이트 — admin.html에서 설정한 현장 좌표/반경을 app_settings.site_lat/site_lng/geofence_m으로 읽어옴 */
 var SITE_LAT=null, SITE_LNG=null, GEOFENCE_M=1000, lastCheckDistance=null;
 
 var activeMenu='시공', activeCat=null, hasPhoto=false, items=[];
 document.getElementById('hdrActiveMenu').textContent = ' ('+activeMenu+')';
 var modalMenu='시공';
-/* 설정(⚙️) 팝업의 분류/구역/인원/장비 관리 — 각 -1이면 "추가" 모드, 0 이상이면 그 인덱스 항목을
+/* 설정(⚙️) 팝업의 분류/구역/인원/장비/규격 관리 — 각 -1이면 "추가" 모드, 0 이상이면 그 인덱스 항목을
    수정 중이며 입력칸에 기존 값이 채워지고 버튼이 "저장"으로 바뀐다. */
-var editingCatIdx=-1, editingAreaIdx=-1, editingPersonnelIdx=-1, editingEquipmentIdx=-1;
+var editingCatIdx=-1, editingAreaIdx=-1, editingPersonnelIdx=-1, editingEquipmentIdx=-1, editingSpecIdx=-1;
 
 /* ── 작업분류/구역/현장좌표 클라우드 동기화 (work-shoot-daesun/index.html과 동일 패턴) ── */
 async function pushSettingsToSupabase(){
@@ -566,6 +574,7 @@ async function pushSettingsToSupabase(){
       areas: customAreas,
       personnel: customPersonnel,
       equipment: customEquipment,
+      specs: customSpecs,
       updated_at: new Date().toISOString()
     });
     if(res.error) console.error('설정 클라우드 동기화 실패', res.error.message);
@@ -591,6 +600,10 @@ function applyRemoteSettings(data){
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalEquipmentChips();
     if(typeof window.renderPnList==='function') window.renderPnList();
     if(typeof populateEquipLogSelect==='function') populateEquipLogSelect();
+  }
+  if(Array.isArray(data.specs) && data.specs.length){
+    customSpecs = data.specs;
+    if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalSpecChips();
   }
   if(typeof data.site_lat==='number' && typeof data.site_lng==='number'){
     SITE_LAT = data.site_lat; SITE_LNG = data.site_lng;
@@ -642,6 +655,7 @@ function openCatModal(){
   renderModalAreaChips();
   renderModalPersonnelChips();
   renderModalEquipmentChips();
+  renderModalSpecChips();
   var overlay=document.getElementById('catModalOverlay'), panel=document.getElementById('catModalPanel');
   overlay.classList.add('show');
   // 항상 같은 기준선(헤더 바로 아래)에서 아래로 드롭다운 — 동적 콘텐츠(입력카드/목록 길이)에 영향받지 않음
@@ -654,17 +668,19 @@ function openCatModal(){
 function closeCatModal(){
   document.getElementById('catModalOverlay').classList.remove('show');
 }
-/* 분류/구역/인원/장비 관리 입력칸을 전부 "추가" 모드로 되돌린다(수정 중이던 항목 취소) */
+/* 분류/구역/인원/장비/규격 관리 입력칸을 전부 "추가" 모드로 되돌린다(수정 중이던 항목 취소) */
 function resetModalEditStates(){
-  editingCatIdx=-1; editingAreaIdx=-1; editingPersonnelIdx=-1; editingEquipmentIdx=-1;
+  editingCatIdx=-1; editingAreaIdx=-1; editingPersonnelIdx=-1; editingEquipmentIdx=-1; editingSpecIdx=-1;
   document.getElementById('modalNewCatInput').value='';
   document.getElementById('modalNewAreaInput').value='';
   document.getElementById('modalNewPersonnelInput').value='';
   document.getElementById('modalNewEquipmentInput').value='';
+  document.getElementById('modalNewSpecInput').value='';
   document.getElementById('modalCatSaveBtn').textContent='추가';
   document.getElementById('modalAreaSaveBtn').textContent='추가';
   document.getElementById('modalPersonnelSaveBtn').textContent='추가';
   document.getElementById('modalEquipmentSaveBtn').textContent='추가';
+  document.getElementById('modalSpecSaveBtn').textContent='추가';
 }
 function renderModalMenuTabs(){
   var wrap=document.getElementById('modalMenuTabs');
@@ -852,6 +868,42 @@ function modalRemoveEquipment(i){
   populateEquipLogSelect();
   pushSettingsToSupabase();
 }
+function renderModalSpecChips(){
+  document.getElementById('modalSpecChips').innerHTML = customSpecs.map(function(s,i){
+    return '<span class="chip">'+s
+      +'<button type="button" class="chip-edit" onclick="modalEditSpec('+i+')" title="수정">✏️</button>'
+      +'<button type="button" class="chip-del" onclick="modalRemoveSpec('+i+')" title="삭제">✕</button></span>';
+  }).join('');
+}
+function modalEditSpec(i){
+  editingSpecIdx = i;
+  document.getElementById('modalNewSpecInput').value = customSpecs[i];
+  document.getElementById('modalNewSpecInput').focus();
+  document.getElementById('modalSpecSaveBtn').textContent = '저장';
+}
+function modalAddSpec(){
+  var inp = document.getElementById('modalNewSpecInput');
+  var v = inp.value.trim();
+  if(!v) return;
+  if(editingSpecIdx>=0){
+    if(customSpecs.indexOf(v)!==-1 && customSpecs[editingSpecIdx]!==v) return;
+    customSpecs[editingSpecIdx] = v;
+    editingSpecIdx = -1;
+    document.getElementById('modalSpecSaveBtn').textContent = '추가';
+  }else{
+    if(customSpecs.indexOf(v)!==-1) return;
+    customSpecs.push(v);
+  }
+  inp.value = '';
+  renderModalSpecChips();
+  pushSettingsToSupabase();
+}
+function modalRemoveSpec(i){
+  customSpecs.splice(i,1);
+  editingSpecIdx=-1; document.getElementById('modalNewSpecInput').value=''; document.getElementById('modalSpecSaveBtn').textContent='추가';
+  renderModalSpecChips();
+  pushSettingsToSupabase();
+}
 function toggleCatCombo(e){
   if(e) e.stopPropagation();
   document.getElementById('modalCatComboList').classList.toggle('show');
@@ -904,43 +956,57 @@ function openCardForCat(menu, cat){
   document.getElementById('inputCard').scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 function addEntryRow(prefill){
-  var tbody = document.getElementById('entryRows');
+  var wrap = document.getElementById('entryRows');
   var tag = prefill ? prefill.tag : '';
   var qty = prefill ? prefill.qty : 1;
   var status = prefill ? prefill.status : '';
-  var tr = document.createElement('tr');
-  if(prefill && prefill.photo) tr.dataset.photo = '1';
+  var spec = prefill ? (prefill.spec||'') : '';
+  var row = document.createElement('div');
+  row.className = 'entry-row';
+  if(prefill && prefill.photo) row.dataset.photo = '1';
   var statusOptsHtml = statusOptionsFor(activeMenu).map(function(s){
     return '<option'+(status===s?' selected':'')+'>'+s+'</option>';
   }).join('');
-  tr.innerHTML =
-    '<td><input class="entry-cell" data-f="tag" placeholder="'+currentTagPh+'" value="'+String(tag).replace(/"/g,'&quot;')+'"></td>'
-    +'<td><input class="entry-cell" data-f="qty" type="number" min="0" value="'+qty+'"></td>'
-    +'<td><select class="entry-cell" data-f="status" onchange="onRowStatusChange(this)">'
-      +'<option value=""'+(status===''?' selected':'')+'>-</option>'
-      +statusOptsHtml
-    +'</select></td>'
-    +'<td><button type="button" class="entry-del" onclick="this.closest(\'tr\').remove()" aria-label="행 삭제">✕</button></td>';
-  tbody.appendChild(tr);
-  return tr;
+  var specOptsHtml = customSpecs.map(function(s){
+    return '<option'+(spec===s?' selected':'')+'>'+s+'</option>';
+  }).join('');
+  row.innerHTML =
+    '<div class="entry-row-top">'
+      +'<div style="flex:1;min-width:0;"><input class="entry-cell" data-f="tag" placeholder="'+currentTagPh+'" value="'+String(tag).replace(/"/g,'&quot;')+'"></div>'
+      +'<div style="width:96px;flex-shrink:0;"><select class="entry-cell" data-f="spec">'
+        +'<option value=""'+(spec===''?' selected':'')+'>-</option>'
+        +specOptsHtml
+      +'</select></div>'
+    +'</div>'
+    +'<div class="entry-row-bottom">'
+      +'<div style="width:64px;flex-shrink:0;"><input class="entry-cell" data-f="qty" type="number" min="0" value="'+qty+'"></div>'
+      +'<div style="flex:1;min-width:0;"><select class="entry-cell" data-f="status" onchange="onRowStatusChange(this)">'
+        +'<option value=""'+(status===''?' selected':'')+'>-</option>'
+        +statusOptsHtml
+      +'</select></div>'
+      +'<button type="button" class="entry-del" onclick="this.closest(\'.entry-row\').remove()" aria-label="행 삭제">✕</button>'
+    +'</div>';
+  wrap.appendChild(row);
+  return row;
 }
 function onRowStatusChange(sel){
   if(!sel.value) return;
-  var tbody = document.getElementById('entryRows');
-  if(sel.closest('tr') === tbody.lastElementChild){ addEntryRow(); }
+  var wrap = document.getElementById('entryRows');
+  if(sel.closest('.entry-row') === wrap.lastElementChild){ addEntryRow(); }
 }
 function saveEntryRows(){
-  var rows = document.getElementById('entryRows').querySelectorAll('tr');
+  var rows = document.getElementById('entryRows').querySelectorAll('.entry-row');
   var unit = unitOf(activeCat);
   var note = document.getElementById('noteInput').value.trim();
   var saved = 0;
-  rows.forEach(function(tr){
-    var tag = tr.querySelector('[data-f="tag"]').value.trim();
+  rows.forEach(function(row){
+    var tag = row.querySelector('[data-f="tag"]').value.trim();
     if(!tag) return;
-    var qty = Number(tr.querySelector('[data-f="qty"]').value) || 0;
-    var status = tr.querySelector('[data-f="status"]').value || statusOptionsFor(activeMenu)[0];
-    var photo = tr.dataset.photo === '1' || hasPhoto;
-    items.push({menu:activeMenu, cat:activeCat, tag:tag, qty:qty, unit:unit, status:status, note:note, photo:photo});
+    var qty = Number(row.querySelector('[data-f="qty"]').value) || 0;
+    var status = row.querySelector('[data-f="status"]').value || statusOptionsFor(activeMenu)[0];
+    var spec = row.querySelector('[data-f="spec"]').value || '';
+    var photo = row.dataset.photo === '1' || hasPhoto;
+    items.push({menu:activeMenu, cat:activeCat, tag:tag, qty:qty, unit:unit, status:status, spec:spec, note:note, photo:photo});
     saved++;
   });
   if(!saved){ showToast('⚠️ 저장할 항목이 없습니다', 'var(--err)'); return; }
@@ -962,11 +1028,11 @@ function editItem(idx){
   document.getElementById('sendBtn').disabled = items.length===0;
   openCardForCat(it.menu, it.cat);
   // openCardForCat이 이 분류의 다른 자동입력 항목을 이미 끌어왔을 수 있으니 지우지 않고 이어붙인다.
-  addEntryRow({tag:it.tag, qty:it.qty, status:it.status, photo:it.photo});
+  addEntryRow({tag:it.tag, qty:it.qty, status:it.status, spec:it.spec, photo:it.photo});
   // 자동으로 딸려온 빈 줄(아무것도 입력 안 된 기본 줄)은 정리
-  var rows = document.getElementById('entryRows').querySelectorAll('tr');
-  rows.forEach(function(tr){
-    if(!tr.querySelector('[data-f="tag"]').value.trim()) tr.remove();
+  var rows = document.getElementById('entryRows').querySelectorAll('.entry-row');
+  rows.forEach(function(row){
+    if(!row.querySelector('[data-f="tag"]').value.trim()) row.remove();
   });
   document.getElementById('noteInput').value = it.note || '';
   setCamBoxState(!!it.photo || hasPhoto);
@@ -1141,9 +1207,9 @@ async function refreshPhotoLinkage(manual){
     var cardOpen = document.getElementById('inputCard').style.display !== 'none';
     var filledKeys = {};
     if(cardOpen){
-      document.getElementById('entryRows').querySelectorAll('tr').forEach(function(tr){
-        var t = tr.querySelector('[data-f="tag"]').value.trim();
-        var s = tr.querySelector('[data-f="status"]').value;
+      document.getElementById('entryRows').querySelectorAll('.entry-row').forEach(function(row){
+        var t = row.querySelector('[data-f="tag"]').value.trim();
+        var s = row.querySelector('[data-f="status"]').value;
         if(t) filledKeys[activeMenu+'|'+t+'|'+s] = true;
       });
     }
@@ -1162,8 +1228,8 @@ async function refreshPhotoLinkage(manual){
         });
         if(emptyInput){
           emptyInput.value = p.tag;
-          emptyInput.closest('tr').dataset.photo = '1';
-          if(status) emptyInput.closest('tr').querySelector('[data-f="status"]').value = status;
+          emptyInput.closest('.entry-row').dataset.photo = '1';
+          if(status) emptyInput.closest('.entry-row').querySelector('[data-f="status"]').value = status;
         } else {
           addEntryRow({tag:p.tag, qty:1, status:status, photo:true});
         }
@@ -1202,7 +1268,7 @@ function renderItemList(){
     return '<div class="item-card">'
       +'<div class="item-bar" style="background:'+MENU_COLOR[it.menu]+';"></div>'
       +'<div class="item-thumb">'+(it.photo?'🖼️':'—')+'</div>'
-      +'<div class="item-body"><div class="item-title">'+it.cat+' · '+it.tag+(it.autoImported?' <span style="font-size:11px;font-weight:800;color:var(--brand-2);background:var(--field-bg);padding:1px 5px;border-radius:8px;">📷 자동입력</span>':'')+'</div><div class="item-sub">'+it.menu+' · '+it.qty+' '+UNIT_LABEL[it.unit]+' · '+(it.status||'-')+'</div></div>'
+      +'<div class="item-body"><div class="item-title">'+it.cat+' · '+it.tag+(it.autoImported?' <span style="font-size:11px;font-weight:800;color:var(--brand-2);background:var(--field-bg);padding:1px 5px;border-radius:8px;">📷 자동입력</span>':'')+'</div><div class="item-sub">'+it.menu+(it.spec?' · '+it.spec:'')+' · '+it.qty+' '+UNIT_LABEL[it.unit]+' · '+(it.status||'-')+'</div></div>'
       +'<button type="button" class="item-edit" onclick="editItem('+idx+')" aria-label="수정">✏️</button>'
       +'</div>';
   }).join('');
@@ -1219,12 +1285,13 @@ function savePendingEntryState(){
       sessionStorage.removeItem('wr_pending_entry');
       return;
     }
-    var rows = Array.prototype.map.call(document.querySelectorAll('#entryRows tr'), function(tr){
+    var rows = Array.prototype.map.call(document.querySelectorAll('#entryRows .entry-row'), function(row){
       return {
-        tag: tr.querySelector('[data-f="tag"]').value,
-        qty: tr.querySelector('[data-f="qty"]').value,
-        status: tr.querySelector('[data-f="status"]').value,
-        photo: tr.dataset.photo==='1'
+        tag: row.querySelector('[data-f="tag"]').value,
+        qty: row.querySelector('[data-f="qty"]').value,
+        status: row.querySelector('[data-f="status"]').value,
+        spec: row.querySelector('[data-f="spec"]').value,
+        photo: row.dataset.photo==='1'
       };
     }).filter(function(r){ return r.tag.trim(); });
     sessionStorage.setItem('wr_pending_entry', JSON.stringify({
@@ -1260,7 +1327,7 @@ function restorePendingEntry(){
     if(!catsByMenu[pending.menu] || catsByMenu[pending.menu].indexOf(pending.cat)===-1) return false;
     openCardForCat(pending.menu, pending.cat);
     document.getElementById('entryRows').innerHTML = '';
-    pending.rows.forEach(function(r){ addEntryRow({tag:r.tag, qty:r.qty, status:r.status, photo:r.photo}); });
+    pending.rows.forEach(function(r){ addEntryRow({tag:r.tag, qty:r.qty, status:r.status, spec:r.spec, photo:r.photo}); });
     if(!pending.rows.length) addEntryRow();
     document.getElementById('noteInput').value = pending.note || '';
     if(pending.rows.some(function(r){ return r.photo; })) setCamBoxState(true);
