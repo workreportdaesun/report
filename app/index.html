@@ -263,7 +263,6 @@ textarea.f{resize:none; height:44px;}
 
   <div class="card" style="padding:8px 12px; display:flex; align-items:center; gap:8px;">
     <div style="flex:1; min-width:0; font-size:14px; font-weight:800; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="shootActiveCatLabel">시공</div>
-    <button type="button" id="shootFolderBtn" onclick="pickSaveFolder()" title="PC 저장 폴더 지정" style="flex-shrink:0; width:34px; height:34px; border:1px solid var(--field-bd); border-radius:8px; background:var(--field-bg); font-size:14px; cursor:pointer;">📁</button>
   </div>
 
   <!-- 정보 입력 -->
@@ -1125,16 +1124,10 @@ async function shareToKakao(){
 var dirHandle=null;
 var isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-(function(){
-  var btn=document.getElementById('shootFolderBtn');
-  if(isMobile && btn) btn.style.display='none';
-})();
-
 async function pickSaveFolder(){
   if(!window.showDirectoryPicker){showToast('Chrome/Edge 데스크탑 전용 기능입니다.','var(--err)');return;}
   try{
     dirHandle=await window.showDirectoryPicker({mode:'readwrite',startIn:'downloads'});
-    document.getElementById('shootFolderBtn').title='📁 '+dirHandle.name;
     showToast('저장 폴더: '+dirHandle.name,'var(--ok)');
     persistFolderHandle(dirHandle);
   }catch(e){
@@ -1259,7 +1252,7 @@ function applyMenuLabels(menu){
    호출해서 작업사진 탭 화면을 그 값에 맞게 다시 그린다. */
 function shootSyncCategory(){
   var lbl=document.getElementById("shootActiveCatLabel");
-  if(lbl) lbl.textContent=activeMenu+(activeCat?' · '+activeCat:'');
+  if(lbl) lbl.textContent=activeCat||'';
   applyMenuLabels(activeMenu);
   togglePhaseSelect();
   populateCatSelect();
@@ -1327,7 +1320,6 @@ async function loadSavedFolderHandle(){
     });
     if(rec && rec.value){
       dirHandle=rec.value;
-      document.getElementById('shootFolderBtn').title='📁 '+dirHandle.name;
     }
   }catch(e){ console.warn('폴더 정보 불러오기 실패',e); }
 }
