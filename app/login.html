@@ -75,6 +75,9 @@ body{background:var(--bg); font-family:var(--font-body); color:var(--ink); min-h
       <select id="regTeam" class="f">
         <option>1팀(계장)</option><option>2팀(계장)</option><option>품질팀</option><option>안전관리팀</option>
       </select>
+      <!-- 위 4개는 Supabase 연결 실패 시를 대비한 기본값 — 정상 연결되면 loadTeamOptions()가
+           app_settings.personnel(⚙️설정 > 인원 관리와 동일한 목록)로 즉시 덮어씀 -->
+      <div id="regTeamHint" style="font-size:11px;color:var(--lbl);margin-top:4px;"></div>
       <button class="sbtn" onclick="doSignup()">가입하기</button>
     </div>
   </div>
@@ -162,6 +165,24 @@ async function doSignup(){
   if(p) document.getElementById('hdrProject').textContent=p;
   if(c) document.getElementById('hdrCompany').textContent=c;
 })();
+
+/* 소속팀 목록을 app_settings.personnel(작업일보 ⚙️설정 > 인원 관리)에서 그대로 가져와 채운다.
+   관리자가 팀을 추가/이름변경/삭제하면 다음 가입자부터 바로 반영된다.
+   조회 실패/빈 값이면 HTML에 있는 기본 4개 옵션을 그대로 둔다. */
+async function loadTeamOptions(){
+  var sel = document.getElementById('regTeam');
+  var hint = document.getElementById('regTeamHint');
+  try{
+    var res = await sbClient.from('app_settings').select('personnel').eq('id','global').single();
+    var list = (res.data && Array.isArray(res.data.personnel)) ? res.data.personnel : [];
+    if(res.error || !list.length){ hint.textContent='⚠️ 팀 목록을 불러오지 못해 기본 목록으로 표시합니다.'; return; }
+    var cur = sel.value;
+    sel.innerHTML = list.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+    if(list.indexOf(cur)!==-1) sel.value = cur;
+    hint.textContent='';
+  }catch(e){ hint.textContent='⚠️ 팀 목록을 불러오지 못해 기본 목록으로 표시합니다.'; }
+}
+loadTeamOptions();
 </script>
 </body>
 </html>
