@@ -92,6 +92,18 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 
   <!-- 출력현황 -->
   <div class="admin-pane" id="pane-out">
+    <div style="background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px; margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:800;color:var(--brand-1);margin-bottom:8px;">현장 좌표 설정 (작업자 앱 출력체크 반경 기준)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">위도</label><input type="number" step="any" id="siteLatInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
+        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">경도</label><input type="number" step="any" id="siteLngInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
+        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">반경(m)</label><input type="number" id="geofenceInput" value="1000" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button type="button" onclick="useCurrentLocation()" style="flex:1;padding:8px;border:1px solid var(--card-bd);border-radius:8px;background:var(--field-bg);cursor:pointer;font-size:12px;color:var(--ink);">📍 현재 위치 사용</button>
+        <button type="button" onclick="saveSiteSettings()" style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--brand-2);color:#fff;cursor:pointer;font-size:12px;font-weight:700;">저장</button>
+      </div>
+    </div>
     <div class="out-grid">
       <div class="out-card"><div class="num">25</div><div class="lbl">오늘 총 출력인원</div></div>
       <div class="out-card"><div class="num">4</div><div class="lbl">팀 수</div></div>
@@ -172,6 +184,38 @@ async function loadAllReports(){
     }).join('');
   }catch(e){ wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; }
 }
+
+/* ── 현장 좌표 설정 — 작업자 앱(index.html)의 출력체크 반경 게이트 기준값 (app_settings.site_lat/site_lng/geofence_m) ── */
+async function loadSiteSettings(){
+  if(!sbClient) return;
+  try{
+    var res = await sbClient.from('app_settings').select('site_lat,site_lng,geofence_m').eq('id','global').single();
+    if(res.error || !res.data) return;
+    if(typeof res.data.site_lat==='number') document.getElementById('siteLatInput').value = res.data.site_lat;
+    if(typeof res.data.site_lng==='number') document.getElementById('siteLngInput').value = res.data.site_lng;
+    if(typeof res.data.geofence_m==='number') document.getElementById('geofenceInput').value = res.data.geofence_m;
+  }catch(e){ console.error('현장 좌표 불러오기 실패', e); }
+}
+function useCurrentLocation(){
+  if(!navigator.geolocation){ alert('이 브라우저는 위치 사용을 지원하지 않습니다.'); return; }
+  navigator.geolocation.getCurrentPosition(function(pos){
+    document.getElementById('siteLatInput').value = pos.coords.latitude;
+    document.getElementById('siteLngInput').value = pos.coords.longitude;
+  }, function(err){ alert('위치를 가져오지 못했습니다: '+err.message); });
+}
+async function saveSiteSettings(){
+  if(!sbClient){ alert('Supabase 연결 실패'); return; }
+  var lat = Number(document.getElementById('siteLatInput').value);
+  var lng = Number(document.getElementById('siteLngInput').value);
+  var geo = Number(document.getElementById('geofenceInput').value) || 1000;
+  if(!lat || !lng){ alert('위도/경도를 입력해주세요.'); return; }
+  try{
+    var res = await sbClient.from('app_settings').upsert({id:'global', site_lat:lat, site_lng:lng, geofence_m:geo, updated_at:new Date().toISOString()});
+    if(res.error){ alert('저장 실패: '+res.error.message); return; }
+    alert('현장 좌표가 저장되었습니다.');
+  }catch(e){ alert('저장 실패: '+e.message); }
+}
+loadSiteSettings();
 </script>
 </body>
 </html>
