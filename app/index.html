@@ -49,6 +49,12 @@ textarea.f{resize:none; height:44px;}
 .entry-row:last-child{border-bottom:none;}
 .entry-row-top{display:flex; gap:6px; margin-bottom:4px;}
 .entry-row-bottom{display:flex; gap:6px; align-items:center;}
+/* 입력 끝난 행은 한 줄 요약으로 접어서, 아래로 계속 입력할 때 스크롤해도 전체가 한눈에 들어오게 함.
+   지금 입력 중인(가장 최근 추가된) 행만 펼쳐진 채로 남는다 — 접힌 요약을 탭하면 다시 펼쳐짐. */
+.entry-row-summary{display:none; align-items:center; justify-content:space-between; gap:8px; cursor:pointer; padding:5px 2px; font-size:14px; color:var(--ink);}
+.entry-row-summary-text{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.entry-row.collapsed .entry-row-summary{display:flex;}
+.entry-row.collapsed .entry-row-edit{display:none;}
 .entry-cell{width:100%; background:var(--card); border:1.5px solid var(--field-bd); border-radius:6px; padding:6px 4px; font-size:15px; color:var(--ink); font-family:var(--font-body);}
 .entry-del{border:none; background:none; color:var(--muted); font-size:15px; cursor:pointer; padding:2px 1px; line-height:1; flex-shrink:0;}
 .entry-del:hover{color:var(--err);}
@@ -971,23 +977,55 @@ function addEntryRow(prefill){
     return '<option'+(spec===s?' selected':'')+'>'+s+'</option>';
   }).join('');
   row.innerHTML =
-    '<div class="entry-row-top">'
-      +'<div style="flex:1;min-width:0;"><input class="entry-cell" data-f="tag" placeholder="'+currentTagPh+'" value="'+String(tag).replace(/"/g,'&quot;')+'"></div>'
-      +'<div style="width:96px;flex-shrink:0;"><select class="entry-cell" data-f="spec">'
-        +'<option value=""'+(spec===''?' selected':'')+'>-</option>'
-        +specOptsHtml
-      +'</select></div>'
+    '<div class="entry-row-summary" onclick="expandEntryRow(this.closest(\'.entry-row\'))">'
+      +'<span class="entry-row-summary-text"></span>'
+      +'<button type="button" class="entry-del" onclick="event.stopPropagation(); this.closest(\'.entry-row\').remove()" aria-label="행 삭제">✕</button>'
     +'</div>'
-    +'<div class="entry-row-bottom">'
-      +'<div style="width:64px;flex-shrink:0;"><input class="entry-cell" data-f="qty" type="number" min="0" value="'+qty+'"></div>'
-      +'<div style="flex:1;min-width:0;"><select class="entry-cell" data-f="status" onchange="onRowStatusChange(this)">'
-        +'<option value=""'+(status===''?' selected':'')+'>-</option>'
-        +statusOptsHtml
-      +'</select></div>'
-      +'<button type="button" class="entry-del" onclick="this.closest(\'.entry-row\').remove()" aria-label="행 삭제">✕</button>'
+    +'<div class="entry-row-edit">'
+      +'<div class="entry-row-top">'
+        +'<div style="flex:1;min-width:0;"><input class="entry-cell" data-f="tag" placeholder="'+currentTagPh+'" value="'+String(tag).replace(/"/g,'&quot;')+'"></div>'
+        +'<div style="width:96px;flex-shrink:0;"><select class="entry-cell" data-f="spec">'
+          +'<option value=""'+(spec===''?' selected':'')+'>-</option>'
+          +specOptsHtml
+        +'</select></div>'
+      +'</div>'
+      +'<div class="entry-row-bottom">'
+        +'<div style="width:64px;flex-shrink:0;"><input class="entry-cell" data-f="qty" type="number" min="0" value="'+qty+'"></div>'
+        +'<div style="flex:1;min-width:0;"><select class="entry-cell" data-f="status" onchange="onRowStatusChange(this)">'
+          +'<option value=""'+(status===''?' selected':'')+'>-</option>'
+          +statusOptsHtml
+        +'</select></div>'
+        +'<button type="button" class="entry-del" onclick="this.closest(\'.entry-row\').remove()" aria-label="행 삭제">✕</button>'
+      +'</div>'
     +'</div>';
+  var hadRows = wrap.children.length>0;
   wrap.appendChild(row);
+  if(hadRows) collapseOtherEntryRows(row);
   return row;
+}
+/* 방금 추가된 행(exceptRow)만 펼쳐두고, 이미 기기번호가 채워진 나머지 행은 한 줄 요약으로 접는다.
+   아직 아무것도 안 채운 빈 행은 접을 내용이 없으니 그대로 펼쳐둔다. */
+function collapseOtherEntryRows(exceptRow){
+  var wrap = document.getElementById('entryRows');
+  Array.prototype.forEach.call(wrap.children, function(row){
+    if(row!==exceptRow) collapseEntryRowIfFilled(row);
+  });
+}
+function collapseEntryRowIfFilled(row){
+  var tagInput = row.querySelector('[data-f="tag"]');
+  if(!tagInput || !tagInput.value.trim()) return;
+  var spec = row.querySelector('[data-f="spec"]').value;
+  var qty = row.querySelector('[data-f="qty"]').value;
+  var status = row.querySelector('[data-f="status"]').value;
+  row.querySelector('.entry-row-summary-text').textContent =
+    tagInput.value.trim()+(spec?' · '+spec:'')+' · '+(qty||0)+(status?' · '+status:'');
+  row.classList.add('collapsed');
+}
+function expandEntryRow(row){
+  collapseOtherEntryRows(row);
+  row.classList.remove('collapsed');
+  var tagInput = row.querySelector('[data-f="tag"]');
+  if(tagInput) tagInput.focus();
 }
 function onRowStatusChange(sel){
   if(!sel.value) return;
