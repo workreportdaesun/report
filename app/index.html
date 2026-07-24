@@ -258,12 +258,9 @@ textarea.f{resize:none; height:44px;}
 <!-- ══ 작업사진 (shoot 기능 이식) ══ -->
 <div class="worker-pane" id="pane-shoot">
 
-  <div class="card" style="padding:8px 12px; display:flex; align-items:center; gap:8px;">
-    <div style="flex:1; min-width:0; font-size:14px; font-weight:800; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="shootActiveCatLabel">시공</div>
-  </div>
-
   <!-- 정보 입력 -->
   <div class="card">
+    <div class="step-label"><span id="shootActiveCatLabel"></span></div>
     <div class="flbl" id="shootLblTag">기기번호</div>
     <div class="mic-row">
       <input type="text" id="shootInTag" class="f" placeholder="PT-2101, EQ-001 등" oninput="this.value=this.value.toUpperCase()"/>
