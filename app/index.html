@@ -243,7 +243,6 @@ textarea.f{resize:none; height:44px;}
     <textarea class="f" id="noteInput" placeholder="특이사항..."></textarea>
 
     <button class="sbtn sbtn-add" onclick="saveEntryRows()">💾 저장</button>
-    <button class="sbtn sbtn-outline" onclick="closeCard()">닫기</button>
   </div>
 
   <!-- 오늘 입력한 항목 -->
@@ -1075,10 +1074,6 @@ function editItem(idx){
   document.getElementById('noteInput').value = it.note || '';
   setCamBoxState(!!it.photo || hasPhoto);
   showToast('✏️ 수정 모드 — 값을 고친 뒤 저장하세요', 'var(--brand-2)');
-}
-function closeCard(){
-  document.getElementById('inputCard').style.display='none';
-  activeCat = null;
 }
 /* ── 장비 사용(equipmentLog) — 공종/작업분류와 무관하게 항상 입력 가능, daily_reports.equipment에 저장,
    장비현황 탭 금일/전일누계/누계 집계의 원본 데이터가 된다 ── */
