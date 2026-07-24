@@ -174,7 +174,8 @@ textarea.f{resize:none; height:44px;}
 .chip-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;}
 .chip{display:flex; align-items:center; gap:5px; background:var(--field-bg); border:1.5px solid var(--field-bd); border-radius:14px; padding:4px 6px 4px 12px; font-size:15px; color:var(--ink);}
 .chip button{background:none; border:none; color:var(--muted); font-size:13px; cursor:pointer; padding:2px 6px;}
-.chip button:hover{color:var(--err);}
+.chip button.chip-del:hover{color:var(--err);}
+.chip button.chip-edit:hover{color:var(--brand-2);}
 .add-row{display:flex; gap:6px;}
 .add-row input{flex:1;}
 .add-row button{flex-shrink:0; background:var(--brand-2); color:#fff; border:none; border-radius:8px; padding:0 16px; font-size:15px; font-weight:700; cursor:pointer;}
@@ -423,28 +424,28 @@ textarea.f{resize:none; height:44px;}
       <div class="chip-row" id="modalCatChips"></div>
       <div class="add-row">
         <input type="text" id="modalNewCatInput" class="f" placeholder="새 분류 이름"/>
-        <button type="button" onclick="modalAddCategory()">추가</button>
+        <button type="button" id="modalCatSaveBtn" onclick="modalAddCategory()">추가</button>
       </div>
 
       <div class="cat-modal-sublbl">작업구역 관리</div>
       <div class="chip-row" id="modalAreaChips"></div>
       <div class="add-row">
         <input type="text" id="modalNewAreaInput" class="f" placeholder="새 구역 이름"/>
-        <button type="button" onclick="modalAddArea()">추가</button>
+        <button type="button" id="modalAreaSaveBtn" onclick="modalAddArea()">추가</button>
       </div>
 
       <div class="cat-modal-sublbl">인원 관리</div>
       <div class="chip-row" id="modalPersonnelChips"></div>
       <div class="add-row">
         <input type="text" id="modalNewPersonnelInput" class="f" placeholder="새 인원 이름"/>
-        <button type="button" onclick="modalAddPersonnel()">추가</button>
+        <button type="button" id="modalPersonnelSaveBtn" onclick="modalAddPersonnel()">추가</button>
       </div>
 
       <div class="cat-modal-sublbl">장비 관리</div>
       <div class="chip-row" id="modalEquipmentChips"></div>
       <div class="add-row">
         <input type="text" id="modalNewEquipmentInput" class="f" placeholder="새 장비 이름"/>
-        <button type="button" onclick="modalAddEquipment()">추가</button>
+        <button type="button" id="modalEquipmentSaveBtn" onclick="modalAddEquipment()">추가</button>
       </div>
     </div>
   </div>
@@ -536,6 +537,9 @@ var customEquipment = ['크레인','지게차','발전기','용접기','에어�
 var activeMenu='시공', activeCat=null, hasPhoto=false, items=[];
 document.getElementById('hdrActiveMenu').textContent = ' ('+activeMenu+')';
 var modalMenu='시공';
+/* 설정(⚙️) 팝업의 분류/구역/인원/장비 관리 — 각 -1이면 "추가" 모드, 0 이상이면 그 인덱스 항목을
+   수정 중이며 입력칸에 기존 값이 채워지고 버튼이 "저장"으로 바뀐다. */
+var editingCatIdx=-1, editingAreaIdx=-1, editingPersonnelIdx=-1, editingEquipmentIdx=-1;
 
 /* ── 작업분류/구역/현장좌표 클라우드 동기화 (work-shoot-daesun/index.html과 동일 패턴) ── */
 async function pushSettingsToSupabase(){
@@ -605,6 +609,7 @@ function showWorkerPane(p){
 /* ── 작업분류 선택 팝업 ── */
 function openCatModal(){
   modalMenu = activeMenu;
+  resetModalEditStates();
   renderModalMenuTabs();
   renderModalCatSelect();
   renderModalAreaChips();
@@ -622,6 +627,18 @@ function openCatModal(){
 function closeCatModal(){
   document.getElementById('catModalOverlay').classList.remove('show');
 }
+/* 분류/구역/인원/장비 관리 입력칸을 전부 "추가" 모드로 되돌린다(수정 중이던 항목 취소) */
+function resetModalEditStates(){
+  editingCatIdx=-1; editingAreaIdx=-1; editingPersonnelIdx=-1; editingEquipmentIdx=-1;
+  document.getElementById('modalNewCatInput').value='';
+  document.getElementById('modalNewAreaInput').value='';
+  document.getElementById('modalNewPersonnelInput').value='';
+  document.getElementById('modalNewEquipmentInput').value='';
+  document.getElementById('modalCatSaveBtn').textContent='추가';
+  document.getElementById('modalAreaSaveBtn').textContent='추가';
+  document.getElementById('modalPersonnelSaveBtn').textContent='추가';
+  document.getElementById('modalEquipmentSaveBtn').textContent='추가';
+}
 function renderModalMenuTabs(){
   var wrap=document.getElementById('modalMenuTabs');
   wrap.innerHTML = Object.keys(MENU_CONFIG).map(function(m){
@@ -630,6 +647,10 @@ function renderModalMenuTabs(){
 }
 function selectModalMenu(m){
   modalMenu = m;
+  // 분류 목록은 공종별로 달라서, 다른 공종 탭으로 넘어가면 수정 중이던 분류는 취소한다
+  editingCatIdx=-1;
+  document.getElementById('modalNewCatInput').value='';
+  document.getElementById('modalCatSaveBtn').textContent='추가';
   renderModalMenuTabs();
   renderModalCatSelect();
 }
@@ -650,15 +671,33 @@ function renderModalCatSelect(){
 function renderModalCatChips(){
   var list = catsByMenu[modalMenu] || [];
   document.getElementById('modalCatChips').innerHTML = list.map(function(c,i){
-    return '<span class="chip">'+c+'<button type="button" onclick="modalRemoveCategory('+i+')" title="삭제">✕</button></span>';
+    return '<span class="chip">'+c
+      +'<button type="button" class="chip-edit" onclick="modalEditCategory('+i+')" title="수정">✏️</button>'
+      +'<button type="button" class="chip-del" onclick="modalRemoveCategory('+i+')" title="삭제">✕</button></span>';
   }).join('');
+}
+function modalEditCategory(i){
+  var list = catsByMenu[modalMenu];
+  if(!list) return;
+  editingCatIdx = i;
+  document.getElementById('modalNewCatInput').value = list[i];
+  document.getElementById('modalNewCatInput').focus();
+  document.getElementById('modalCatSaveBtn').textContent = '저장';
 }
 function modalAddCategory(){
   var inp = document.getElementById('modalNewCatInput');
   var v = inp.value.trim();
   var list = catsByMenu[modalMenu];
-  if(!v || !list || list.indexOf(v)!==-1) return;
-  list.push(v);
+  if(!v || !list) return;
+  if(editingCatIdx>=0){
+    if(list.indexOf(v)!==-1 && list[editingCatIdx]!==v) return;
+    list[editingCatIdx] = v;
+    editingCatIdx = -1;
+    document.getElementById('modalCatSaveBtn').textContent = '추가';
+  }else{
+    if(list.indexOf(v)!==-1) return;
+    list.push(v);
+  }
   inp.value = '';
   renderModalCatSelect();
   pushSettingsToSupabase();
@@ -667,19 +706,36 @@ function modalRemoveCategory(i){
   var list = catsByMenu[modalMenu];
   if(!list || list.length<=1) return;
   list.splice(i,1);
+  editingCatIdx=-1; document.getElementById('modalNewCatInput').value=''; document.getElementById('modalCatSaveBtn').textContent='추가';
   renderModalCatSelect();
   pushSettingsToSupabase();
 }
 function renderModalAreaChips(){
   document.getElementById('modalAreaChips').innerHTML = customAreas.map(function(a,i){
-    return '<span class="chip">'+a+'<button type="button" onclick="modalRemoveArea('+i+')" title="삭제">✕</button></span>';
+    return '<span class="chip">'+a
+      +'<button type="button" class="chip-edit" onclick="modalEditArea('+i+')" title="수정">✏️</button>'
+      +'<button type="button" class="chip-del" onclick="modalRemoveArea('+i+')" title="삭제">✕</button></span>';
   }).join('');
+}
+function modalEditArea(i){
+  editingAreaIdx = i;
+  document.getElementById('modalNewAreaInput').value = customAreas[i];
+  document.getElementById('modalNewAreaInput').focus();
+  document.getElementById('modalAreaSaveBtn').textContent = '저장';
 }
 function modalAddArea(){
   var inp = document.getElementById('modalNewAreaInput');
   var v = inp.value.trim();
-  if(!v || customAreas.indexOf(v)!==-1) return;
-  customAreas.push(v);
+  if(!v) return;
+  if(editingAreaIdx>=0){
+    if(customAreas.indexOf(v)!==-1 && customAreas[editingAreaIdx]!==v) return;
+    customAreas[editingAreaIdx] = v;
+    editingAreaIdx = -1;
+    document.getElementById('modalAreaSaveBtn').textContent = '추가';
+  }else{
+    if(customAreas.indexOf(v)!==-1) return;
+    customAreas.push(v);
+  }
   inp.value = '';
   renderModalAreaChips();
   pushSettingsToSupabase();
@@ -687,19 +743,36 @@ function modalAddArea(){
 function modalRemoveArea(i){
   if(customAreas.length<=1) return;
   customAreas.splice(i,1);
+  editingAreaIdx=-1; document.getElementById('modalNewAreaInput').value=''; document.getElementById('modalAreaSaveBtn').textContent='추가';
   renderModalAreaChips();
   pushSettingsToSupabase();
 }
 function renderModalPersonnelChips(){
   document.getElementById('modalPersonnelChips').innerHTML = customPersonnel.map(function(p,i){
-    return '<span class="chip">'+p+'<button type="button" onclick="modalRemovePersonnel('+i+')" title="삭제">✕</button></span>';
+    return '<span class="chip">'+p
+      +'<button type="button" class="chip-edit" onclick="modalEditPersonnel('+i+')" title="수정">✏️</button>'
+      +'<button type="button" class="chip-del" onclick="modalRemovePersonnel('+i+')" title="삭제">✕</button></span>';
   }).join('');
+}
+function modalEditPersonnel(i){
+  editingPersonnelIdx = i;
+  document.getElementById('modalNewPersonnelInput').value = customPersonnel[i];
+  document.getElementById('modalNewPersonnelInput').focus();
+  document.getElementById('modalPersonnelSaveBtn').textContent = '저장';
 }
 function modalAddPersonnel(){
   var inp = document.getElementById('modalNewPersonnelInput');
   var v = inp.value.trim();
-  if(!v || customPersonnel.indexOf(v)!==-1) return;
-  customPersonnel.push(v);
+  if(!v) return;
+  if(editingPersonnelIdx>=0){
+    if(customPersonnel.indexOf(v)!==-1 && customPersonnel[editingPersonnelIdx]!==v) return;
+    customPersonnel[editingPersonnelIdx] = v;
+    editingPersonnelIdx = -1;
+    document.getElementById('modalPersonnelSaveBtn').textContent = '추가';
+  }else{
+    if(customPersonnel.indexOf(v)!==-1) return;
+    customPersonnel.push(v);
+  }
   inp.value = '';
   renderModalPersonnelChips();
   if(typeof window.renderPnList==='function') window.renderPnList();
@@ -707,20 +780,37 @@ function modalAddPersonnel(){
 }
 function modalRemovePersonnel(i){
   customPersonnel.splice(i,1);
+  editingPersonnelIdx=-1; document.getElementById('modalNewPersonnelInput').value=''; document.getElementById('modalPersonnelSaveBtn').textContent='추가';
   renderModalPersonnelChips();
   if(typeof window.renderPnList==='function') window.renderPnList();
   pushSettingsToSupabase();
 }
 function renderModalEquipmentChips(){
   document.getElementById('modalEquipmentChips').innerHTML = customEquipment.map(function(p,i){
-    return '<span class="chip">'+p+'<button type="button" onclick="modalRemoveEquipment('+i+')" title="삭제">✕</button></span>';
+    return '<span class="chip">'+p
+      +'<button type="button" class="chip-edit" onclick="modalEditEquipment('+i+')" title="수정">✏️</button>'
+      +'<button type="button" class="chip-del" onclick="modalRemoveEquipment('+i+')" title="삭제">✕</button></span>';
   }).join('');
+}
+function modalEditEquipment(i){
+  editingEquipmentIdx = i;
+  document.getElementById('modalNewEquipmentInput').value = customEquipment[i];
+  document.getElementById('modalNewEquipmentInput').focus();
+  document.getElementById('modalEquipmentSaveBtn').textContent = '저장';
 }
 function modalAddEquipment(){
   var inp = document.getElementById('modalNewEquipmentInput');
   var v = inp.value.trim();
-  if(!v || customEquipment.indexOf(v)!==-1) return;
-  customEquipment.push(v);
+  if(!v) return;
+  if(editingEquipmentIdx>=0){
+    if(customEquipment.indexOf(v)!==-1 && customEquipment[editingEquipmentIdx]!==v) return;
+    customEquipment[editingEquipmentIdx] = v;
+    editingEquipmentIdx = -1;
+    document.getElementById('modalEquipmentSaveBtn').textContent = '추가';
+  }else{
+    if(customEquipment.indexOf(v)!==-1) return;
+    customEquipment.push(v);
+  }
   inp.value = '';
   renderModalEquipmentChips();
   if(typeof window.renderPnList==='function') window.renderPnList();
@@ -728,6 +818,7 @@ function modalAddEquipment(){
 }
 function modalRemoveEquipment(i){
   customEquipment.splice(i,1);
+  editingEquipmentIdx=-1; document.getElementById('modalNewEquipmentInput').value=''; document.getElementById('modalEquipmentSaveBtn').textContent='추가';
   renderModalEquipmentChips();
   if(typeof window.renderPnList==='function') window.renderPnList();
   pushSettingsToSupabase();
