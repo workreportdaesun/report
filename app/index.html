@@ -187,10 +187,7 @@ textarea.f{resize:none; height:44px;}
 .pg-item-unit{font-size:11px; color:var(--lbl);}
 .pg-item-nums{display:flex; gap:10px; font-size:11px; color:var(--lbl);}
 .pg-item-nums b{color:var(--ink);}
-.pg-bar-wrap{display:flex; align-items:center; gap:8px;}
-.pg-bar-bg{flex:1; height:6px; background:var(--field-bd); border-radius:3px; overflow:hidden;}
-.pg-bar-fill{height:100%; border-radius:3px; background:var(--brand-2);}
-.pg-pct{font-size:11px; font-weight:800; color:var(--brand-2); min-width:34px; text-align:right;}
+.pg-pct{font-size:11px; font-weight:800; color:var(--brand-2);}
 
 </style>
 </head>
@@ -1982,8 +1979,7 @@ function renderPgList(){
     +PG_ITEMS.map(function(d){
       return '<div class="pg-item">'
         +'<div class="pg-item-top"><span class="pg-item-name">'+d.item+'</span><span class="pg-item-unit">'+d.unit+'</span></div>'
-        +'<div class="pg-item-nums"><span>계획 <b>–</b></span><span>전일누계 <b>–</b></span><span>금일 <b>–</b></span><span>누계 <b>–</b></span></div>'
-        +'<div class="pg-bar-wrap"><div class="pg-bar-bg"><div class="pg-bar-fill" style="width:0%;"></div></div><span class="pg-pct">0%</span></div>'
+        +'<div class="pg-item-nums"><span>계획 <b>–</b></span><span>전일누계 <b>–</b></span><span>금일 <b>–</b></span><span>누계 <b>–</b> <b class="pg-pct">0%</b></span></div>'
         +'</div>';
     }).join('')
     +'</div>';
