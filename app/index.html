@@ -255,6 +255,20 @@ textarea.f{resize:none; height:44px;}
     <div id="itemList"><div class="empty-msg">아직 입력한 항목이 없습니다</div></div>
   </div>
 
+  <!-- 장비 사용 — 공종/작업분류와 무관하게 항상 노출, 장비현황 탭 집계의 입력 소스 -->
+  <div class="card" id="equipLogCard">
+    <div class="list-header">
+      <span class="list-title">장비 사용</span>
+      <span class="list-count"><span id="equipLogCount">0</span>건</span>
+    </div>
+    <div class="row2">
+      <div><select class="f" id="equipLogSelect"></select></div>
+      <div><input type="number" class="f" id="equipLogQty" min="1" value="1" placeholder="수량"></div>
+    </div>
+    <button type="button" class="sbtn sbtn-outline" style="margin-top:8px;" onclick="addEquipLogEntry()">➕ 장비 사용 추가</button>
+    <div class="chip-row" id="equipLogList" style="margin-top:8px;"></div>
+  </div>
+
   <button class="sbtn sbtn-send" id="sendBtn" onclick="previewReport()" disabled>📄 미리보기</button>
 
 </div>
@@ -567,6 +581,7 @@ function applyRemoteSettings(data){
     customEquipment = data.equipment;
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalEquipmentChips();
     if(typeof window.renderPnList==='function') window.renderPnList();
+    if(typeof populateEquipLogSelect==='function') populateEquipLogSelect();
   }
   if(typeof window.shootSyncCategory==='function') window.shootSyncCategory();
 }
@@ -597,6 +612,8 @@ function showWorkerPane(p){
   document.getElementById('wtabProgress').classList.toggle('active', p==='progress');
   document.getElementById('wtabPersonnel').classList.toggle('active', p==='personnel');
   if(p==='shoot' && typeof window.shootSyncCategory==='function') window.shootSyncCategory();
+  if(p==='progress' && typeof window.loadProgressData==='function') window.loadProgressData();
+  if(p==='personnel' && typeof window.loadPersonnelEquipmentData==='function') window.loadPersonnelEquipmentData();
 }
 /* ── 작업분류 선택 팝업 ── */
 function openCatModal(){
@@ -806,6 +823,7 @@ function modalAddEquipment(){
   inp.value = '';
   renderModalEquipmentChips();
   if(typeof window.renderPnList==='function') window.renderPnList();
+  populateEquipLogSelect();
   pushSettingsToSupabase();
 }
 function modalRemoveEquipment(i){
@@ -813,6 +831,7 @@ function modalRemoveEquipment(i){
   editingEquipmentIdx=-1; document.getElementById('modalNewEquipmentInput').value=''; document.getElementById('modalEquipmentSaveBtn').textContent='추가';
   renderModalEquipmentChips();
   if(typeof window.renderPnList==='function') window.renderPnList();
+  populateEquipLogSelect();
   pushSettingsToSupabase();
 }
 function toggleCatCombo(e){
@@ -910,6 +929,7 @@ function saveEntryRows(){
   renderItemList();
   document.getElementById('sendBtn').disabled = items.length===0;
   upsertDailyReport({items:items, status:'draft'});
+  if(typeof window.loadProgressData==='function') window.loadProgressData();
   showToast('💾 '+saved+'건 저장됨', 'var(--ok)');
   document.getElementById('entryRows').innerHTML = '';
   addEntryRow();
@@ -937,6 +957,41 @@ function editItem(idx){
 function closeCard(){
   document.getElementById('inputCard').style.display='none';
   activeCat = null;
+}
+/* ── 장비 사용(equipmentLog) — 공종/작업분류와 무관하게 항상 입력 가능, daily_reports.equipment에 저장,
+   장비현황 탭 금일/전일누계/누계 집계의 원본 데이터가 된다 ── */
+var equipmentLog = [];
+function populateEquipLogSelect(){
+  var sel = document.getElementById('equipLogSelect');
+  if(!sel) return;
+  var cur = sel.value;
+  sel.innerHTML = customEquipment.map(function(e){ return '<option value="'+e.replace(/"/g,'&quot;')+'">'+e+'</option>'; }).join('');
+  if(cur && customEquipment.indexOf(cur)!==-1) sel.value = cur;
+}
+function renderEquipLog(){
+  document.getElementById('equipLogCount').textContent = equipmentLog.length;
+  document.getElementById('equipLogList').innerHTML = equipmentLog.map(function(e,i){
+    return '<span class="chip">'+e.name+' × '+e.qty+'<button type="button" class="chip-del" onclick="removeEquipLogEntry('+i+')" title="삭제">✕</button></span>';
+  }).join('');
+}
+function addEquipLogEntry(){
+  var sel = document.getElementById('equipLogSelect');
+  var name = sel.value;
+  var qty = Number(document.getElementById('equipLogQty').value) || 0;
+  if(!name || qty<=0){ showToast('⚠️ 장비와 수량을 확인해주세요', 'var(--err)'); return; }
+  var existing = equipmentLog.find(function(e){ return e.name===name; });
+  if(existing) existing.qty += qty;
+  else equipmentLog.push({name:name, qty:qty});
+  renderEquipLog();
+  upsertDailyReport({equipment:equipmentLog});
+  if(typeof window.loadPersonnelEquipmentData==='function') window.loadPersonnelEquipmentData();
+  showToast('➕ 장비 사용 추가됨', 'var(--ok)');
+}
+function removeEquipLogEntry(i){
+  equipmentLog.splice(i,1);
+  renderEquipLog();
+  upsertDailyReport({equipment:equipmentLog});
+  if(typeof window.loadPersonnelEquipmentData==='function') window.loadPersonnelEquipmentData();
 }
 /* ── daily_reports 임시저장(draft)/제출(submitted) — 팀+날짜 단위 1행, 로그인 필요(SHEET10 결정) ── */
 function todayStr(){
@@ -1124,6 +1179,7 @@ function showToast(msg, color){
 
 fetchSettingsFromSupabase();
 subscribeSettingsRealtime();
+populateEquipLogSelect();
 
 /* 미리보기 갔다가 전송 없이 돌아온 경우: 저장 안 하고 있던 입력칸 내용을 그대로 복원 */
 function restorePendingEntry(){
@@ -2130,10 +2186,10 @@ window.pickSaveFolder=pickSaveFolder;
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════
-     공정률 탭 — progress(workreportdaesun/progress)의 "공정률" 화면 레이아웃만
-     이식한 화면 미리보기. 계획수량/전일누계/금일/누계/FACTOR 등 실데이터 계산·저장
-     로직은 아직 없음(추후 작업분류별 Supabase 연동 시 추가 예정) — 지금은 progress의
-     PROC_ITEMS 목록을 더미로 보여주기만 한다. 조회 전용, PIN 없음.
+     공정률 탭 — progress(workreportdaesun/progress)의 "공정률" 화면 레이아웃을 이식하되,
+     전일누계/금일/누계는 daily_reports(전체 팀, 전체 날짜)의 items[].qty를 작업분류별로
+     실시간 집계해서 채운다(loadProgressData). 계획수량 입력 기능이 아직 없어 계획/%는
+     여전히 "–"/0% 표시로 남겨둠. 조회 전용, PIN 없음.
      ══════════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
@@ -2151,10 +2207,34 @@ var PG_ITEMS=[
   {item:'Steam Tracing Insulation',unit:'M'},
   {item:'Scaffolding',unit:'식'},{item:'Others',unit:'식'},
 ];
+var PG_TODAY={}, PG_BEFORE={};
+function sumValues(obj){ return Object.keys(obj).reduce(function(s,k){ return s+obj[k]; },0); }
+async function loadProgressData(){
+  if(!sbClient) return;
+  try{
+    var res = await sbClient.from('daily_reports').select('date,items');
+    if(res.error || !res.data) return;
+    var today = todayStr();
+    var t={}, b={};
+    res.data.forEach(function(row){
+      var arr = Array.isArray(row.items) ? row.items : [];
+      var target = row.date===today ? t : (row.date<today ? b : null);
+      if(!target) return;
+      arr.forEach(function(it){
+        if(!it || !it.cat) return;
+        target[it.cat] = (target[it.cat]||0) + (Number(it.qty)||0);
+      });
+    });
+    PG_TODAY=t; PG_BEFORE=b;
+    renderPgList();
+  }catch(e){ console.error('공정률 데이터 불러오기 실패', e); }
+}
 function pgItemHtml(name,unit,isTotal){
+  var today = isTotal ? sumValues(PG_TODAY) : (PG_TODAY[name]||0);
+  var before = isTotal ? sumValues(PG_BEFORE) : (PG_BEFORE[name]||0);
   return '<div class="pg-item'+(isTotal?' pg-item-total':'')+'">'
     +'<div class="pg-item-top"><span class="pg-item-name">'+name+'</span><span class="pg-item-unit">'+unit+'</span></div>'
-    +'<div class="pg-item-nums"><span>계획 <b>–</b></span><span>전일누계 <b>–</b></span><span>금일 <b>–</b></span><span>누계 <b>–</b> <b class="pg-pct">0%</b></span></div>'
+    +'<div class="pg-item-nums"><span>계획 <b>–</b></span><span>전일누계 <b>'+before+'</b></span><span>금일 <b>'+today+'</b></span><span>누계 <b>'+(before+today)+'</b> <b class="pg-pct">0%</b></span></div>'
     +'</div>';
 }
 function renderPgList(){
@@ -2168,7 +2248,9 @@ window.showProgSub=function(sub){
   document.getElementById('pgSubVolBtn').classList.toggle('active',sub==='vol');
   renderPgList();
 };
+window.loadProgressData=loadProgressData;
 renderPgList();
+loadProgressData();
 })();
 </script>
 
