@@ -436,6 +436,13 @@ textarea.f{resize:none; height:44px;}
         <input type="text" id="modalNewPersonnelInput" class="f" placeholder="새 인원 이름"/>
         <button type="button" onclick="modalAddPersonnel()">추가</button>
       </div>
+
+      <div class="cat-modal-sublbl">장비 관리</div>
+      <div class="chip-row" id="modalEquipmentChips"></div>
+      <div class="add-row">
+        <input type="text" id="modalNewEquipmentInput" class="f" placeholder="새 장비 이름"/>
+        <button type="button" onclick="modalAddEquipment()">추가</button>
+      </div>
     </div>
   </div>
 </div>
@@ -519,6 +526,9 @@ var customAreas = [];
 /* 인원현황(팀원 명단) — Supabase app_settings.personnel로 동기화됨. 목록 맨 위 "전체인원"은 이 배열에
    포함되지 않는 고정 집계행이고, 이 배열의 각 항목이 그 아래 개별 팀원 행이 된다. */
 var customPersonnel = ['1팀(계장)','2팀(계장)','품질팀','안전관리팀'];
+/* 장비현황(장비 목록) — Supabase app_settings.equipment로 동기화됨. 목록 맨 위 "전체장비"는 이 배열에
+   포함되지 않는 고정 집계행이고, 이 배열의 각 항목이 그 아래 개별 장비 행이 된다. */
+var customEquipment = ['크레인','지게차','발전기','용접기','에어컴프레서','고소작업대'];
 
 var activeMenu='시공', activeCat=null, hasPhoto=false, items=[];
 document.getElementById('hdrActiveMenu').textContent = ' ('+activeMenu+')';
@@ -533,6 +543,7 @@ async function pushSettingsToSupabase(){
       cats_by_menu: catsByMenu,
       areas: customAreas,
       personnel: customPersonnel,
+      equipment: customEquipment,
       updated_at: new Date().toISOString()
     });
     if(res.error) console.error('설정 클라우드 동기화 실패', res.error.message);
@@ -551,6 +562,11 @@ function applyRemoteSettings(data){
   if(Array.isArray(data.personnel) && data.personnel.length){
     customPersonnel = data.personnel;
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalPersonnelChips();
+    if(typeof window.renderPnList==='function') window.renderPnList();
+  }
+  if(Array.isArray(data.equipment) && data.equipment.length){
+    customEquipment = data.equipment;
+    if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalEquipmentChips();
     if(typeof window.renderPnList==='function') window.renderPnList();
   }
   if(typeof window.shootSyncCategory==='function') window.shootSyncCategory();
@@ -590,6 +606,7 @@ function openCatModal(){
   renderModalCatSelect();
   renderModalAreaChips();
   renderModalPersonnelChips();
+  renderModalEquipmentChips();
   var overlay=document.getElementById('catModalOverlay'), panel=document.getElementById('catModalPanel');
   overlay.classList.add('show');
   // 항상 같은 기준선(헤더 바로 아래)에서 아래로 드롭다운 — 동적 콘텐츠(입력카드/목록 길이)에 영향받지 않음
@@ -688,6 +705,27 @@ function modalAddPersonnel(){
 function modalRemovePersonnel(i){
   customPersonnel.splice(i,1);
   renderModalPersonnelChips();
+  if(typeof window.renderPnList==='function') window.renderPnList();
+  pushSettingsToSupabase();
+}
+function renderModalEquipmentChips(){
+  document.getElementById('modalEquipmentChips').innerHTML = customEquipment.map(function(p,i){
+    return '<span class="chip">'+p+'<button type="button" onclick="modalRemoveEquipment('+i+')" title="삭제">✕</button></span>';
+  }).join('');
+}
+function modalAddEquipment(){
+  var inp = document.getElementById('modalNewEquipmentInput');
+  var v = inp.value.trim();
+  if(!v || customEquipment.indexOf(v)!==-1) return;
+  customEquipment.push(v);
+  inp.value = '';
+  renderModalEquipmentChips();
+  if(typeof window.renderPnList==='function') window.renderPnList();
+  pushSettingsToSupabase();
+}
+function modalRemoveEquipment(i){
+  customEquipment.splice(i,1);
+  renderModalEquipmentChips();
   if(typeof window.renderPnList==='function') window.renderPnList();
   pushSettingsToSupabase();
 }
@@ -2048,18 +2086,13 @@ renderPgList();
 
 <!-- ══════════════════════════════════════════════════════════════════
      인원및장비 탭 — 공정률 탭과 동일한 패턴(안내문구/서브탭/목록, 전일누계/금일/누계)의
-     화면 미리보기. 인원현황 맨 위엔 고정 집계행 "전체인원"이 오고, 그 아래로 설정(⚙️)의
-     "인원 관리"에서 추가·삭제한 팀원이 이어짐(customPersonnel, app_settings.personnel로
-     동기화). 장비현황은 아직 고정 목록. 실데이터(전일누계/금일/누계) 연동은 추후 작업 예정.
-     조회 전용, PIN 없음.
+     화면 미리보기. 인원현황·장비현황 둘 다 맨 위엔 고정 집계행("전체인원"/"전체장비")이 오고,
+     그 아래로 설정(⚙️)의 "인원 관리"/"장비 관리"에서 추가·삭제한 목록이 이어짐
+     (customPersonnel/customEquipment, app_settings.personnel/equipment로 동기화).
+     실데이터(전일누계/금일/누계) 연동은 추후 작업 예정. 조회 전용, PIN 없음.
      ══════════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
-var PN_EQUIP=[
-  {item:'크레인',unit:'대'},{item:'지게차',unit:'대'},
-  {item:'발전기',unit:'대'},{item:'용접기',unit:'대'},
-  {item:'에어컴프레서',unit:'대'},{item:'고소작업대',unit:'대'},
-];
 var pnSub='people';
 var PN_NUMS_HTML='<div class="pg-item-nums"><span>전일누계 <b>–</b></span><span>금일 <b>–</b></span><span>누계 <b>–</b></span></div>';
 function pnItemHtml(name,unit){
@@ -2070,7 +2103,7 @@ function renderPnList(){
   if(pnSub==='people'){
     html = pnItemHtml('전체인원','명') + customPersonnel.map(function(name){ return pnItemHtml(name,'명'); }).join('');
   }else{
-    html = PN_EQUIP.map(function(d){ return pnItemHtml(d.item,d.unit); }).join('');
+    html = pnItemHtml('전체장비','대') + customEquipment.map(function(name){ return pnItemHtml(name,'대'); }).join('');
   }
   document.getElementById('pnList').innerHTML='<div class="card" style="padding:0;">'+html+'</div>';
 }
