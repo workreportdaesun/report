@@ -40,23 +40,32 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .f{width:100%; background:var(--field-bg); border:1.5px solid var(--field-bd); border-radius:8px; padding:9px 11px; color:var(--ink); font-size:17px; font-family:var(--font-body);}
 textarea.f{resize:none; height:44px;}
 
-/* ── 일보 입력: 자동 증가 행 목록 — 항목당 2줄(1줄:기기번호+규격, 2줄:수량+진행상황+삭제).
-   기기번호에 규격 드롭다운을 같은 줄로 넣을 폭이 안 나와서(좁은 폰 기준 실측) 표 대신 이 구조로 함. */
+/* ── 일보 입력: 자동 증가 행 목록 — 입력 중인 행은 2줄(1줄:기기번호+규격, 2줄:수량+진행상황+삭제),
+   입력이 끝난 행은 아래 헤더와 같은 폭의 4칸(기기번호/규격/수량/진행상황) 한 줄 요약으로 접힌다.
+   요약 칸 폭(.ec-*)은 헤더와 각 행이 항상 똑같이 써서, 여러 줄을 접어놔도 세로로 열이 맞는다. */
 .entry-tablewrap{margin-bottom:10px; border:1px solid var(--field-bd); border-radius:10px;}
-.entry-header{display:flex; gap:6px; padding:8px 8px 4px;}
+.entry-header{display:flex; gap:6px; padding:8px 8px 4px; align-items:center;}
 .entry-header span{font-size:10.5px; font-weight:800; color:var(--lbl); text-transform:uppercase; letter-spacing:.3px;}
-.entry-row{padding:6px 8px; border-bottom:1px solid var(--field-bd);}
+.entry-header .ec-delspace{width:20px; flex-shrink:0;}
+.ec-tag{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ec-spec{width:60px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ec-qty{width:32px; flex-shrink:0; text-align:right; white-space:nowrap; overflow:hidden;}
+.ec-status{width:56px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.entry-row{padding:4px 8px; border-bottom:1px solid var(--field-bd);}
 .entry-row:last-child{border-bottom:none;}
 .entry-row-top{display:flex; gap:6px; margin-bottom:4px;}
 .entry-row-bottom{display:flex; gap:6px; align-items:center;}
-/* 입력 끝난 행은 한 줄 요약으로 접어서, 아래로 계속 입력할 때 스크롤해도 전체가 한눈에 들어오게 함.
+.entry-row-edit{padding:4px 0;}
+/* 입력 끝난 행은 위 헤더와 같은 열 폭으로 접혀서, 아래로 계속 입력해도 세로로 값이 맞춰 보인다.
+   배경을 살짝 넣고 폰트를 줄여서 지금 입력 중인(테두리 있는 입력칸) 행과 한눈에 구별되게 함.
    지금 입력 중인(가장 최근 추가된) 행만 펼쳐진 채로 남는다 — 접힌 요약을 탭하면 다시 펼쳐짐. */
-.entry-row-summary{display:none; align-items:center; justify-content:space-between; gap:8px; cursor:pointer; padding:5px 2px; font-size:14px; color:var(--ink);}
-.entry-row-summary-text{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.entry-row-summary{display:none; align-items:center; gap:6px; cursor:pointer; padding:7px 6px; border-radius:8px; background:var(--field-bg);}
+.entry-row-summary .ec-tag{font-size:13px; font-weight:700; color:var(--ink);}
+.entry-row-summary .ec-spec, .entry-row-summary .ec-qty, .entry-row-summary .ec-status{font-size:12px; color:var(--lbl);}
 .entry-row.collapsed .entry-row-summary{display:flex;}
 .entry-row.collapsed .entry-row-edit{display:none;}
 .entry-cell{width:100%; background:var(--card); border:1.5px solid var(--field-bd); border-radius:6px; padding:6px 4px; font-size:15px; color:var(--ink); font-family:var(--font-body);}
-.entry-del{border:none; background:none; color:var(--muted); font-size:15px; cursor:pointer; padding:2px 1px; line-height:1; flex-shrink:0;}
+.entry-del{border:none; background:none; color:var(--muted); font-size:15px; cursor:pointer; padding:2px 1px; line-height:1; width:20px; flex-shrink:0; text-align:center;}
 .entry-del:hover{color:var(--err);}
 
 .menu-tabs{display:flex; gap:4px; flex-wrap:nowrap;}
@@ -233,8 +242,11 @@ textarea.f{resize:none; height:44px;}
 
     <div class="entry-tablewrap">
       <div class="entry-header">
-        <span style="flex:1;" id="entryTagTh">기기번호</span>
-        <span style="width:96px;flex-shrink:0;">규격</span>
+        <span class="ec-tag" id="entryTagTh">기기번호</span>
+        <span class="ec-spec">규격</span>
+        <span class="ec-qty">수량</span>
+        <span class="ec-status">진행</span>
+        <span class="ec-delspace"></span>
       </div>
       <div id="entryRows"></div>
     </div>
@@ -977,7 +989,10 @@ function addEntryRow(prefill){
   }).join('');
   row.innerHTML =
     '<div class="entry-row-summary" onclick="expandEntryRow(this.closest(\'.entry-row\'))">'
-      +'<span class="entry-row-summary-text"></span>'
+      +'<span class="ec-tag es-tag"></span>'
+      +'<span class="ec-spec es-spec"></span>'
+      +'<span class="ec-qty es-qty"></span>'
+      +'<span class="ec-status es-status"></span>'
       +'<button type="button" class="entry-del" onclick="event.stopPropagation(); this.closest(\'.entry-row\').remove()" aria-label="행 삭제">✕</button>'
     +'</div>'
     +'<div class="entry-row-edit">'
@@ -1016,8 +1031,10 @@ function collapseEntryRowIfFilled(row){
   var spec = row.querySelector('[data-f="spec"]').value;
   var qty = row.querySelector('[data-f="qty"]').value;
   var status = row.querySelector('[data-f="status"]').value;
-  row.querySelector('.entry-row-summary-text').textContent =
-    tagInput.value.trim()+(spec?' · '+spec:'')+' · '+(qty||0)+(status?' · '+status:'');
+  row.querySelector('.es-tag').textContent = tagInput.value.trim();
+  row.querySelector('.es-spec').textContent = spec || '-';
+  row.querySelector('.es-qty').textContent = qty || '0';
+  row.querySelector('.es-status').textContent = status || '-';
   row.classList.add('collapsed');
 }
 function expandEntryRow(row){
