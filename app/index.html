@@ -97,8 +97,8 @@ textarea.f{resize:none; height:44px;}
 .toast.show{opacity:1;}
 
 /* worker top-level pane switch (일보입력 / 작업사진 / 공정률) + 작업분류 설정(⚙) */
-.worker-tabs{display:flex; gap:6px; background:var(--field-bg); border:1px solid var(--field-bd); border-radius:10px; padding:4px; margin-bottom:10px;}
-.worker-tab{flex:1; border:none; background:none; padding:9px 4px; border-radius:8px; font-size:15px; font-weight:800; color:var(--lbl); cursor:pointer; font-family:var(--font-body);}
+.worker-tabs{display:flex; gap:4px; background:var(--field-bg); border:1px solid var(--field-bd); border-radius:10px; padding:4px; margin-bottom:10px;}
+.worker-tab{flex:1; min-width:0; border:none; background:none; padding:8px 2px; border-radius:8px; font-size:13px; font-weight:800; color:var(--lbl); cursor:pointer; font-family:var(--font-body); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center;}
 .worker-tab.active{background:var(--brand-2); color:#fff;}
 .worker-pane{display:none;}
 .worker-pane.active{display:block;}
@@ -429,6 +429,13 @@ textarea.f{resize:none; height:44px;}
         <input type="text" id="modalNewAreaInput" class="f" placeholder="새 구역 이름"/>
         <button type="button" onclick="modalAddArea()">추가</button>
       </div>
+
+      <div class="cat-modal-sublbl">인원 관리</div>
+      <div class="chip-row" id="modalPersonnelChips"></div>
+      <div class="add-row">
+        <input type="text" id="modalNewPersonnelInput" class="f" placeholder="새 인원 이름"/>
+        <button type="button" onclick="modalAddPersonnel()">추가</button>
+      </div>
     </div>
   </div>
 </div>
@@ -509,6 +516,9 @@ var MENUS = Object.keys(MENU_CONFIG);
 var catsByMenu = {};
 MENUS.forEach(function(m){ catsByMenu[m] = MENU_CONFIG[m].items.slice(); });
 var customAreas = [];
+/* 인원현황(팀원 명단) — Supabase app_settings.personnel로 동기화됨. 목록 맨 위 "전체인원"은 이 배열에
+   포함되지 않는 고정 집계행이고, 이 배열의 각 항목이 그 아래 개별 팀원 행이 된다. */
+var customPersonnel = ['1팀(계장)','2팀(계장)','품질팀','안전관리팀'];
 
 var activeMenu='시공', activeCat=null, hasPhoto=false, items=[];
 document.getElementById('hdrActiveMenu').textContent = ' ('+activeMenu+')';
@@ -522,6 +532,7 @@ async function pushSettingsToSupabase(){
       id:'global',
       cats_by_menu: catsByMenu,
       areas: customAreas,
+      personnel: customPersonnel,
       updated_at: new Date().toISOString()
     });
     if(res.error) console.error('설정 클라우드 동기화 실패', res.error.message);
@@ -537,6 +548,11 @@ function applyRemoteSettings(data){
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalCatSelect();
   }
   if(Array.isArray(data.areas) && data.areas.length){ customAreas = data.areas; }
+  if(Array.isArray(data.personnel) && data.personnel.length){
+    customPersonnel = data.personnel;
+    if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalPersonnelChips();
+    if(typeof window.renderPnList==='function') window.renderPnList();
+  }
   if(typeof window.shootSyncCategory==='function') window.shootSyncCategory();
 }
 async function fetchSettingsFromSupabase(){
@@ -573,6 +589,7 @@ function openCatModal(){
   renderModalMenuTabs();
   renderModalCatSelect();
   renderModalAreaChips();
+  renderModalPersonnelChips();
   var overlay=document.getElementById('catModalOverlay'), panel=document.getElementById('catModalPanel');
   overlay.classList.add('show');
   // 항상 같은 기준선(헤더 바로 아래)에서 아래로 드롭다운 — 동적 콘텐츠(입력카드/목록 길이)에 영향받지 않음
@@ -651,6 +668,27 @@ function modalRemoveArea(i){
   if(customAreas.length<=1) return;
   customAreas.splice(i,1);
   renderModalAreaChips();
+  pushSettingsToSupabase();
+}
+function renderModalPersonnelChips(){
+  document.getElementById('modalPersonnelChips').innerHTML = customPersonnel.map(function(p,i){
+    return '<span class="chip">'+p+'<button type="button" onclick="modalRemovePersonnel('+i+')" title="삭제">✕</button></span>';
+  }).join('');
+}
+function modalAddPersonnel(){
+  var inp = document.getElementById('modalNewPersonnelInput');
+  var v = inp.value.trim();
+  if(!v || customPersonnel.indexOf(v)!==-1) return;
+  customPersonnel.push(v);
+  inp.value = '';
+  renderModalPersonnelChips();
+  if(typeof window.renderPnList==='function') window.renderPnList();
+  pushSettingsToSupabase();
+}
+function modalRemovePersonnel(i){
+  customPersonnel.splice(i,1);
+  renderModalPersonnelChips();
+  if(typeof window.renderPnList==='function') window.renderPnList();
   pushSettingsToSupabase();
 }
 function toggleCatCombo(e){
@@ -2009,38 +2047,34 @@ renderPgList();
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════
-     인원및장비 탭 — 공정률 탭과 동일한 패턴(안내문구/서브탭/목록)의 화면
-     미리보기. 인원현황·장비현황 실데이터 연동은 아직 없음(추후 작업 예정).
+     인원및장비 탭 — 공정률 탭과 동일한 패턴(안내문구/서브탭/목록, 전일누계/금일/누계)의
+     화면 미리보기. 인원현황 맨 위엔 고정 집계행 "전체인원"이 오고, 그 아래로 설정(⚙️)의
+     "인원 관리"에서 추가·삭제한 팀원이 이어짐(customPersonnel, app_settings.personnel로
+     동기화). 장비현황은 아직 고정 목록. 실데이터(전일누계/금일/누계) 연동은 추후 작업 예정.
      조회 전용, PIN 없음.
      ══════════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
-var PN_PEOPLE=[
-  {item:'1팀(계장)',unit:'명'},
-  {item:'2팀(계장)',unit:'명'},
-  {item:'품질팀',unit:'명'},
-  {item:'안전관리팀',unit:'명'},
-];
 var PN_EQUIP=[
   {item:'크레인',unit:'대'},{item:'지게차',unit:'대'},
   {item:'발전기',unit:'대'},{item:'용접기',unit:'대'},
   {item:'에어컴프레서',unit:'대'},{item:'고소작업대',unit:'대'},
 ];
 var pnSub='people';
-function renderPnList(){
-  var items=pnSub==='people'?PN_PEOPLE:PN_EQUIP;
-  var numsHtml=pnSub==='people'
-    ?'<div class="pg-item-nums"><span>출근 <b>–</b></span><span>결근 <b>–</b></span><span>계 <b>–</b></span></div>'
-    :'<div class="pg-item-nums"><span>가동 <b>–</b></span><span>정비중 <b>–</b></span><span>계 <b>–</b></span></div>';
-  document.getElementById('pnList').innerHTML='<div class="card" style="padding:0;">'
-    +items.map(function(d){
-      return '<div class="pg-item">'
-        +'<div class="pg-item-top"><span class="pg-item-name">'+d.item+'</span><span class="pg-item-unit">'+d.unit+'</span></div>'
-        +numsHtml
-        +'</div>';
-    }).join('')
-    +'</div>';
+var PN_NUMS_HTML='<div class="pg-item-nums"><span>전일누계 <b>–</b></span><span>금일 <b>–</b></span><span>누계 <b>–</b></span></div>';
+function pnItemHtml(name,unit){
+  return '<div class="pg-item"><div class="pg-item-top"><span class="pg-item-name">'+name+'</span><span class="pg-item-unit">'+unit+'</span></div>'+PN_NUMS_HTML+'</div>';
 }
+function renderPnList(){
+  var html;
+  if(pnSub==='people'){
+    html = pnItemHtml('전체인원','명') + customPersonnel.map(function(name){ return pnItemHtml(name,'명'); }).join('');
+  }else{
+    html = PN_EQUIP.map(function(d){ return pnItemHtml(d.item,d.unit); }).join('');
+  }
+  document.getElementById('pnList').innerHTML='<div class="card" style="padding:0;">'+html+'</div>';
+}
+window.renderPnList=renderPnList;
 window.showPersonnelSub=function(sub){
   pnSub=sub;
   document.getElementById('pnSubPeopleBtn').classList.toggle('active',sub==='people');
