@@ -188,6 +188,9 @@ textarea.f{resize:none; height:44px;}
 .pg-item-nums{display:flex; gap:10px; font-size:13px; color:var(--lbl);}
 .pg-item-nums b{color:var(--ink);}
 .pg-pct{font-size:13px; font-weight:800; color:var(--brand-2);}
+.pg-item-total{background:rgba(46,95,158,0.08); border-left:3px solid var(--brand-2); padding-left:9px;}
+.pg-item-total .pg-item-name{color:var(--brand-2); font-size:16px;}
+.pg-item-total .pg-item-nums b{color:var(--brand-2);}
 
 </style>
 </head>
@@ -2065,14 +2068,16 @@ var PG_ITEMS=[
   {item:'Steam Tracing Insulation',unit:'M'},
   {item:'Scaffolding',unit:'식'},{item:'Others',unit:'식'},
 ];
+function pgItemHtml(name,unit,isTotal){
+  return '<div class="pg-item'+(isTotal?' pg-item-total':'')+'">'
+    +'<div class="pg-item-top"><span class="pg-item-name">'+name+'</span><span class="pg-item-unit">'+unit+'</span></div>'
+    +'<div class="pg-item-nums"><span>계획 <b>–</b></span><span>전일누계 <b>–</b></span><span>금일 <b>–</b></span><span>누계 <b>–</b> <b class="pg-pct">0%</b></span></div>'
+    +'</div>';
+}
 function renderPgList(){
   document.getElementById('pgList').innerHTML='<div class="card" style="padding:0;">'
-    +PG_ITEMS.map(function(d){
-      return '<div class="pg-item">'
-        +'<div class="pg-item-top"><span class="pg-item-name">'+d.item+'</span><span class="pg-item-unit">'+d.unit+'</span></div>'
-        +'<div class="pg-item-nums"><span>계획 <b>–</b></span><span>전일누계 <b>–</b></span><span>금일 <b>–</b></span><span>누계 <b>–</b> <b class="pg-pct">0%</b></span></div>'
-        +'</div>';
-    }).join('')
+    +pgItemHtml('전체 공정률','',true)
+    +PG_ITEMS.map(function(d){ return pgItemHtml(d.item,d.unit,false); }).join('')
     +'</div>';
 }
 window.showProgSub=function(sub){
@@ -2095,15 +2100,15 @@ renderPgList();
 (function(){
 var pnSub='people';
 var PN_NUMS_HTML='<div class="pg-item-nums"><span>전일누계 <b>–</b></span><span>금일 <b>–</b></span><span>누계 <b>–</b></span></div>';
-function pnItemHtml(name,unit){
-  return '<div class="pg-item"><div class="pg-item-top"><span class="pg-item-name">'+name+'</span><span class="pg-item-unit">'+unit+'</span></div>'+PN_NUMS_HTML+'</div>';
+function pnItemHtml(name,unit,isTotal){
+  return '<div class="pg-item'+(isTotal?' pg-item-total':'')+'"><div class="pg-item-top"><span class="pg-item-name">'+name+'</span><span class="pg-item-unit">'+unit+'</span></div>'+PN_NUMS_HTML+'</div>';
 }
 function renderPnList(){
   var html;
   if(pnSub==='people'){
-    html = pnItemHtml('전체인원','명') + customPersonnel.map(function(name){ return pnItemHtml(name,'명'); }).join('');
+    html = pnItemHtml('전체인원','명',true) + customPersonnel.map(function(name){ return pnItemHtml(name,'명',false); }).join('');
   }else{
-    html = pnItemHtml('전체장비','대') + customEquipment.map(function(name){ return pnItemHtml(name,'대'); }).join('');
+    html = pnItemHtml('전체장비','대',true) + customEquipment.map(function(name){ return pnItemHtml(name,'대',false); }).join('');
   }
   document.getElementById('pnList').innerHTML='<div class="card" style="padding:0;">'+html+'</div>';
 }
