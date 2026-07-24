@@ -192,6 +192,7 @@ textarea.f{resize:none; height:44px;}
 .pg-item-total{background:rgba(46,95,158,0.08); border-left:3px solid var(--brand-2); padding-left:9px;}
 .pg-item-total .pg-item-name{color:var(--brand-2); font-size:16px;}
 .pg-item-total .pg-item-nums b{color:var(--brand-2);}
+.pg-plan-input{width:44px; font-size:13px; font-weight:800; color:var(--ink); border:1px solid var(--field-bd); border-radius:4px; padding:1px 4px; background:var(--field-bg); font-family:var(--font-body);}
 
 </style>
 </head>
@@ -597,6 +598,7 @@ function applyRemoteSettings(data){
     if(typeof data.geofence_m==='number') GEOFENCE_M = data.geofence_m;
     refreshCheckinDistance();
   }
+  if(data.plan_qty && typeof window.setPlanQty==='function') window.setPlanQty(data.plan_qty);
   if(typeof window.shootSyncCategory==='function') window.shootSyncCategory();
 }
 async function fetchSettingsFromSupabase(){
@@ -2256,8 +2258,8 @@ window.pickSaveFolder=pickSaveFolder;
 <!-- ══════════════════════════════════════════════════════════════════
      공정률 탭 — progress(workreportdaesun/progress)의 "공정률" 화면 레이아웃을 이식하되,
      전일누계/금일/누계는 daily_reports(전체 팀, 전체 날짜)의 items[].qty를 작업분류별로
-     실시간 집계해서 채운다(loadProgressData). 계획수량 입력 기능이 아직 없어 계획/%는
-     여전히 "–"/0% 표시로 남겨둠. 조회 전용, PIN 없음.
+     실시간 집계해서 채운다(loadProgressData). 계획수량은 각 행의 입력칸에 직접 입력하면
+     app_settings.plan_qty로 동기화되고, 그 값 기준으로 %(공정률)를 계산한다. 조회 전용, PIN 없음.
      ══════════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
@@ -2275,7 +2277,7 @@ var PG_ITEMS=[
   {item:'Steam Tracing Insulation',unit:'M'},
   {item:'Scaffolding',unit:'식'},{item:'Others',unit:'식'},
 ];
-var PG_TODAY={}, PG_BEFORE={};
+var PG_TODAY={}, PG_BEFORE={}, planQty={};
 function sumValues(obj){ return Object.keys(obj).reduce(function(s,k){ return s+obj[k]; },0); }
 async function loadProgressData(){
   if(!sbClient) return;
@@ -2297,12 +2299,32 @@ async function loadProgressData(){
     renderPgList();
   }catch(e){ console.error('공정률 데이터 불러오기 실패', e); }
 }
+async function pushPlanQty(){
+  if(!sbClient) return;
+  try{
+    var res = await sbClient.from('app_settings').upsert({id:'global', plan_qty:planQty, updated_at:new Date().toISOString()});
+    if(res.error) console.error('계획수량 저장 실패', res.error.message);
+  }catch(e){ console.error('계획수량 저장 실패', e); }
+}
+window.onPlanQtyChange=function(el,cat){
+  var v=Number(el.value)||0;
+  if(v<=0) delete planQty[cat]; else planQty[cat]=v;
+  pushPlanQty();
+  renderPgList();
+};
+window.setPlanQty=function(obj){ planQty=obj||{}; renderPgList(); };
 function pgItemHtml(name,unit,isTotal){
   var today = isTotal ? sumValues(PG_TODAY) : (PG_TODAY[name]||0);
   var before = isTotal ? sumValues(PG_BEFORE) : (PG_BEFORE[name]||0);
+  var total = before+today;
+  var plan = isTotal ? sumValues(planQty) : (planQty[name]||0);
+  var pct = plan>0 ? Math.min(100, Math.round(total/plan*100)) : 0;
+  var planCell = isTotal
+    ? '<b>'+plan+'</b>'
+    : '<input type="number" class="pg-plan-input" min="0" value="'+(planQty[name]||'')+'" placeholder="0" onchange="onPlanQtyChange(this,\''+name.replace(/'/g,"\\'")+'\')">';
   return '<div class="pg-item'+(isTotal?' pg-item-total':'')+'">'
     +'<div class="pg-item-top"><span class="pg-item-name">'+name+'</span><span class="pg-item-unit">'+unit+'</span></div>'
-    +'<div class="pg-item-nums"><span>계획 <b>–</b></span><span>전일누계 <b>'+before+'</b></span><span>금일 <b>'+today+'</b></span><span>누계 <b>'+(before+today)+'</b> <b class="pg-pct">0%</b></span></div>'
+    +'<div class="pg-item-nums"><span>계획 '+planCell+'</span><span>전일누계 <b>'+before+'</b></span><span>금일 <b>'+today+'</b></span><span>누계 <b>'+total+'</b> <b class="pg-pct">'+pct+'%</b></span></div>'
     +'</div>';
 }
 function renderPgList(){
