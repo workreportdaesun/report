@@ -182,6 +182,12 @@ var admIsMobile=/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
 /* renderProcTable 밖(계획수량 수정 후 재렌더)에서도 써야 해서 loadDashboardData가 채운 값을 보관 */
 var dashCatToday={}, dashCatBefore={}, dashCatMenu={}, dashPlanQty={};
 
+/* Connection은 규격(FROM/TO)으로 방향을 골라 입력 — 한쪽만 하면 0.5, 양쪽 다 하면 1로 집계
+   (report/app/index.html의 동일 함수와 같은 규칙, 이 파일은 별도 스크립트 컨텍스트라 중복 정의). */
+function connectionQtyWeight(cat, spec){
+  return (cat==='Connection' && (spec==='FROM' || spec==='TO')) ? 0.5 : 1;
+}
+
 /* ── 공정률/출력현황 실데이터 집계 — daily_reports(전체 팀·전체 날짜).items/crew + app_settings.plan_qty/personnel ── */
 async function loadDashboardData(){
   if(!sbClient) return;
@@ -201,7 +207,8 @@ async function loadDashboardData(){
       if(isToday || isBefore){
         (row.items||[]).forEach(function(it){
           if(!it || !it.cat) return;
-          var q = Number(it.qty)||0;
+          var w = connectionQtyWeight(it.cat, it.spec);
+          var q = (Number(it.qty)||0)*w;
           var target = isToday ? catToday : catBefore;
           target[it.cat] = (target[it.cat]||0)+q;
           if(it.menu) catMenu[it.cat]=it.menu;

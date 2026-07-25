@@ -496,17 +496,17 @@ function logout(){
 
 var MENU_CONFIG = {
   '시공': {
-    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection(From)','Connection(To)','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
+    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
     catStepLabel:'작업분류 선택', tagLabel:'기기번호', tagPh:'PT-2101, EQ-001 등', locLabel:'작업구역',
     statusOptions:['진행','완료','변경전','변경후']
   },
   '품질': {
-    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection(From)','Connection(To)','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
+    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
     catStepLabel:'검사분류 선택', tagLabel:'기기번호', tagPh:'검사번호 입력', locLabel:'작업구역',
     statusOptions:['신규','변경전','변경후']
   },
   '자재': {
-    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection(From)','Connection(To)','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
+    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
     catStepLabel:'자재품명 선택', tagLabel:'검수번호/Packing NO.', tagPh:'검수번호 입력', locLabel:'자재보관장소',
     statusOptions:['도급','사급']
   },
@@ -532,7 +532,7 @@ var MENU_COLOR = {'시공':'var(--m-시공)','품질':'var(--m-품질)','자재'
 var ITEM_UNIT = {
   'DCS Panel':'EA','LCP':'EA','Junction Box':'EA','Field Instrument':'EA',
   'Cable Duct':'M','Cable Tray':'M','Conduit Pipe':'M','Air Pipe':'M',
-  'Hook Up':'EA','Stanchion':'EA','Support':'EA','Connection(From)':'PT','Connection(To)':'PT',
+  'Hook Up':'EA','Stanchion':'EA','Support':'EA','Connection':'EA',
   'Line Check':'PT','Loop Test':'PT','Leak Test':'PT','Instrument Calibration':'EA',
   'Steam Tracing Tube':'M','Steam Tracing Insulation':'M',
   'Scaffolding':'EA','Others':'EA'
@@ -565,8 +565,18 @@ var specsByCat = {
   'Junction Box': ['12W','20W','24W','40W','48W'],
   'Air Pipe': ['6mm','8mm','10mm','12mm'],
   'Steam Tracing Tube': ['3/8"(9.5mm)','1/2"(12.7mm)'],
-  'Steam Tracing Insulation': ['25mm','40mm','50mm','75mm']
+  'Steam Tracing Insulation': ['25mm','40mm','50mm','75mm'],
+  /* Connection은 규격 대신 방향(FROM/TO)을 고르는 용도로 재사용 — 한쪽만 하면 0.5,
+     양쪽 다 하면 1로 집계(connectionQtyWeight 참고). 이 두 문자열은 집계 로직이
+     하드코딩으로 참조하므로 ⚙️설정에서 이름을 바꾸거나 지우면 집계가 깨짐. */
+  'Connection': ['FROM','TO']
 };
+/* Connection 카테고리는 물리적으로 한쪽 끝(FROM 또는 TO)만 연결해도 전체 작업의 절반이라,
+   FROM/TO 각각 0.5씩 집계하고 둘 다 하면 자연히 1이 되게 한다(공정률 탭/체크리스트/
+   admin 대시보드가 전부 이 함수를 통해 qty를 집계해야 함). */
+function connectionQtyWeight(cat, spec){
+  return (cat==='Connection' && (spec==='FROM' || spec==='TO')) ? 0.5 : 1;
+}
 /* 출력체크 반경 게이트 — admin.html에서 설정한 현장 좌표/반경을 app_settings.site_lat/site_lng/geofence_m으로 읽어옴 */
 var SITE_LAT=null, SITE_LNG=null, GEOFENCE_M=1000, lastCheckDistance=null;
 
@@ -1624,7 +1634,7 @@ function downloadAll(photos){
 var CC={
   'DCS Panel':"#E67E22",'LCP':"#E74C3C",'Junction Box':"#F39C12",'Field Instrument':"#2980B9",'Cable Duct':"#16A085",
   'Cable Tray':"#8E44AD",'Conduit Pipe':"#C0392B",'Air Pipe':"#27AE60",'Hook Up':"#2E86AB",
-  'Stanchion':"#5D6D7E",'Support':"#A569BD",'Connection(From)':"#E74C3C",'Connection(To)':"#E74C3C",'Line Check':"#1ABC9C",
+  'Stanchion':"#5D6D7E",'Support':"#A569BD",'Connection':"#E74C3C",'Line Check':"#1ABC9C",
   'Loop Test':"#3498DB",'Leak Test':"#1A6B72",'Instrument Calibration':"#D35400",'Steam Tracing Tube':"#C0392B",'Steam Tracing Insulation':"#922B21",
   'Scaffolding':"#7F8C8D",'Others':"#95A5A6",'관리자':"#34495E"
 };
@@ -2403,7 +2413,8 @@ async function loadProgressData(){
       if(!target) return;
       arr.forEach(function(it){
         if(!it || !it.cat) return;
-        target[it.cat] = (target[it.cat]||0) + (Number(it.qty)||0);
+        var w = (typeof connectionQtyWeight==='function') ? connectionQtyWeight(it.cat, it.spec) : 1;
+        target[it.cat] = (target[it.cat]||0) + (Number(it.qty)||0)*w;
       });
     });
     PG_TODAY=t; PG_BEFORE=b;
@@ -2460,7 +2471,8 @@ async function syncProgressChecklist(){
         if(!byKey[key]) byKey[key] = {tag:it.tag, cat:it.cat, menu:it.menu, qty_total:0, complete_date:null};
         var g = byKey[key];
         g.menu = it.menu;
-        g.qty_total += Number(it.qty)||0;
+        var w = (typeof connectionQtyWeight==='function') ? connectionQtyWeight(it.cat, it.spec) : 1;
+        g.qty_total += (Number(it.qty)||0)*w;
         if(it.menu==='시공' && it.status==='완료'){
           if(!g.complete_date || row.date<g.complete_date) g.complete_date = row.date;
         }
