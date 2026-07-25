@@ -416,14 +416,14 @@ textarea.f{resize:none; height:44px;}
       <div class="cat-modal-sublbl">분류 관리</div>
       <div class="chip-row" id="modalCatChips"></div>
       <div class="add-row">
-        <input type="text" id="modalNewCatInput" class="f" placeholder="새 분류 이름"/>
+        <input type="text" id="modalNewCatInput" class="f" placeholder="새 분류 이름" onkeydown="if(event.key==='Enter'){event.preventDefault();modalAddCategory();}"/>
         <button type="button" id="modalCatSaveBtn" onclick="modalAddCategory()">추가</button>
       </div>
 
       <div class="cat-modal-sublbl">작업구역 관리</div>
       <div class="chip-row" id="modalAreaChips"></div>
       <div class="add-row">
-        <input type="text" id="modalNewAreaInput" class="f" placeholder="새 구역 이름"/>
+        <input type="text" id="modalNewAreaInput" class="f" placeholder="새 구역 이름" onkeydown="if(event.key==='Enter'){event.preventDefault();modalAddArea();}"/>
         <button type="button" id="modalAreaSaveBtn" onclick="modalAddArea()">추가</button>
       </div>
 
@@ -432,16 +432,18 @@ textarea.f{resize:none; height:44px;}
       <select id="modalSpecCatSelect" class="f" style="margin-bottom:8px;" onchange="renderModalSpecChips()"></select>
       <div class="chip-row" id="modalSpecChips"></div>
       <div class="add-row">
-        <input type="text" id="modalNewSpecInput" class="f" placeholder="새 규격 값"/>
+        <input type="text" id="modalNewSpecInput" class="f" placeholder="새 규격 값" onkeydown="if(event.key==='Enter'){event.preventDefault();modalAddSpec();}"/>
         <button type="button" id="modalSpecSaveBtn" onclick="modalAddSpec()">추가</button>
       </div>
 
       <div class="cat-modal-sublbl">인원 관리</div>
       <div class="chip-row" id="modalPersonnelChips"></div>
       <div class="add-row">
-        <input type="text" id="modalNewPersonnelInput" class="f" placeholder="새 인원 이름"/>
+        <input type="text" id="modalNewPersonnelInput" class="f" placeholder="새 인원 이름" onkeydown="if(event.key==='Enter'){event.preventDefault();modalAddPersonnel();}"/>
         <button type="button" id="modalPersonnelSaveBtn" onclick="modalAddPersonnel()">추가</button>
       </div>
+
+      <button type="button" class="sbtn sbtn-add" style="margin-top:10px;" onclick="saveAllSettings()">💾 저장</button>
     </div>
   </div>
 </div>
@@ -648,6 +650,18 @@ function openCatModal(){
 }
 function closeCatModal(){
   document.getElementById('catModalOverlay').classList.remove('show');
+}
+/* "추가" 버튼을 안 누르고 입력칸에 값만 써둔 채 모달을 닫아서 저장이 안 되는 문제 방지용 —
+   각 입력칸에 아직 확정 안 한 값이 남아있으면 저장 전에 먼저 추가부터 확정하고(각 modalAddX는
+   빈 값이면 그냥 아무 것도 안 하므로 항상 호출해도 안전함), Supabase 저장이 끝난 뒤에 닫는다. */
+async function saveAllSettings(){
+  modalAddCategory();
+  modalAddArea();
+  modalAddSpec();
+  modalAddPersonnel();
+  await pushSettingsToSupabase();
+  showToast('💾 설정 저장됨', 'var(--ok)');
+  closeCatModal();
 }
 /* 분류/구역/인원/규격 관리 입력칸을 전부 "추가" 모드로 되돌린다(수정 중이던 항목 취소) */
 function resetModalEditStates(){
