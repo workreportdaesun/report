@@ -233,7 +233,7 @@ textarea.f{resize:none; height:44px;}
         <span class="ec-tag" id="entryTagTh">기기번호</span>
         <span class="ec-spec">규격</span>
         <span class="ec-qty">수량</span>
-        <span class="ec-status">진행</span>
+        <span class="ec-status">진도</span>
         <span class="ec-delspace"></span>
       </div>
       <div id="entryRows"></div>
@@ -502,7 +502,7 @@ var MENU_CONFIG = {
   '시공': {
     items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
     catStepLabel:'작업분류 선택', tagLabel:'기기번호', tagPh:'PT-2101, EQ-001 등', locLabel:'작업구역',
-    statusOptions:['진행중','완료','변경전','변경후']
+    statusOptions:['진행','완료','변경전','변경후']
   },
   '품질': {
     items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
@@ -526,7 +526,7 @@ var MENU_CONFIG = {
   }
 };
 function statusOptionsFor(menu){
-  return (MENU_CONFIG[menu] && MENU_CONFIG[menu].statusOptions) || ['진행중','완료'];
+  return (MENU_CONFIG[menu] && MENU_CONFIG[menu].statusOptions) || ['진행','완료'];
 }
 var MENU_COLOR = {'시공':'var(--m-시공)','품질':'var(--m-품질)','자재':'var(--m-자재)','안전':'var(--m-안전)','화기/유도':'var(--m-화기)'};
 
@@ -976,12 +976,12 @@ function addEntryRow(prefill){
     return '<option'+(spec===s?' selected':'')+'>'+s+'</option>';
   }).join('');
   row.innerHTML =
-    '<div class="ec-tag"><input class="entry-cell" data-f="tag" placeholder="'+currentTagPh+'" value="'+String(tag).replace(/"/g,'&quot;')+'"></div>'
+    '<div class="ec-tag"><input class="entry-cell" data-f="tag" maxlength="12" placeholder="'+currentTagPh+'" value="'+String(tag).replace(/"/g,'&quot;')+'"></div>'
     +'<div class="ec-spec"><select class="entry-cell" data-f="spec">'
       +'<option value=""'+(spec===''?' selected':'')+'>-</option>'
       +specOptsHtml
     +'</select></div>'
-    +'<div class="ec-qty"><input class="entry-cell" data-f="qty" type="number" min="0" value="'+qty+'"></div>'
+    +'<div class="ec-qty"><input class="entry-cell" data-f="qty" type="number" min="0" value="'+qty+'" oninput="if(this.value.length>4) this.value=this.value.slice(0,4);"></div>'
     +'<div class="ec-status"><select class="entry-cell" data-f="status" onchange="onRowStatusChange(this)">'
       +'<option value=""'+(status===''?' selected':'')+'>-</option>'
       +statusOptsHtml
@@ -1179,7 +1179,7 @@ async function refreshPhotoLinkage(manual){
 
     var catsWithPhoto = {};
     // "menu|tag|status" -> {menu, cat, tag, note, status} (공종+기기번호+진행상황이 모두 같아야 중복으로 본다.
-    // 진행중/완료는 같은 기기번호라도 서로 다른 시점의 기록이라 별도 항목으로 취급한다.)
+    // 진행/완료는 같은 기기번호라도 서로 다른 시점의 기록이라 별도 항목으로 취급한다.)
     var photoByKey = {};
     res.data.forEach(function(r){
       if(!r.menu || !r.cat) return;
@@ -1587,7 +1587,7 @@ var CC={
    ⚙️작업분류에서 고른 값이 작업사진 탭에도 그대로 적용된다. */
 
 var LABELS_BY_MENU={
-  "시공":{modPhases:["변경전","변경후"],newPhases:["진행중","완료"]},
+  "시공":{modPhases:["변경전","변경후"],newPhases:["진행","완료"]},
   "품질":{tagPh:"검사번호",modPhases:["변경전","변경후"]},
   "자재":{tag:"검수번호/Packing NO.",tagPh:"검수번호",cat:"자재품명",workType:"자재구분",wtNew:"도급",wtMod:"사급",loc:"자재보관장소"},
   "안전":{tag:"사진제목",tagPh:"사진제목",cat:"사진내용",workType:"현장안전점검",wtNew:"현장안전점검",wtMod:"안전용품",loc:"장소"},
@@ -2163,11 +2163,11 @@ function sanitizeFolderName(name){
 }
 function workTypeFolderName(wt){
   if(wt==="변경전"||wt==="변경후")return "수정";
-  if(wt==="진행중"||wt==="완료")return "신규";
+  if(wt==="진행"||wt==="완료")return "신규";
   return wt||"기타";
 }
 
-var WT_EN={'신규':'new','진행중':'in-progress','완료':'done','변경전':'mod-before','변경후':'mod-after','도급':'contract','사급':'owner-supply','현장안전점검':'safety-check','안전용품':'safety-gear','화기감시자':'fire-watch','유도원':'guide'};
+var WT_EN={'신규':'new','진행':'in-progress','완료':'done','변경전':'mod-before','변경후':'mod-after','도급':'contract','사급':'owner-supply','현장안전점검':'safety-check','안전용품':'safety-gear','화기감시자':'fire-watch','유도원':'guide'};
 
 function buildFileName(idx){
   var wt=WT_EN[lockedInfo.wt]||sanitizeForFilename(lockedInfo.wt)||'work';
