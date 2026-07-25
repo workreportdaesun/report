@@ -118,6 +118,7 @@ function saveSession(m){
   localStorage.setItem('member_project', m.project || '');
   localStorage.setItem('member_phone', m.phone);
   localStorage.setItem('member_team', m.team || '');
+  localStorage.setItem('member_is_leader', m.is_leader ? '1' : '0');
   localStorage.setItem('senderName', m.name);
 }
 async function doLogin(){
@@ -138,14 +139,22 @@ async function doSignup(){
   var team = document.getElementById('regTeam').value;
   if(!name || phone.length < 10){ showToast('⚠️ 이름과 전화번호를 입력해 주세요', 'var(--err)'); return; }
   showToast('가입 중...', 'var(--brand-2)');
-  var insertData = {company:company, project:project, name:name, phone:phone, team:team};
+  var insertData = {company:company, project:project, name:name, phone:phone, team:team, is_leader:false};
   var res = await sbClient.from('members').insert(insertData).select().single();
   if(res.error){
     var msg = res.error.message || '';
-    if(msg.toLowerCase().includes('team')){
-      var d2 = Object.assign({}, insertData); delete d2.team;
-      res = await sbClient.from('members').insert(d2).select().single();
-      if(res.data) res.data.team = team;
+    /* is_leader/team 컬럼이 아직 Supabase에 없을 수 있어(순차 배포), 에러 메시지에 언급된
+       컬럼만 빼고 재시도 — 컬럼 추가 전에도 가입 자체는 막히지 않게 */
+    var retryData = Object.assign({}, insertData);
+    var strippedTeam=false, strippedLeader=false;
+    if(msg.toLowerCase().includes('is_leader')){ delete retryData.is_leader; strippedLeader=true; }
+    if(msg.toLowerCase().includes('team')){ delete retryData.team; strippedTeam=true; }
+    if(strippedTeam || strippedLeader){
+      res = await sbClient.from('members').insert(retryData).select().single();
+      if(res.data){
+        if(strippedTeam) res.data.team = team;
+        if(strippedLeader) res.data.is_leader = false;
+      }
     }
     if(res.error){
       var msg2 = res.error.message || '';

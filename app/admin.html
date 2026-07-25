@@ -56,6 +56,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 </style>
 </head>
 <body>
+<script src="../admin-gate.js"></script>
 <div class="admin-wrap">
   <div class="admin-head">
     <div>
@@ -71,6 +72,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <button class="admin-tab" onclick="showAdminTab(this,'out')">출력현황</button>
     <button class="admin-tab" onclick="showAdminTab(this,'reports')">작업일보 전체내용</button>
     <button class="admin-tab" onclick="showAdminTab(this,'cl')">Check List</button>
+    <button class="admin-tab" onclick="showAdminTab(this,'members')">회원관리</button>
   </div>
 
   <!-- 공정률 -->
@@ -136,6 +138,11 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <tr><td class="mono">JB-0512</td><td>Junction Box</td><td><span class="pill pill-ok">완료</span></td><td>진행중</td><td>대기</td><td>-</td></tr>
     </table>
   </div>
+
+  <!-- 회원관리: 팀별로 그룹핑, 리더는 헤더로 표시. 리더 지정/해제·강제탈퇴는 관리자만 -->
+  <div class="admin-pane" id="pane-members">
+    <div id="membersList"><div style="text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -153,6 +160,7 @@ function showAdminTab(btn, key){
   document.querySelectorAll('.admin-pane').forEach(function(p){ p.classList.remove('active'); });
   document.getElementById('pane-'+key).classList.add('active');
   if(key==='reports') loadAllReports();
+  if(key==='members') loadMembers();
 }
 
 var SUPABASE_URL='https://feymoykefzfwucbrqoja.supabase.co';
@@ -353,6 +361,82 @@ async function saveSiteSettings(){
 if(admIsMobile){ var _psb=document.getElementById('planSettingsBtn'); if(_psb) _psb.style.display='none'; }
 loadSiteSettings();
 loadDashboardData();
+
+/* ── 회원관리: members를 team으로 그룹핑, is_leader=true인 사람을 헤더로 ──
+   is_leader 컬럼이 아직 없으면 select('*')는 에러 없이 그냥 undefined로 오므로
+   전원이 "리더 없음" 상태로 조용히 표시됨(컬럼 추가 전에도 안전하게 동작). */
+var membersLoaded=false, lastMembers=[];
+async function loadMembers(){
+  if(membersLoaded) return;
+  var wrap=document.getElementById('membersList');
+  if(!sbClient){ wrap.innerHTML='<div style="text-align:center;color:var(--lbl);font-size:12px;padding:20px;">연결 실패</div>'; return; }
+  try{
+    var res=await sbClient.from('members').select('*').order('team').order('name');
+    if(res.error||!res.data){ wrap.innerHTML='<div style="text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오기 실패</div>'; return; }
+    membersLoaded=true;
+    lastMembers=res.data;
+    renderMembers();
+  }catch(e){ wrap.innerHTML='<div style="text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오기 실패</div>'; }
+}
+function memberRowHtml(m,isLeader){
+  return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--field-bg);">'
+    +'<span style="font-size:14px;'+(isLeader?'font-weight:800;color:var(--brand-2);':'color:var(--ink);')+'">'+(isLeader?'👑 ':'')+m.name+'</span>'
+    +'<div style="display:flex;gap:6px;">'
+    +'<button type="button" class="memberLeaderBtn" data-id="'+m.id+'" data-cur="'+(isLeader?'1':'0')+'" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--brand-2);border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">'+(isLeader?'리더 해제':'리더 지정')+'</button>'
+    +'<button type="button" class="memberDelBtn" data-id="'+m.id+'" style="border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.1);color:#E74C3C;border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">탈퇴</button>'
+    +'</div></div>';
+}
+function renderMembers(){
+  var wrap=document.getElementById('membersList');
+  if(!lastMembers.length){ wrap.innerHTML='<div style="text-align:center;color:var(--lbl);font-size:12px;padding:20px;">등록된 회원이 없습니다</div>'; return; }
+  var byTeam={};
+  lastMembers.forEach(function(m){ var t=m.team||'미지정'; (byTeam[t]=byTeam[t]||[]).push(m); });
+  var html='';
+  Object.keys(byTeam).forEach(function(team){
+    var members=byTeam[team];
+    var leader=members.find(function(m){ return m.is_leader; });
+    var rest=members.filter(function(m){ return m!==leader; });
+    html+='<div style="background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:14px;margin-bottom:12px;">';
+    html+='<div style="font-size:13px;font-weight:800;color:var(--brand-1);">'+team+'</div>';
+    if(leader) html+=memberRowHtml(leader,true);
+    rest.forEach(function(m){ html+=memberRowHtml(m,false); });
+    html+='</div>';
+  });
+  wrap.innerHTML=html;
+}
+document.getElementById('membersList').addEventListener('click', async function(e){
+  var leaderBtn=e.target.closest('.memberLeaderBtn');
+  if(leaderBtn){
+    var id=leaderBtn.getAttribute('data-id'), cur=leaderBtn.getAttribute('data-cur')==='1';
+    var row=lastMembers.find(function(m){ return String(m.id)===String(id); });
+    if(!row) return;
+    try{
+      if(!cur && row.team){
+        var prevLeader=lastMembers.find(function(m){ return m.team===row.team && m.is_leader && String(m.id)!==String(id); });
+        if(prevLeader){
+          var r0=await sbClient.from('members').update({is_leader:false}).eq('id',prevLeader.id);
+          if(r0.error){ alert('리더 설정 실패: '+r0.error.message); return; }
+        }
+      }
+      var res=await sbClient.from('members').update({is_leader:!cur}).eq('id',id);
+      if(res.error){ alert('리더 설정 실패: '+res.error.message); return; }
+    }catch(err){ alert('리더 설정 실패: '+(err.message||err)); return; }
+    membersLoaded=false; loadMembers();
+    return;
+  }
+  var delBtn=e.target.closest('.memberDelBtn');
+  if(delBtn){
+    var id2=delBtn.getAttribute('data-id');
+    var row2=lastMembers.find(function(m){ return String(m.id)===String(id2); });
+    if(!row2) return;
+    if(!confirm(row2.name+' 님을 강제 탈퇴시키겠습니까?')) return;
+    try{
+      var res2=await sbClient.from('members').delete().eq('id',id2);
+      if(res2.error){ alert('탈퇴 처리 실패: '+res2.error.message); return; }
+    }catch(err2){ alert('탈퇴 처리 실패: '+(err2.message||err2)); return; }
+    membersLoaded=false; loadMembers();
+  }
+});
 </script>
 </body>
 </html>

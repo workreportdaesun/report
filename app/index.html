@@ -398,6 +398,12 @@ textarea.f{resize:none; height:44px;}
     <button type="button" class="sbtn sbtn-add" id="checkinBtn" onclick="doCheckIn()" disabled>📍 출력체크</button>
   </div>
 
+  <!-- 팀장 전용: 같은 팀 팀원 강제탈퇴. member_is_leader가 '1'일 때만 노출(loadTeamMembers) -->
+  <div class="card" id="teamLeaderCard" style="display:none;">
+    <div class="flbl" style="margin-top:0;">우리 팀원 관리</div>
+    <div id="teamMemberList"></div>
+  </div>
+
   <div id="pnList"></div>
 </div>
 <!-- ══ 인원현황 끝 ══ -->
@@ -460,6 +466,9 @@ textarea.f{resize:none; height:44px;}
       </div>
 
       <button type="button" class="sbtn sbtn-add" style="margin-top:10px;" onclick="saveAllSettings()">💾 저장</button>
+
+      <div class="cat-modal-sublbl">계정</div>
+      <button type="button" class="sbtn" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.5);color:#E74C3C;" onclick="withdrawMember()">회원탈퇴</button>
     </div>
   </div>
 </div>
@@ -486,7 +495,7 @@ if(!localStorage.getItem('member_id')){ location.href='login.html'; }
   if(c) document.getElementById('hdrCompany').textContent=c;
 })();
 function logout(){
-  ['member_id','member_name','member_company','member_project','member_phone','member_team','senderName'].forEach(function(k){ localStorage.removeItem(k); });
+  ['member_id','member_name','member_company','member_project','member_phone','member_team','member_is_leader','senderName'].forEach(function(k){ localStorage.removeItem(k); });
   location.href='login.html';
 }
 
@@ -2461,6 +2470,67 @@ window.renderPnList=renderPnList;
 window.loadPersonnelEquipmentData=loadPersonnelEquipmentData;
 renderPnList();
 loadPersonnelEquipmentData();
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     회원관리: 자진탈퇴(⚙️설정 > 계정) + 팀장용 팀원 관리(인원현황 탭,
+     member_is_leader==='1'일 때만 노출). members.is_leader 컬럼이 아직
+     없어도 조회는 그냥 undefined로 와서 에러 없이 카드가 숨겨진 채 유지됨.
+     ══════════════════════════════════════════════════════════════════ -->
+<script>
+async function withdrawMember(){
+  if(!confirm('정말 회원 탈퇴하시겠습니까? 계정 정보가 삭제되며 되돌릴 수 없습니다.'))return;
+  var memberId=localStorage.getItem('member_id');
+  if(memberId&&sbClient){
+    try{ await sbClient.from('members').delete().eq('id',memberId); }
+    catch(e){ showToast('회원 탈퇴 실패: '+(e.message||e), 'var(--err)'); return; }
+  }
+  ['member_id','member_name','member_company','member_project','member_phone','member_team','member_is_leader','senderName'].forEach(function(k){localStorage.removeItem(k);});
+  location.href='login.html';
+}
+
+(function(){
+  var lastTeamMembers=[];
+  async function loadTeamMembers(){
+    if(!sbClient) return;
+    var team=localStorage.getItem('member_team')||'';
+    var myId=localStorage.getItem('member_id');
+    try{
+      var res=await sbClient.from('members').select('id,name').eq('team',team);
+      if(res.error||!res.data) return;
+      lastTeamMembers=res.data.filter(function(m){ return String(m.id)!==String(myId); });
+      renderTeamMemberList();
+    }catch(e){ console.error('팀원 목록 불러오기 실패', e); }
+  }
+  function renderTeamMemberList(){
+    var wrap=document.getElementById('teamMemberList');
+    if(!lastTeamMembers.length){ wrap.innerHTML='<div class="empty-msg">같은 팀에 다른 팀원이 없습니다</div>'; return; }
+    wrap.innerHTML=lastTeamMembers.map(function(m){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--field-bg);">'
+        +'<span style="font-size:14px;color:var(--ink);">'+m.name+'</span>'
+        +'<button type="button" class="teamRemoveBtn" data-id="'+m.id+'" style="border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.1);color:#E74C3C;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">탈퇴</button>'
+      +'</div>';
+    }).join('');
+  }
+  document.getElementById('teamMemberList').addEventListener('click', async function(e){
+    var btn=e.target.closest('.teamRemoveBtn');
+    if(!btn) return;
+    var id=btn.getAttribute('data-id');
+    var m=lastTeamMembers.find(function(x){ return String(x.id)===String(id); });
+    if(!m) return;
+    if(!confirm(m.name+' 님을 팀에서 탈퇴시키겠습니까?'))return;
+    try{
+      var res=await sbClient.from('members').delete().eq('id',id);
+      if(res.error){ showToast('탈퇴 처리 실패: '+res.error.message, 'var(--err)'); return; }
+      showToast('탈퇴 처리되었습니다', 'var(--ok)');
+      loadTeamMembers();
+    }catch(err){ showToast('탈퇴 처리 실패: '+(err.message||err), 'var(--err)'); }
+  });
+  if(localStorage.getItem('member_is_leader')==='1'){
+    document.getElementById('teamLeaderCard').style.display='';
+    loadTeamMembers();
+  }
 })();
 </script>
 </body>
