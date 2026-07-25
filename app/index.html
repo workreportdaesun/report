@@ -427,11 +427,12 @@ textarea.f{resize:none; height:44px;}
         <button type="button" id="modalAreaSaveBtn" onclick="modalAddArea()">추가</button>
       </div>
 
-      <!-- 규격: 지금은 공종/분류 구분 없이 전체 공용 목록. 추후 작업분류별 Supabase 값으로 대체 예정 -->
+      <!-- 규격: 작업분류별로 따로 관리(2단계) — 아래에서 분류를 먼저 고르고, 그 분류의 규격 목록을 편집 -->
       <div class="cat-modal-sublbl">규격 관리</div>
+      <select id="modalSpecCatSelect" class="f" style="margin-bottom:8px;" onchange="renderModalSpecChips()"></select>
       <div class="chip-row" id="modalSpecChips"></div>
       <div class="add-row">
-        <input type="text" id="modalNewSpecInput" class="f" placeholder="새 규격 이름"/>
+        <input type="text" id="modalNewSpecInput" class="f" placeholder="새 규격 값"/>
         <button type="button" id="modalSpecSaveBtn" onclick="modalAddSpec()">추가</button>
       </div>
 
@@ -524,11 +525,24 @@ var customAreas = [];
 /* 인원현황(팀원 명단) — Supabase app_settings.personnel로 동기화됨. 목록 맨 위 "전체인원"은 이 배열에
    포함되지 않는 고정 집계행이고, 이 배열의 각 항목이 그 아래 개별 팀원 행이 된다. */
 var customPersonnel = ['1팀(계장)','2팀(계장)','품질팀','안전관리팀'];
-/* 규격 목록(일보입력 각 행의 규격 드롭다운) — Supabase app_settings.specs로 동기화됨. 지금은
-   공종/분류 구분 없이 전체 공용 하나의 목록이고(설정에서 직접 관리), 나중에 작업분류별로 Supabase에
-   값을 넣으면 그 값을 따라가도록 확장할 예정. 공정률 집계는 규격 구분 없이 분류(cat) 기준 전체수량으로
-   그대로 하므로 여기 값은 집계 로직에 영향을 주지 않는다. */
-var customSpecs = [];
+/* 작업분류별 규격 목록(일보입력 각 행의 규격 드롭다운) — Supabase app_settings.specs_by_cat로 동기화됨.
+   ITEM_UNIT과 같은 방식으로 분류명(cat)을 바로 키로 써서 시공/품질/자재가 같은 분류명을 쓰면 규격도
+   공유된다. 아래 기본값은 실제 표준 규격을 웹에서 찾아 채운 것(전선관=KS 강제전선관/CD관, 케이블트레이
+   =IEC 61537 폭, 계장 공기배관=계장용 튜빙 OD, 스팀트레이싱관=업계 표준 2사이즈, 보온두께=배관 보온재
+   일반 두께) — 정션박스(way수)/전선덕트(폭x높이)는 업계 관행값이라 KS 단일표준 확인은 못 했음, 확인
+   필요. 나머지 분류(DCS Panel/LCP/Field Instrument/Hook Up/Stanchion/Support/Connection/Line Check/
+   Loop Test/Leak Test/Instrument Calibration/Scaffolding/Others)는 시험·점검 활동이거나 프로젝트마다
+   달라 표준 규격 목록 자체가 없어서 비워둠 — 설정에서 얼마든지 추가 가능. 공정률 집계는 규격 구분 없이
+   분류(cat) 기준 전체수량으로 그대로 하므로 여기 값은 집계 로직에 영향을 주지 않는다. */
+var specsByCat = {
+  'Conduit Pipe': ['16mm','22mm','28mm','36mm','42mm','54mm','70mm'],
+  'Cable Tray': ['100mm','150mm','200mm','300mm','450mm','600mm','900mm'],
+  'Cable Duct': ['50x25mm','100x50mm','150x75mm','200x100mm'],
+  'Junction Box': ['12W','20W','24W','40W','48W'],
+  'Air Pipe': ['6mm','8mm','10mm','12mm'],
+  'Steam Tracing Tube': ['3/8"(9.5mm)','1/2"(12.7mm)'],
+  'Steam Tracing Insulation': ['25mm','40mm','50mm','75mm']
+};
 /* 출력체크 반경 게이트 — admin.html에서 설정한 현장 좌표/반경을 app_settings.site_lat/site_lng/geofence_m으로 읽어옴 */
 var SITE_LAT=null, SITE_LNG=null, GEOFENCE_M=1000, lastCheckDistance=null;
 
@@ -548,7 +562,7 @@ async function pushSettingsToSupabase(){
       cats_by_menu: catsByMenu,
       areas: customAreas,
       personnel: customPersonnel,
-      specs: customSpecs,
+      specs_by_cat: specsByCat,
       updated_at: new Date().toISOString()
     });
     if(res.error) console.error('설정 클라우드 동기화 실패', res.error.message);
@@ -569,9 +583,9 @@ function applyRemoteSettings(data){
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalPersonnelChips();
     if(typeof window.renderPnList==='function') window.renderPnList();
   }
-  if(Array.isArray(data.specs) && data.specs.length){
-    customSpecs = data.specs;
-    if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalSpecChips();
+  if(data.specs_by_cat && typeof data.specs_by_cat==='object'){
+    specsByCat = data.specs_by_cat;
+    if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalSpecCatSelect();
   }
   if(typeof data.site_lat==='number' && typeof data.site_lng==='number'){
     SITE_LAT = data.site_lat; SITE_LNG = data.site_lng;
@@ -622,7 +636,7 @@ function openCatModal(){
   renderModalCatSelect();
   renderModalAreaChips();
   renderModalPersonnelChips();
-  renderModalSpecChips();
+  renderModalSpecCatSelect();
   var overlay=document.getElementById('catModalOverlay'), panel=document.getElementById('catModalPanel');
   overlay.classList.add('show');
   // 항상 같은 기준선(헤더 바로 아래)에서 아래로 드롭다운 — 동적 콘텐츠(입력카드/목록 길이)에 영향받지 않음
@@ -661,6 +675,7 @@ function selectModalMenu(m){
   document.getElementById('modalCatSaveBtn').textContent='추가';
   renderModalMenuTabs();
   renderModalCatSelect();
+  renderModalSpecCatSelect();
 }
 function renderModalCatSelect(){
   var cfg = MENU_CONFIG[modalMenu];
@@ -793,39 +808,62 @@ function modalRemovePersonnel(i){
   if(typeof window.renderPnList==='function') window.renderPnList();
   pushSettingsToSupabase();
 }
+/* 규격 관리(2단계): 먼저 작업분류를 고르고, 그 분류에 속한 규격 목록만 편집한다.
+   목록은 현재 공종 탭(modalMenu)의 분류들 — specsByCat은 분류명(cat)으로 바로 키를 잡는다
+   (ITEM_UNIT과 같은 방식 — 시공/품질/자재가 같은 분류명을 공유하면 규격도 같이 공유됨). */
+function renderModalSpecCatSelect(){
+  var sel = document.getElementById('modalSpecCatSelect');
+  var cur = sel.value;
+  var list = catsByMenu[modalMenu] || [];
+  sel.innerHTML = list.map(function(c){ return '<option value="'+c.replace(/"/g,'&quot;')+'">'+c+'</option>'; }).join('');
+  if(cur && list.indexOf(cur)!==-1) sel.value = cur;
+  renderModalSpecChips();
+}
+function currentSpecCat(){
+  var sel = document.getElementById('modalSpecCatSelect');
+  return sel ? sel.value : '';
+}
 function renderModalSpecChips(){
-  document.getElementById('modalSpecChips').innerHTML = customSpecs.map(function(s,i){
+  editingSpecIdx=-1;
+  document.getElementById('modalNewSpecInput').value='';
+  document.getElementById('modalSpecSaveBtn').textContent='추가';
+  var cat = currentSpecCat();
+  var list = (cat && specsByCat[cat]) || [];
+  document.getElementById('modalSpecChips').innerHTML = list.map(function(s,i){
     return '<span class="chip">'+s
       +'<button type="button" class="chip-edit" onclick="modalEditSpec('+i+')" title="수정">✏️</button>'
       +'<button type="button" class="chip-del" onclick="modalRemoveSpec('+i+')" title="삭제">✕</button></span>';
   }).join('');
 }
 function modalEditSpec(i){
+  var cat = currentSpecCat();
+  var list = specsByCat[cat] || [];
   editingSpecIdx = i;
-  document.getElementById('modalNewSpecInput').value = customSpecs[i];
+  document.getElementById('modalNewSpecInput').value = list[i];
   document.getElementById('modalNewSpecInput').focus();
   document.getElementById('modalSpecSaveBtn').textContent = '저장';
 }
 function modalAddSpec(){
+  var cat = currentSpecCat();
+  if(!cat) return;
   var inp = document.getElementById('modalNewSpecInput');
   var v = inp.value.trim();
   if(!v) return;
+  var list = specsByCat[cat] || (specsByCat[cat] = []);
   if(editingSpecIdx>=0){
-    if(customSpecs.indexOf(v)!==-1 && customSpecs[editingSpecIdx]!==v) return;
-    customSpecs[editingSpecIdx] = v;
-    editingSpecIdx = -1;
-    document.getElementById('modalSpecSaveBtn').textContent = '추가';
+    if(list.indexOf(v)!==-1 && list[editingSpecIdx]!==v) return;
+    list[editingSpecIdx] = v;
   }else{
-    if(customSpecs.indexOf(v)!==-1) return;
-    customSpecs.push(v);
+    if(list.indexOf(v)!==-1) return;
+    list.push(v);
   }
-  inp.value = '';
   renderModalSpecChips();
   pushSettingsToSupabase();
 }
 function modalRemoveSpec(i){
-  customSpecs.splice(i,1);
-  editingSpecIdx=-1; document.getElementById('modalNewSpecInput').value=''; document.getElementById('modalSpecSaveBtn').textContent='추가';
+  var cat = currentSpecCat();
+  var list = specsByCat[cat] || [];
+  list.splice(i,1);
   renderModalSpecChips();
   pushSettingsToSupabase();
 }
@@ -892,7 +930,7 @@ function addEntryRow(prefill){
   var statusOptsHtml = statusOptionsFor(activeMenu).map(function(s){
     return '<option'+(status===s?' selected':'')+'>'+s+'</option>';
   }).join('');
-  var specOptsHtml = customSpecs.map(function(s){
+  var specOptsHtml = (specsByCat[activeCat]||[]).map(function(s){
     return '<option'+(spec===s?' selected':'')+'>'+s+'</option>';
   }).join('');
   row.innerHTML =
