@@ -557,7 +557,7 @@ var editingCatIdx=-1, editingAreaIdx=-1, editingPersonnelIdx=-1, editingSpecIdx=
 
 /* ── 작업분류/구역/현장좌표 클라우드 동기화 (work-shoot-daesun/index.html과 동일 패턴) ── */
 async function pushSettingsToSupabase(){
-  if(!sbClient) return;
+  if(!sbClient) return false;
   try{
     var res = await sbClient.from('app_settings').upsert({
       id:'global',
@@ -567,8 +567,17 @@ async function pushSettingsToSupabase(){
       specs_by_cat: specsByCat,
       updated_at: new Date().toISOString()
     });
-    if(res.error) console.error('설정 클라우드 동기화 실패', res.error.message);
-  }catch(e){ console.error('설정 클라우드 동기화 실패', e); }
+    if(res.error){
+      console.error('설정 클라우드 동기화 실패', res.error.message);
+      showToast('⚠️ 설정 저장 실패: '+res.error.message, 'var(--err)');
+      return false;
+    }
+    return true;
+  }catch(e){
+    console.error('설정 클라우드 동기화 실패', e);
+    showToast('⚠️ 설정 저장 실패: '+(e.message||e), 'var(--err)');
+    return false;
+  }
 }
 function applyRemoteSettings(data){
   if(data.cats_by_menu){
@@ -652,16 +661,17 @@ function closeCatModal(){
   document.getElementById('catModalOverlay').classList.remove('show');
 }
 /* "추가" 버튼을 안 누르고 입력칸에 값만 써둔 채 모달을 닫아서 저장이 안 되는 문제 방지용 —
-   각 입력칸에 아직 확정 안 한 값이 남아있으면 저장 전에 먼저 추가부터 확정하고(각 modalAddX는
-   빈 값이면 그냥 아무 것도 안 하므로 항상 호출해도 안전함), Supabase 저장이 끝난 뒤에 닫는다. */
+   각 입력칸에 아직 확정 안 한 값이 남아있으면 저장 전에 먼저 추가부터 확정한다(각 modalAddX는
+   빈 값이면 그냥 아무 것도 안 하므로 항상 호출해도 안전함). modalAddX들은 전부 자기 안에서
+   Supabase 저장을 await하므로 여기서도 하나씩 순서대로 await — 동시에 여러 저장 요청이 겹쳐서
+   먼저 보낸(내용이 더 적은) 요청이 나중에 도착해 최신 내용을 덮어쓰는 경합을 막기 위함. */
 async function saveAllSettings(){
-  modalAddCategory();
-  modalAddArea();
-  modalAddSpec();
-  modalAddPersonnel();
-  await pushSettingsToSupabase();
-  showToast('💾 설정 저장됨', 'var(--ok)');
-  closeCatModal();
+  await modalAddCategory();
+  await modalAddArea();
+  await modalAddSpec();
+  await modalAddPersonnel();
+  var ok = await pushSettingsToSupabase();
+  if(ok){ showToast('💾 설정 저장됨', 'var(--ok)'); closeCatModal(); }
 }
 /* 분류/구역/인원/규격 관리 입력칸을 전부 "추가" 모드로 되돌린다(수정 중이던 항목 취소) */
 function resetModalEditStates(){
@@ -721,7 +731,7 @@ function modalEditCategory(i){
   document.getElementById('modalNewCatInput').focus();
   document.getElementById('modalCatSaveBtn').textContent = '저장';
 }
-function modalAddCategory(){
+async function modalAddCategory(){
   var inp = document.getElementById('modalNewCatInput');
   var v = inp.value.trim();
   var list = catsByMenu[modalMenu];
@@ -737,7 +747,7 @@ function modalAddCategory(){
   }
   inp.value = '';
   renderModalCatSelect();
-  pushSettingsToSupabase();
+  await pushSettingsToSupabase();
 }
 function modalRemoveCategory(i){
   var list = catsByMenu[modalMenu];
@@ -760,7 +770,7 @@ function modalEditArea(i){
   document.getElementById('modalNewAreaInput').focus();
   document.getElementById('modalAreaSaveBtn').textContent = '저장';
 }
-function modalAddArea(){
+async function modalAddArea(){
   var inp = document.getElementById('modalNewAreaInput');
   var v = inp.value.trim();
   if(!v) return;
@@ -775,7 +785,7 @@ function modalAddArea(){
   }
   inp.value = '';
   renderModalAreaChips();
-  pushSettingsToSupabase();
+  await pushSettingsToSupabase();
 }
 function modalRemoveArea(i){
   if(customAreas.length<=1) return;
@@ -797,7 +807,7 @@ function modalEditPersonnel(i){
   document.getElementById('modalNewPersonnelInput').focus();
   document.getElementById('modalPersonnelSaveBtn').textContent = '저장';
 }
-function modalAddPersonnel(){
+async function modalAddPersonnel(){
   var inp = document.getElementById('modalNewPersonnelInput');
   var v = inp.value.trim();
   if(!v) return;
@@ -813,7 +823,7 @@ function modalAddPersonnel(){
   inp.value = '';
   renderModalPersonnelChips();
   if(typeof window.renderPnList==='function') window.renderPnList();
-  pushSettingsToSupabase();
+  await pushSettingsToSupabase();
 }
 function modalRemovePersonnel(i){
   customPersonnel.splice(i,1);
@@ -857,7 +867,7 @@ function modalEditSpec(i){
   document.getElementById('modalNewSpecInput').focus();
   document.getElementById('modalSpecSaveBtn').textContent = '저장';
 }
-function modalAddSpec(){
+async function modalAddSpec(){
   var cat = currentSpecCat();
   if(!cat) return;
   var inp = document.getElementById('modalNewSpecInput');
@@ -872,7 +882,7 @@ function modalAddSpec(){
     list.push(v);
   }
   renderModalSpecChips();
-  pushSettingsToSupabase();
+  await pushSettingsToSupabase();
 }
 function modalRemoveSpec(i){
   var cat = currentSpecCat();
