@@ -436,6 +436,15 @@ textarea.f{resize:none; height:44px;}
         <button type="button" id="modalSpecSaveBtn" onclick="modalAddSpec()">추가</button>
       </div>
 
+      <!-- 수량 단위: 규격과 같은 2단계(분류 먼저 고르고 그 분류의 단위를 EA/M/Point 중에서 선택) -->
+      <div class="cat-modal-sublbl">수량 단위 관리</div>
+      <select id="modalUnitCatSelect" class="f" style="margin-bottom:8px;" onchange="renderModalUnitValueSelect()"></select>
+      <select id="modalUnitValueSelect" class="f" onchange="modalSetUnit()">
+        <option value="EA">EA</option>
+        <option value="M">M</option>
+        <option value="PT">Point</option>
+      </select>
+
       <div class="cat-modal-sublbl">인원 관리</div>
       <div class="chip-row" id="modalPersonnelChips"></div>
       <div class="add-row">
@@ -506,7 +515,9 @@ function statusOptionsFor(menu){
 }
 var MENU_COLOR = {'시공':'var(--m-시공)','품질':'var(--m-품질)','자재':'var(--m-자재)','안전':'var(--m-안전)','화기/유도':'var(--m-화기)'};
 
-/* 작업분류별 수량 단위 자동 인식 — DB(app_settings/작업분류 테이블)에서 내려받을 값을 임시로 하드코딩 */
+/* 작업분류별 수량 단위 — Supabase app_settings.item_unit으로 동기화됨(⚙️설정 "수량 단위 관리").
+   ITEM_UNIT/specsByCat과 같은 방식으로 분류명(cat)을 바로 키로 씀. 아래 값은 Supabase에 아직
+   아무것도 없을 때 쓰이는 기본값. */
 var ITEM_UNIT = {
   'DCS Panel':'EA','LCP':'EA','Junction Box':'EA','Field Instrument':'EA',
   'Cable Duct':'M','Cable Tray':'M','Conduit Pipe':'M','Air Pipe':'M',
@@ -565,6 +576,7 @@ async function pushSettingsToSupabase(){
       areas: customAreas,
       personnel: customPersonnel,
       specs_by_cat: specsByCat,
+      item_unit: ITEM_UNIT,
       updated_at: new Date().toISOString()
     });
     if(res.error){
@@ -598,6 +610,10 @@ function applyRemoteSettings(data){
     specsByCat = data.specs_by_cat;
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalSpecCatSelect();
     refreshEntrySpecOptions();
+  }
+  if(data.item_unit && typeof data.item_unit==='object'){
+    ITEM_UNIT = data.item_unit;
+    if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalUnitCatSelect();
   }
   if(typeof data.site_lat==='number' && typeof data.site_lng==='number'){
     SITE_LAT = data.site_lat; SITE_LNG = data.site_lng;
@@ -649,6 +665,7 @@ function openCatModal(){
   renderModalAreaChips();
   renderModalPersonnelChips();
   renderModalSpecCatSelect();
+  renderModalUnitCatSelect();
   var overlay=document.getElementById('catModalOverlay'), panel=document.getElementById('catModalPanel');
   overlay.classList.add('show');
   // 항상 같은 기준선(헤더 바로 아래)에서 아래로 드롭다운 — 동적 콘텐츠(입력카드/목록 길이)에 영향받지 않음
@@ -701,6 +718,7 @@ function selectModalMenu(m){
   renderModalMenuTabs();
   renderModalCatSelect();
   renderModalSpecCatSelect();
+  renderModalUnitCatSelect();
 }
 function renderModalCatSelect(){
   var cfg = MENU_CONFIG[modalMenu];
@@ -847,6 +865,27 @@ function renderModalSpecCatSelect(){
 function currentSpecCat(){
   var sel = document.getElementById('modalSpecCatSelect');
   return sel ? sel.value : '';
+}
+/* 수량 단위 관리(2단계): 규격 관리와 같은 패턴 — 분류를 고르면 그 분류의 현재 단위(EA/M/Point)를
+   보여주고, 드롭다운에서 바로 고르면 즉시 저장된다(추가/삭제 개념이 없어 규격보다 단순함). */
+function renderModalUnitCatSelect(){
+  var sel = document.getElementById('modalUnitCatSelect');
+  var cur = sel.value;
+  var list = catsByMenu[modalMenu] || [];
+  sel.innerHTML = list.map(function(c){ return '<option value="'+c.replace(/"/g,'&quot;')+'">'+c+'</option>'; }).join('');
+  if(cur && list.indexOf(cur)!==-1) sel.value = cur;
+  renderModalUnitValueSelect();
+}
+function renderModalUnitValueSelect(){
+  var cat = document.getElementById('modalUnitCatSelect').value;
+  document.getElementById('modalUnitValueSelect').value = ITEM_UNIT[cat] || 'EA';
+}
+async function modalSetUnit(){
+  var cat = document.getElementById('modalUnitCatSelect').value;
+  if(!cat) return;
+  ITEM_UNIT[cat] = document.getElementById('modalUnitValueSelect').value;
+  var ok = await pushSettingsToSupabase();
+  if(ok) showToast('💾 단위 저장됨', 'var(--ok)');
 }
 function renderModalSpecChips(){
   editingSpecIdx=-1;
