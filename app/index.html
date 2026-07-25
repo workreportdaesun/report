@@ -597,6 +597,7 @@ function applyRemoteSettings(data){
   if(data.specs_by_cat && typeof data.specs_by_cat==='object'){
     specsByCat = data.specs_by_cat;
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalSpecCatSelect();
+    refreshEntrySpecOptions();
   }
   if(typeof data.site_lat==='number' && typeof data.site_lng==='number'){
     SITE_LAT = data.site_lat; SITE_LNG = data.site_lng;
@@ -882,6 +883,7 @@ async function modalAddSpec(){
     list.push(v);
   }
   renderModalSpecChips();
+  refreshEntrySpecOptions();
   await pushSettingsToSupabase();
 }
 function modalRemoveSpec(i){
@@ -889,7 +891,20 @@ function modalRemoveSpec(i){
   var list = specsByCat[cat] || [];
   list.splice(i,1);
   renderModalSpecChips();
+  refreshEntrySpecOptions();
   pushSettingsToSupabase();
+}
+/* 설정에서 규격을 추가/삭제해도, 이미 열려 있던 일보입력 카드의 규격 드롭다운은 행을 만들 때
+   시점의 목록으로 고정돼 있어서 자동으로 안 바뀌었음("설정엔 반영됐는데 일보엔 반영 안 됨" 버그) —
+   현재 activeCat 기준으로 열려 있는 모든 행의 규격 select를 다시 그려서 해결. 각 행에서 이미
+   골라둔 값이 새 목록에도 있으면 선택 유지, 없어졌으면(삭제된 경우) 자동으로 "-"가 됨. */
+function refreshEntrySpecOptions(){
+  var list = specsByCat[activeCat] || [];
+  document.querySelectorAll('#entryRows [data-f="spec"]').forEach(function(sel){
+    var cur = sel.value;
+    sel.innerHTML = '<option value=""'+(cur===''?' selected':'')+'>-</option>'
+      + list.map(function(s){ return '<option'+(cur===s?' selected':'')+'>'+s+'</option>'; }).join('');
+  });
 }
 function toggleCatCombo(e){
   if(e) e.stopPropagation();
