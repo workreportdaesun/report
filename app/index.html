@@ -242,6 +242,13 @@ textarea.f{resize:none; height:44px;}
     <div class="flbl">기타자재</div>
     <textarea class="f" id="noteInput" placeholder="기타 자재 관련 사항..."></textarea>
 
+    <!-- 명일 작업내용/자재요청, 특이사항 — 작업분류와 무관하게 일보 전체(팀+날짜)에 하나씩만 있으면 되지만,
+         기타자재 바로 아래에서 같이 입력하도록 배치(놓치기 쉬워서 눈에 잘 띄는 위치로 이동) -->
+    <div class="flbl">명일 작업내용 및 자재요청</div>
+    <textarea class="f" id="nextDayPlanInput" placeholder="내일 예정된 작업, 필요한 자재 등..."></textarea>
+    <div class="flbl">특이사항</div>
+    <textarea class="f" id="specialNotesInput" placeholder="현장 특이사항..."></textarea>
+
     <button class="sbtn sbtn-add" onclick="saveEntryRows()">💾 저장</button>
   </div>
 
@@ -253,14 +260,6 @@ textarea.f{resize:none; height:44px;}
     </div>
     <button type="button" class="sbtn sbtn-outline" style="margin-top:0;margin-bottom:10px;" onclick="refreshPhotoLinkage(true)">🔄 오늘 작업사진 불러오기</button>
     <div id="itemList"><div class="empty-msg">아직 입력한 항목이 없습니다</div></div>
-  </div>
-
-  <!-- 명일 작업내용/자재요청, 특이사항 — 작업분류와 무관하게 일보 전체(팀+날짜)에 하나씩만 있으면 됨 -->
-  <div class="card" id="reportNotesCard">
-    <div class="flbl" style="margin-top:0;">명일 작업내용 및 자재요청</div>
-    <textarea class="f" id="nextDayPlanInput" placeholder="내일 예정된 작업, 필요한 자재 등..."></textarea>
-    <div class="flbl">특이사항</div>
-    <textarea class="f" id="specialNotesInput" placeholder="현장 특이사항..."></textarea>
   </div>
 
   <button class="sbtn sbtn-send" id="sendBtn" onclick="previewReport()" disabled>📄 미리보기</button>
