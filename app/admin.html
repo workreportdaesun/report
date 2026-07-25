@@ -95,6 +95,10 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
         <h3 style="font-size:16px;font-weight:800;color:var(--brand-1);margin:0;">계획수량 설정</h3>
         <button type="button" onclick="closePlanSettings()" style="border:none;background:var(--field-bg);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px;color:var(--lbl);">✕</button>
       </div>
+      <label style="display:block;text-align:center;border:1.5px dashed var(--brand-2);background:var(--field-bg);color:var(--brand-2);border-radius:8px;padding:9px;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:12px;">
+        📤 엑셀로 일괄 입력(작업분류별 계획수량 업로드 서식)
+        <input type="file" id="planExcelInput" accept=".xlsx,.xls" style="display:none;" onchange="handlePlanExcelUpload(this)">
+      </label>
       <div id="planModalRows"></div>
       <button type="button" onclick="savePlanSettings()" style="width:100%;margin-top:14px;background:var(--brand-2);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:800;cursor:pointer;">저장</button>
     </div>
@@ -149,6 +153,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 document.getElementById('hdrDate').textContent = new Date().toLocaleDateString('ko-KR', {year:'numeric', month:'2-digit', day:'2-digit', weekday:'short'});
 (function(){
@@ -181,6 +186,26 @@ function todayStr(){
 var admIsMobile=/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
 /* renderProcTable 밖(계획수량 수정 후 재렌더)에서도 써야 해서 loadDashboardData가 채운 값을 보관 */
 var dashCatToday={}, dashCatBefore={}, dashCatMenu={}, dashPlanQty={};
+
+/* app_settings.cats_by_menu — 아직 일보 실적이 하나도 없는 분류(예: 계획수량만 미리 잡아두려는 신규
+   분류)도 계획수량 설정/엑셀 업로드 대상에 포함시키려고 별도로 읽어온다. report/app/index.html의
+   buildPgItems()와 동일한 순서·중복제거 규칙(먼저 나온 공종의 분류명을 기준으로 병합)을 그대로 씀. */
+var settingsCatList=[];
+async function loadSettingsCatList(){
+  if(!sbClient) return;
+  try{
+    var res = await sbClient.from('app_settings').select('cats_by_menu').eq('id','global').single();
+    var catsByMenu = (res.data && res.data.cats_by_menu) || {};
+    var seen={}, list=[];
+    Object.keys(catsByMenu).forEach(function(m){
+      (catsByMenu[m]||[]).forEach(function(cat){
+        if(seen[cat]) return;
+        seen[cat]=true; list.push(cat);
+      });
+    });
+    settingsCatList=list;
+  }catch(e){ console.error('작업분류 목록 불러오기 실패', e); }
+}
 
 /* Connection은 규격(FROM/TO)으로 방향을 골라 입력 — 한쪽만 하면 0.5, 양쪽 다 하면 1로 집계
    (report/app/index.html의 동일 함수와 같은 규칙, 이 파일은 별도 스크립트 컨텍스트라 중복 정의). */
@@ -245,11 +270,13 @@ function renderProcGrid(catToday,catBefore,catMenu,planQty){
 }
 /* 여기(표/카드)는 항상 보여주기 전용 — 계획수량 수정은 아래 "⚙️ 계획수량 설정" 모달에서만 가능 */
 function getCatList(){
-  var cats={};
-  Object.keys(dashCatToday).forEach(function(c){ cats[c]=1; });
-  Object.keys(dashCatBefore).forEach(function(c){ cats[c]=1; });
-  Object.keys(dashPlanQty).forEach(function(c){ cats[c]=1; });
-  return Object.keys(cats);
+  var cats={}, list=[];
+  function add(c){ if(!cats[c]){ cats[c]=1; list.push(c); } }
+  settingsCatList.forEach(add);
+  Object.keys(dashCatToday).forEach(add);
+  Object.keys(dashCatBefore).forEach(add);
+  Object.keys(dashPlanQty).forEach(add);
+  return list;
 }
 function renderProcTable(catToday,catBefore,planQty){
   var list=getCatList();
@@ -277,6 +304,45 @@ function openPlanSettings(){
 }
 function closePlanSettings(){
   document.getElementById('planModalOverlay').style.display='none';
+}
+/* 엑셀 일괄 업로드 — "작업분류별_계획수량_업로드서식.xlsx" 형식 전용. 시트 하나 = 작업분류 하나,
+   1행은 안내문, 2행은 헤더, 3행부터 데이터. B열(계획수량)만 합산해서 그 분류의 계획수량으로 채운다
+   (TAG NO/비고는 여기선 안 쓰고 합계에만 반영 — TAG 단위 계획관리는 별도 논의 전까지 보류).
+   여기서는 화면의 입력칸 값만 갱신하고, Supabase 저장은 기존과 동일하게 "저장" 버튼을 눌러야
+   반영된다(업로드했다고 확인 없이 바로 저장되지 않게 하려는 의도). */
+function handlePlanExcelUpload(input){
+  var file = input.files && input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      var knownCats = {}; getCatList().forEach(function(c){ knownCats[c]=1; });
+      var matched=[], unmatched=[];
+      wb.SheetNames.forEach(function(sheetName){
+        if(sheetName==='안내') return;
+        var rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1});
+        var sum = 0;
+        rows.slice(2).forEach(function(r){
+          var v = Number(r && r[1]);
+          if(!isNaN(v)) sum += v;
+        });
+        if(!knownCats[sheetName]){ unmatched.push(sheetName); return; }
+        if(sum>0) dashPlanQty[sheetName]=sum; else delete dashPlanQty[sheetName];
+        matched.push(sheetName+'('+sum+')');
+      });
+      openPlanSettings();
+      var msg = '엑셀 업로드 완료\n\n반영된 분류: '+(matched.length ? matched.length+'개 — '+matched.join(', ') : '없음');
+      if(unmatched.length) msg += '\n\n분류명이 일치하지 않아 반영 안 됨:\n'+unmatched.join(', ');
+      msg += '\n\n아래 목록에서 확인 후 "저장" 버튼을 눌러야 실제로 반영됩니다.';
+      alert(msg);
+    }catch(err){
+      alert('엑셀 파일을 읽는 중 오류가 발생했습니다: '+(err.message||err));
+    }finally{
+      input.value='';
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 async function savePlanSettings(){
   document.querySelectorAll('.planModalInput').forEach(function(inp){
@@ -372,6 +438,7 @@ async function saveSiteSettings(){
 if(admIsMobile){ var _psb=document.getElementById('planSettingsBtn'); if(_psb) _psb.style.display='none'; }
 loadSiteSettings();
 loadDashboardData();
+loadSettingsCatList();
 
 /* ── 회원관리: members를 team으로 그룹핑, is_leader=true인 사람을 헤더로 ──
    is_leader 컬럼이 아직 없으면 select('*')는 에러 없이 그냥 undefined로 오므로
