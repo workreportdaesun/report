@@ -239,8 +239,8 @@ textarea.f{resize:none; height:44px;}
       <div id="entryRows"></div>
     </div>
 
-    <div class="flbl">비고</div>
-    <textarea class="f" id="noteInput" placeholder="특이사항..."></textarea>
+    <div class="flbl">기타자재</div>
+    <textarea class="f" id="noteInput" placeholder="기타 자재 관련 사항..."></textarea>
 
     <button class="sbtn sbtn-add" onclick="saveEntryRows()">💾 저장</button>
   </div>
@@ -253,6 +253,14 @@ textarea.f{resize:none; height:44px;}
     </div>
     <button type="button" class="sbtn sbtn-outline" style="margin-top:0;margin-bottom:10px;" onclick="refreshPhotoLinkage(true)">🔄 오늘 작업사진 불러오기</button>
     <div id="itemList"><div class="empty-msg">아직 입력한 항목이 없습니다</div></div>
+  </div>
+
+  <!-- 명일 작업내용/자재요청, 특이사항 — 작업분류와 무관하게 일보 전체(팀+날짜)에 하나씩만 있으면 됨 -->
+  <div class="card" id="reportNotesCard">
+    <div class="flbl" style="margin-top:0;">명일 작업내용 및 자재요청</div>
+    <textarea class="f" id="nextDayPlanInput" placeholder="내일 예정된 작업, 필요한 자재 등..."></textarea>
+    <div class="flbl">특이사항</div>
+    <textarea class="f" id="specialNotesInput" placeholder="현장 특이사항..."></textarea>
   </div>
 
   <button class="sbtn sbtn-send" id="sendBtn" onclick="previewReport()" disabled>📄 미리보기</button>
@@ -1049,7 +1057,12 @@ function saveEntryRows(){
   if(!saved){ showToast('⚠️ 저장할 항목이 없습니다', 'var(--err)'); return; }
   renderItemList();
   document.getElementById('sendBtn').disabled = items.length===0;
-  upsertDailyReport({items:items, status:'draft'});
+  upsertDailyReport({
+    items:items,
+    status:'draft',
+    next_day_plan: document.getElementById('nextDayPlanInput').value.trim(),
+    special_notes: document.getElementById('specialNotesInput').value.trim()
+  });
   if(typeof window.loadProgressData==='function') window.loadProgressData();
   showToast('💾 '+saved+'건 저장됨', 'var(--ok)');
   document.getElementById('entryRows').innerHTML = '';
@@ -1093,10 +1106,18 @@ async function upsertDailyReport(patch){
     Object.assign(row, patch);
     row.updated_at = new Date().toISOString();
     var up = await sbClient.from('daily_reports').upsert(row);
-    if(up.error) console.error('daily_reports 동기화 실패', up.error.message);
-    else localStorage.setItem('draft_'+id, JSON.stringify(row));
+    if(up.error){
+      console.error('daily_reports 동기화 실패', up.error.message);
+      showToast('⚠️ 일보 저장 실패: '+up.error.message, 'var(--err)');
+      return null;
+    }
+    localStorage.setItem('draft_'+id, JSON.stringify(row));
     return row;
-  }catch(e){ console.error('daily_reports 동기화 실패', e); return null; }
+  }catch(e){
+    console.error('daily_reports 동기화 실패', e);
+    showToast('⚠️ 일보 저장 실패: '+(e.message||e), 'var(--err)');
+    return null;
+  }
 }
 
 /* ── 출력체크(GPS 반경 게이트) — 현장 좌표는 admin.html에서 등록, SITE_LAT/SITE_LNG로 수신 ── */
@@ -1301,7 +1322,12 @@ function savePendingEntryState(){
 async function previewReport(){
   if(!items.length) return;
   savePendingEntryState();
-  await upsertDailyReport({items:items, status:'draft'});
+  await upsertDailyReport({
+    items:items,
+    status:'draft',
+    next_day_plan: document.getElementById('nextDayPlanInput').value.trim(),
+    special_notes: document.getElementById('specialNotesInput').value.trim()
+  });
   location.href='report-pdf.html';
 }
 function showToast(msg, color){

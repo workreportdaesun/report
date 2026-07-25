@@ -74,7 +74,7 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 .doc-photo4 .cap b{display:block; color:#1A2332; font-size:10.5px; margin-bottom:1px;}
 
 .doc-note{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:18px;}
-.doc-note th{background:#F2F5F9; border:1px solid #C8D2DE; padding:8px 10px; width:82px; text-align:left; font-weight:700; color:#3C4A5C; vertical-align:top;}
+.doc-note th{background:#F2F5F9; border:1px solid #C8D2DE; padding:8px 10px; width:104px; text-align:left; font-weight:700; color:#3C4A5C; vertical-align:top;}
 .doc-note td{border:1px solid #C8D2DE; padding:8px 10px; color:#1A2332; line-height:1.65;}
 
 .doc-sign{display:flex; justify-content:flex-end; align-items:center; gap:20px; font-size:11.5px; color:#3C4A5C;}
@@ -124,7 +124,7 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 
   <table class="doc-body">
     <thead>
-      <tr><th style="width:26px;">No</th><th style="width:60px;">공종</th><th>작업내용</th><th style="width:44px;">단위</th><th style="width:44px;">수량</th><th style="width:50px;">진행상황</th><th style="width:44px;">사진</th><th>비고</th></tr>
+      <tr><th style="width:26px;">No</th><th style="width:60px;">공종</th><th>작업내용</th><th style="width:44px;">단위</th><th style="width:44px;">수량</th><th style="width:50px;">진행상황</th><th style="width:44px;">사진</th><th>기타자재</th></tr>
     </thead>
     <tbody id="docBodyRows"><tr><td colspan="8" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
   </table>
@@ -133,6 +133,7 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
   <div class="doc-photonote" id="docPhotoNote"></div>
 
   <table class="doc-note">
+    <tr><th>명일 작업내용<br>및 자재요청</th><td id="docNextDayCell">-</td></tr>
     <tr><th>특이사항</th><td id="docNoteCell">-</td></tr>
   </table>
 
@@ -259,8 +260,8 @@ async function renderReport(row){
 
   buildContinuationPages(allPhotos);
 
-  var notes = items.map(function(it){ return it.note; }).filter(Boolean);
-  document.getElementById('docNoteCell').textContent = notes.length ? notes.join(' / ') : '특이사항 없음';
+  document.getElementById('docNextDayCell').textContent = row.next_day_plan || '-';
+  document.getElementById('docNoteCell').textContent = row.special_notes || '특이사항 없음';
 
   var submitBtn = document.getElementById('submitBtn');
   if(row.status==='submitted' || viewingOtherReport){
