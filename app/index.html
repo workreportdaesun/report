@@ -371,15 +371,10 @@ textarea.f{resize:none; height:44px;}
 </div>
 <!-- ══ 작업사진 끝 ══ -->
 
-<!-- ══ 공정률 (progress 화면 이식, 조회 전용 — 데이터 연동은 추후 Supabase 작업분류별 연동 시 추가 예정) ══ -->
+<!-- ══ 공정률 (progress 화면 이식, 조회 전용) ══ -->
 <div class="worker-pane" id="pane-progress">
   <div class="card" style="background:var(--field-bg); border-style:dashed; font-size:13px; color:var(--lbl); line-height:1.6;">
-    ⓘ 전일누계/금일/누계는 실제 일보입력 데이터 기준입니다. 계획수량 입력 기능이 아직 없어 계획/%는 준비 중입니다.
-  </div>
-
-  <div class="card" style="padding:8px; display:flex; gap:6px;">
-    <button type="button" class="worker-tab active" id="pgSubQtyBtn" onclick="showProgSub('qty')">작업수량</button>
-    <button type="button" class="worker-tab" id="pgSubVolBtn" onclick="showProgSub('vol')">작업물량</button>
+    ⓘ 계획/전일누계/금일/누계/%는 전부 실제 데이터 기준입니다(계획은 admin.html에서 입력).
   </div>
 
   <div id="pgList"></div>
@@ -630,6 +625,7 @@ function applyRemoteSettings(data){
       }
     });
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalCatSelect();
+    if(typeof window.renderPgList==='function') window.renderPgList();
   }
   if(Array.isArray(data.areas) && data.areas.length){ customAreas = data.areas; }
   if(Array.isArray(data.personnel) && data.personnel.length){
@@ -797,6 +793,7 @@ async function modalAddCategory(){
   }
   inp.value = '';
   renderModalCatSelect();
+  if(typeof window.renderPgList==='function') window.renderPgList();
   await pushSettingsToSupabase();
 }
 function modalRemoveCategory(i){
@@ -805,6 +802,7 @@ function modalRemoveCategory(i){
   list.splice(i,1);
   editingCatIdx=-1; document.getElementById('modalNewCatInput').value=''; document.getElementById('modalCatSaveBtn').textContent='추가';
   renderModalCatSelect();
+  if(typeof window.renderPgList==='function') window.renderPgList();
   pushSettingsToSupabase();
 }
 function renderModalAreaChips(){
@@ -2372,23 +2370,23 @@ window.pickSaveFolder=pickSaveFolder;
      전일누계/금일/누계는 daily_reports(전체 팀, 전체 날짜)의 items[].qty를 작업분류별로
      실시간 집계해서 채운다(loadProgressData). 계획수량은 각 행의 입력칸에 직접 입력하면
      app_settings.plan_qty로 동기화되고, 그 값 기준으로 %(공정률)를 계산한다. 조회 전용, PIN 없음.
+     항목 목록은 하드코딩하지 않고 ⚙️설정의 분류 관리(catsByMenu)에서 그대로 가져온다(2026-07-25) —
+     그래야 분류를 추가/삭제/이름변경하면 공정률 탭도 자동으로 같이 바뀐다. 여러 공종에 같은
+     분류명이 중복되면(ITEM_UNIT/specsByCat과 같은 관례) 한 줄로만 합쳐서 보여줌.
      ══════════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
-var PG_ITEMS=[
-  {item:'DCS Panel',unit:'면'},{item:'LCP',unit:'면'},
-  {item:'Junction Box',unit:'EA'},{item:'Field Instrument',unit:'EA'},
-  {item:'Cable Duct',unit:'M'},{item:'Cable Tray',unit:'M'},
-  {item:'Conduit Pipe',unit:'M'},{item:'Air Pipe',unit:'M'},
-  {item:'Hook Up',unit:'M'},{item:'Cable',unit:'M'},
-  {item:'Stanchion',unit:'EA'},{item:'Support',unit:'EA'},
-  {item:'Connection(From)',unit:'Point'},{item:'Connection(To)',unit:'Point'},{item:'Line Check',unit:'Line'},
-  {item:'Loop Test',unit:'Point'},{item:'Leak Test',unit:'Line'},
-  {item:'Instrument Calibration',unit:'EA'},
-  {item:'Steam Tracing Tube',unit:'M'},
-  {item:'Steam Tracing Insulation',unit:'M'},
-  {item:'Scaffolding',unit:'식'},{item:'Others',unit:'식'},
-];
+function buildPgItems(){
+  var seen={}, list=[];
+  MENUS.forEach(function(m){
+    (catsByMenu[m]||[]).forEach(function(cat){
+      if(seen[cat]) return;
+      seen[cat]=true;
+      list.push({item:cat, unit:UNIT_LABEL[unitOf(cat)]||unitOf(cat)});
+    });
+  });
+  return list;
+}
 var PG_TODAY={}, PG_BEFORE={}, planQty={};
 function sumValues(obj){ return Object.keys(obj).reduce(function(s,k){ return s+obj[k]; },0); }
 async function loadProgressData(){
@@ -2428,14 +2426,10 @@ function pgItemHtml(name,unit,isTotal){
 function renderPgList(){
   document.getElementById('pgList').innerHTML='<div class="card" style="padding:0;">'
     +pgItemHtml('전체 공정률','',true)
-    +PG_ITEMS.map(function(d){ return pgItemHtml(d.item,d.unit,false); }).join('')
+    +buildPgItems().map(function(d){ return pgItemHtml(d.item,d.unit,false); }).join('')
     +'</div>';
 }
-window.showProgSub=function(sub){
-  document.getElementById('pgSubQtyBtn').classList.toggle('active',sub==='qty');
-  document.getElementById('pgSubVolBtn').classList.toggle('active',sub==='vol');
-  renderPgList();
-};
+window.renderPgList=renderPgList;
 window.loadProgressData=loadProgressData;
 renderPgList();
 loadProgressData();
