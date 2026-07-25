@@ -585,27 +585,42 @@ var editingCatIdx=-1, editingAreaIdx=-1, editingPersonnelIdx=-1, editingSpecIdx=
 /* ── 작업분류/구역/현장좌표 클라우드 동기화 (work-shoot-daesun/index.html과 동일 패턴) ── */
 async function pushSettingsToSupabase(){
   if(!sbClient) return false;
-  try{
-    var res = await sbClient.from('app_settings').upsert({
-      id:'global',
-      cats_by_menu: catsByMenu,
-      areas: customAreas,
-      personnel: customPersonnel,
-      specs_by_cat: specsByCat,
-      item_unit: ITEM_UNIT,
-      updated_at: new Date().toISOString()
-    });
-    if(res.error){
+  /* app_settings에 아직 없는 컬럼(item_unit 등)이 하나라도 섞여 있으면 upsert 전체가 에러로
+     실패해서 분류/구역 추가 같은 무관한 저장까지 같이 막혀버렸던 문제(2026-07-25) 방지 —
+     에러 메시지에 언급된 컬럼만 골라 빼고 재시도, 나머지는 정상 저장되게 한다. */
+  var payload = {
+    id:'global',
+    cats_by_menu: catsByMenu,
+    areas: customAreas,
+    personnel: customPersonnel,
+    specs_by_cat: specsByCat,
+    item_unit: ITEM_UNIT,
+    updated_at: new Date().toISOString()
+  };
+  var skipped = [];
+  for(var attempt=0; attempt<5; attempt++){
+    try{
+      var res = await sbClient.from('app_settings').upsert(payload);
+      if(!res.error){
+        if(skipped.length) showToast('⚠️ "'+skipped.join(', ')+'"은(는) Supabase에 컬럼이 없어 저장 안 됨(관리자에게 문의)', 'var(--err)');
+        return true;
+      }
+      var m = /Could not find the '([^']+)' column/.exec(res.error.message||'');
+      if(m && Object.prototype.hasOwnProperty.call(payload, m[1])){
+        skipped.push(m[1]);
+        delete payload[m[1]];
+        continue;
+      }
       console.error('설정 클라우드 동기화 실패', res.error.message);
       showToast('⚠️ 설정 저장 실패: '+res.error.message, 'var(--err)');
       return false;
+    }catch(e){
+      console.error('설정 클라우드 동기화 실패', e);
+      showToast('⚠️ 설정 저장 실패: '+(e.message||e), 'var(--err)');
+      return false;
     }
-    return true;
-  }catch(e){
-    console.error('설정 클라우드 동기화 실패', e);
-    showToast('⚠️ 설정 저장 실패: '+(e.message||e), 'var(--err)');
-    return false;
   }
+  return false;
 }
 function applyRemoteSettings(data){
   if(data.cats_by_menu){
