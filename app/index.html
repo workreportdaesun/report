@@ -496,17 +496,17 @@ function logout(){
 
 var MENU_CONFIG = {
   '시공': {
-    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
+    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection(From)','Connection(To)','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
     catStepLabel:'작업분류 선택', tagLabel:'기기번호', tagPh:'PT-2101, EQ-001 등', locLabel:'작업구역',
     statusOptions:['진행','완료','변경전','변경후']
   },
   '품질': {
-    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
+    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection(From)','Connection(To)','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
     catStepLabel:'검사분류 선택', tagLabel:'기기번호', tagPh:'검사번호 입력', locLabel:'작업구역',
     statusOptions:['신규','변경전','변경후']
   },
   '자재': {
-    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
+    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection(From)','Connection(To)','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
     catStepLabel:'자재품명 선택', tagLabel:'검수번호/Packing NO.', tagPh:'검수번호 입력', locLabel:'자재보관장소',
     statusOptions:['도급','사급']
   },
@@ -532,7 +532,7 @@ var MENU_COLOR = {'시공':'var(--m-시공)','품질':'var(--m-품질)','자재'
 var ITEM_UNIT = {
   'DCS Panel':'EA','LCP':'EA','Junction Box':'EA','Field Instrument':'EA',
   'Cable Duct':'M','Cable Tray':'M','Conduit Pipe':'M','Air Pipe':'M',
-  'Hook Up':'EA','Stanchion':'EA','Support':'EA','Connection':'EA',
+  'Hook Up':'EA','Stanchion':'EA','Support':'EA','Connection(From)':'PT','Connection(To)':'PT',
   'Line Check':'PT','Loop Test':'PT','Leak Test':'PT','Instrument Calibration':'EA',
   'Steam Tracing Tube':'M','Steam Tracing Insulation':'M',
   'Scaffolding':'EA','Others':'EA'
@@ -1624,7 +1624,7 @@ function downloadAll(photos){
 var CC={
   'DCS Panel':"#E67E22",'LCP':"#E74C3C",'Junction Box':"#F39C12",'Field Instrument':"#2980B9",'Cable Duct':"#16A085",
   'Cable Tray':"#8E44AD",'Conduit Pipe':"#C0392B",'Air Pipe':"#27AE60",'Hook Up':"#2E86AB",
-  'Stanchion':"#5D6D7E",'Support':"#A569BD",'Connection':"#E74C3C",'Line Check':"#1ABC9C",
+  'Stanchion':"#5D6D7E",'Support':"#A569BD",'Connection(From)':"#E74C3C",'Connection(To)':"#E74C3C",'Line Check':"#1ABC9C",
   'Loop Test':"#3498DB",'Leak Test':"#1A6B72",'Instrument Calibration':"#D35400",'Steam Tracing Tube':"#C0392B",'Steam Tracing Insulation':"#922B21",
   'Scaffolding':"#7F8C8D",'Others':"#95A5A6",'관리자':"#34495E"
 };
