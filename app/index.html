@@ -1060,7 +1060,7 @@ function onRowStatusChange(sel){
   var wrap = document.getElementById('entryRows');
   if(sel.closest('.entry-row') === wrap.lastElementChild){ addEntryRow(); }
 }
-function saveEntryRows(){
+async function saveEntryRows(){
   var rows = document.getElementById('entryRows').querySelectorAll('.entry-row');
   var unit = unitOf(activeCat);
   var note = document.getElementById('noteInput').value.trim();
@@ -1078,13 +1078,14 @@ function saveEntryRows(){
   if(!saved){ showToast('⚠️ 저장할 항목이 없습니다', 'var(--err)'); return; }
   renderItemList();
   document.getElementById('sendBtn').disabled = items.length===0;
-  upsertDailyReport({
+  await upsertDailyReport({
     items:items,
     status:'draft',
     next_day_plan: document.getElementById('nextDayPlanInput').value.trim(),
     special_notes: document.getElementById('specialNotesInput').value.trim()
   });
   if(typeof window.loadProgressData==='function') window.loadProgressData();
+  if(typeof window.syncProgressChecklist==='function') window.syncProgressChecklist();
   showToast('💾 '+saved+'건 저장됨', 'var(--ok)');
   document.getElementById('entryRows').innerHTML = '';
   addEntryRow();
@@ -2433,6 +2434,50 @@ window.renderPgList=renderPgList;
 window.loadProgressData=loadProgressData;
 renderPgList();
 loadProgressData();
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     TAG NO.별 작업분류별 Check List 자동 집계 (2026-07-25) — admin.html의 Check List 탭이
+     읽는 progress_checklist 테이블을 daily_reports로부터 매번 새로 계산해서 채운다.
+     작업물량(qty_total)은 모든 공종의 qty 누계, 작업수량(complete_date)은 시공 공종에서
+     status==='완료'인 항목들 중 가장 이른 날짜(최초 완료일) — 다른 공종은 '완료' 상태값
+     자체가 없어서(MENU_CONFIG.statusOptions 참고) 항상 비워둠. progress_checklist 테이블이
+     아직 없으면(사용자가 SQL 실행 전) upsert가 에러 나는데, 콘솔 경고만 남기고 조용히
+     무시 — 일보 저장 자체가 이 부실패로 막히면 안 됨. ══════════════════════════════════ -->
+<script>
+(function(){
+async function syncProgressChecklist(){
+  if(!sbClient) return;
+  try{
+    var res = await sbClient.from('daily_reports').select('date,items');
+    if(res.error || !res.data) return;
+    var byKey = {};
+    res.data.forEach(function(row){
+      (Array.isArray(row.items)?row.items:[]).forEach(function(it){
+        if(!it || !it.tag || !it.cat) return;
+        var key = it.tag+'|'+it.cat;
+        if(!byKey[key]) byKey[key] = {tag:it.tag, cat:it.cat, menu:it.menu, qty_total:0, complete_date:null};
+        var g = byKey[key];
+        g.menu = it.menu;
+        g.qty_total += Number(it.qty)||0;
+        if(it.menu==='시공' && it.status==='완료'){
+          if(!g.complete_date || row.date<g.complete_date) g.complete_date = row.date;
+        }
+      });
+    });
+    var rows = Object.keys(byKey).map(function(k){
+      var g = byKey[k];
+      g.updated_at = new Date().toISOString();
+      return g;
+    });
+    if(!rows.length) return;
+    var up = await sbClient.from('progress_checklist').upsert(rows, {onConflict:'tag,cat'});
+    if(up.error) console.error('Check List 동기화 실패(progress_checklist 테이블이 없을 수 있음)', up.error.message);
+  }catch(e){ console.error('Check List 동기화 실패', e); }
+}
+window.syncProgressChecklist = syncProgressChecklist;
+syncProgressChecklist();
 })();
 </script>
 

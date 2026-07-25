@@ -130,13 +130,16 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     </table>
   </div>
 
-  <!-- Check List -->
+  <!-- Check List: TAG NO.×작업분류 그리드. progress_checklist(daily_reports에서 자동 집계됨, report/app/index.html의
+       syncProgressChecklist 참고)를 읽기 전용으로 조회만 함 -->
   <div class="admin-pane" id="pane-cl">
-    <table class="dtable">
-      <tr><th>TAG NO.</th><th>작업분류</th><th>설치</th><th>결선</th><th>Loop Test</th><th>비고</th></tr>
-      <tr><td class="mono">PT-2101</td><td>Field Instrument</td><td><span class="pill pill-ok">완료</span></td><td><span class="pill pill-ok">완료</span></td><td>대기</td><td>-</td></tr>
-      <tr><td class="mono">JB-0512</td><td>Junction Box</td><td><span class="pill pill-ok">완료</span></td><td>진행중</td><td>대기</td><td>-</td></tr>
-    </table>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button type="button" class="admin-tab active" id="clSubQtyBtn" onclick="showClSub('qty')">작업수량</button>
+      <button type="button" class="admin-tab" id="clSubVolBtn" onclick="showClSub('vol')">작업물량</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="dtable" id="clTable"><tr><td style="text-align:center;color:var(--lbl);padding:20px;">불러오는 중...</td></tr></table>
+    </div>
   </div>
 
   <!-- 회원관리: 팀별로 그룹핑, 리더는 헤더로 표시. 리더 지정/해제·강제탈퇴는 관리자만 -->
@@ -161,6 +164,7 @@ function showAdminTab(btn, key){
   document.getElementById('pane-'+key).classList.add('active');
   if(key==='reports') loadAllReports();
   if(key==='members') loadMembers();
+  if(key==='cl') loadChecklist();
 }
 
 var SUPABASE_URL='https://feymoykefzfwucbrqoja.supabase.co';
@@ -437,6 +441,46 @@ document.getElementById('membersList').addEventListener('click', async function(
     membersLoaded=false; loadMembers();
   }
 });
+
+/* ── Check List: TAG NO.×작업분류 그리드, 읽기 전용 — progress_checklist를 그대로 보여줌.
+   가로축(작업분류)은 별도 동기화 없이 실제 존재하는 cat 값에서 뽑아서 항상 일보와 일치함. */
+var clSub='qty', clRows=[];
+async function loadChecklist(){
+  var wrap=document.getElementById('clTable');
+  if(!sbClient){ wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">연결 실패</td></tr>'; return; }
+  try{
+    var res=await sbClient.from('progress_checklist').select('*').order('tag');
+    if(res.error||!res.data){ wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">불러오기 실패(progress_checklist 테이블이 아직 없을 수 있음)</td></tr>'; return; }
+    clRows=res.data;
+    renderChecklist();
+  }catch(e){ wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">불러오기 실패</td></tr>'; }
+}
+function renderChecklist(){
+  var wrap=document.getElementById('clTable');
+  if(!clRows.length){ wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; return; }
+  var cats=[], tags=[], byTagCat={};
+  clRows.forEach(function(r){
+    if(cats.indexOf(r.cat)===-1) cats.push(r.cat);
+    if(tags.indexOf(r.tag)===-1) tags.push(r.tag);
+    byTagCat[r.tag+'|'+r.cat]=r;
+  });
+  var thead='<tr><th>TAG NO.</th>'+cats.map(function(c){ return '<th>'+c+'</th>'; }).join('')+'</tr>';
+  var body=tags.map(function(t){
+    var cells=cats.map(function(c){
+      var r=byTagCat[t+'|'+c];
+      var val = r ? (clSub==='qty' ? (r.complete_date||'') : (r.qty_total||'')) : '';
+      return '<td>'+(val ? (clSub==='qty' ? '<span class="pill pill-ok">'+val+'</span>' : val) : '<span style="color:var(--card-bd);">-</span>')+'</td>';
+    }).join('');
+    return '<tr><td class="mono">'+t+'</td>'+cells+'</tr>';
+  }).join('');
+  wrap.innerHTML=thead+body;
+}
+function showClSub(sub){
+  clSub=sub;
+  document.getElementById('clSubQtyBtn').classList.toggle('active',sub==='qty');
+  document.getElementById('clSubVolBtn').classList.toggle('active',sub==='vol');
+  renderChecklist();
+}
 </script>
 </body>
 </html>
