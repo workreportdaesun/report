@@ -218,7 +218,7 @@ textarea.f{resize:none; height:44px;}
   <button class="worker-tab active" id="wtabReport" onclick="showWorkerPane('report')">📝 일보입력</button>
   <button class="worker-tab" id="wtabShoot" onclick="showWorkerPane('shoot')">📷 작업사진</button>
   <button class="worker-tab" id="wtabProgress" onclick="showWorkerPane('progress')">📈 공정률</button>
-  <button class="worker-tab" id="wtabPersonnel" onclick="showWorkerPane('personnel')">👥 인원및장비</button>
+  <button class="worker-tab" id="wtabPersonnel" onclick="showWorkerPane('personnel')">👥 인원현황</button>
 </div>
 
 <!-- ══ 일보입력 ══ -->
@@ -253,20 +253,6 @@ textarea.f{resize:none; height:44px;}
     </div>
     <button type="button" class="sbtn sbtn-outline" style="margin-top:0;margin-bottom:10px;" onclick="refreshPhotoLinkage(true)">🔄 오늘 작업사진 불러오기</button>
     <div id="itemList"><div class="empty-msg">아직 입력한 항목이 없습니다</div></div>
-  </div>
-
-  <!-- 장비 사용 — 공종/작업분류와 무관하게 항상 노출, 장비현황 탭 집계의 입력 소스 -->
-  <div class="card" id="equipLogCard">
-    <div class="list-header">
-      <span class="list-title">장비 사용</span>
-      <span class="list-count"><span id="equipLogCount">0</span>건</span>
-    </div>
-    <div class="row2">
-      <div><select class="f" id="equipLogSelect"></select></div>
-      <div><input type="number" class="f" id="equipLogQty" min="1" value="1" placeholder="수량"></div>
-    </div>
-    <button type="button" class="sbtn sbtn-outline" style="margin-top:8px;" onclick="addEquipLogEntry()">➕ 장비 사용 추가</button>
-    <div class="chip-row" id="equipLogList" style="margin-top:8px;"></div>
   </div>
 
   <button class="sbtn sbtn-send" id="sendBtn" onclick="previewReport()" disabled>📄 미리보기</button>
@@ -393,18 +379,12 @@ textarea.f{resize:none; height:44px;}
 </div>
 <!-- ══ 공정률 끝 ══ -->
 
-<!-- ══ 인원및장비 — 인원현황은 daily_reports.crew(출력체크), 장비현황은 daily_reports.equipment(장비 사용) 기준 실집계 ══ -->
+<!-- ══ 인원현황 — daily_reports.crew(출력체크) 기준 실집계 ══ -->
 <div class="worker-pane" id="pane-personnel">
   <div class="card" style="background:var(--field-bg); border-style:dashed; font-size:13px; color:var(--lbl); line-height:1.6;">
-    ⓘ 인원현황은 출력체크, 장비현황은 일보입력의 "장비 사용" 기록을 실시간 집계합니다.
+    ⓘ 출력체크 기록을 실시간 집계합니다.
   </div>
 
-  <div class="card" style="padding:8px; display:flex; gap:6px;">
-    <button type="button" class="worker-tab active" id="pnSubPeopleBtn" onclick="showPersonnelSub('people')">인원현황</button>
-    <button type="button" class="worker-tab" id="pnSubEquipBtn" onclick="showPersonnelSub('equip')">장비현황</button>
-  </div>
-
-  <!-- 출력체크 — 인원현황일 때만 노출 -->
   <div class="card" id="checkinCard">
     <div class="flbl" style="margin-top:0;">출력체크</div>
     <div id="checkinStatus" style="font-size:13px;color:var(--lbl);margin-bottom:10px;">위치 확인 중...</div>
@@ -413,7 +393,7 @@ textarea.f{resize:none; height:44px;}
 
   <div id="pnList"></div>
 </div>
-<!-- ══ 인원및장비 끝 ══ -->
+<!-- ══ 인원현황 끝 ══ -->
 
 <!-- ══ 작업분류 선택 팝업 ══ -->
 <div class="cat-modal-overlay" id="catModalOverlay" onclick="if(event.target===this)closeCatModal()">
@@ -460,13 +440,6 @@ textarea.f{resize:none; height:44px;}
       <div class="add-row">
         <input type="text" id="modalNewPersonnelInput" class="f" placeholder="새 인원 이름"/>
         <button type="button" id="modalPersonnelSaveBtn" onclick="modalAddPersonnel()">추가</button>
-      </div>
-
-      <div class="cat-modal-sublbl">장비 관리</div>
-      <div class="chip-row" id="modalEquipmentChips"></div>
-      <div class="add-row">
-        <input type="text" id="modalNewEquipmentInput" class="f" placeholder="새 장비 이름"/>
-        <button type="button" id="modalEquipmentSaveBtn" onclick="modalAddEquipment()">추가</button>
       </div>
     </div>
   </div>
@@ -551,9 +524,6 @@ var customAreas = [];
 /* 인원현황(팀원 명단) — Supabase app_settings.personnel로 동기화됨. 목록 맨 위 "전체인원"은 이 배열에
    포함되지 않는 고정 집계행이고, 이 배열의 각 항목이 그 아래 개별 팀원 행이 된다. */
 var customPersonnel = ['1팀(계장)','2팀(계장)','품질팀','안전관리팀'];
-/* 장비현황(장비 목록) — Supabase app_settings.equipment로 동기화됨. 목록 맨 위 "전체장비"는 이 배열에
-   포함되지 않는 고정 집계행이고, 이 배열의 각 항목이 그 아래 개별 장비 행이 된다. */
-var customEquipment = ['크레인','지게차','발전기','용접기','에어컴프레서','고소작업대'];
 /* 규격 목록(일보입력 각 행의 규격 드롭다운) — Supabase app_settings.specs로 동기화됨. 지금은
    공종/분류 구분 없이 전체 공용 하나의 목록이고(설정에서 직접 관리), 나중에 작업분류별로 Supabase에
    값을 넣으면 그 값을 따라가도록 확장할 예정. 공정률 집계는 규격 구분 없이 분류(cat) 기준 전체수량으로
@@ -565,9 +535,9 @@ var SITE_LAT=null, SITE_LNG=null, GEOFENCE_M=1000, lastCheckDistance=null;
 var activeMenu='시공', activeCat=null, hasPhoto=false, items=[];
 document.getElementById('hdrActiveMenu').textContent = ' ('+activeMenu+')';
 var modalMenu='시공';
-/* 설정(⚙️) 팝업의 분류/구역/인원/장비/규격 관리 — 각 -1이면 "추가" 모드, 0 이상이면 그 인덱스 항목을
+/* 설정(⚙️) 팝업의 분류/구역/인원/규격 관리 — 각 -1이면 "추가" 모드, 0 이상이면 그 인덱스 항목을
    수정 중이며 입력칸에 기존 값이 채워지고 버튼이 "저장"으로 바뀐다. */
-var editingCatIdx=-1, editingAreaIdx=-1, editingPersonnelIdx=-1, editingEquipmentIdx=-1, editingSpecIdx=-1;
+var editingCatIdx=-1, editingAreaIdx=-1, editingPersonnelIdx=-1, editingSpecIdx=-1;
 
 /* ── 작업분류/구역/현장좌표 클라우드 동기화 (work-shoot-daesun/index.html과 동일 패턴) ── */
 async function pushSettingsToSupabase(){
@@ -578,7 +548,6 @@ async function pushSettingsToSupabase(){
       cats_by_menu: catsByMenu,
       areas: customAreas,
       personnel: customPersonnel,
-      equipment: customEquipment,
       specs: customSpecs,
       updated_at: new Date().toISOString()
     });
@@ -599,12 +568,6 @@ function applyRemoteSettings(data){
     customPersonnel = data.personnel;
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalPersonnelChips();
     if(typeof window.renderPnList==='function') window.renderPnList();
-  }
-  if(Array.isArray(data.equipment) && data.equipment.length){
-    customEquipment = data.equipment;
-    if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalEquipmentChips();
-    if(typeof window.renderPnList==='function') window.renderPnList();
-    if(typeof populateEquipLogSelect==='function') populateEquipLogSelect();
   }
   if(Array.isArray(data.specs) && data.specs.length){
     customSpecs = data.specs;
@@ -659,7 +622,6 @@ function openCatModal(){
   renderModalCatSelect();
   renderModalAreaChips();
   renderModalPersonnelChips();
-  renderModalEquipmentChips();
   renderModalSpecChips();
   var overlay=document.getElementById('catModalOverlay'), panel=document.getElementById('catModalPanel');
   overlay.classList.add('show');
@@ -673,18 +635,16 @@ function openCatModal(){
 function closeCatModal(){
   document.getElementById('catModalOverlay').classList.remove('show');
 }
-/* 분류/구역/인원/장비/규격 관리 입력칸을 전부 "추가" 모드로 되돌린다(수정 중이던 항목 취소) */
+/* 분류/구역/인원/규격 관리 입력칸을 전부 "추가" 모드로 되돌린다(수정 중이던 항목 취소) */
 function resetModalEditStates(){
-  editingCatIdx=-1; editingAreaIdx=-1; editingPersonnelIdx=-1; editingEquipmentIdx=-1; editingSpecIdx=-1;
+  editingCatIdx=-1; editingAreaIdx=-1; editingPersonnelIdx=-1; editingSpecIdx=-1;
   document.getElementById('modalNewCatInput').value='';
   document.getElementById('modalNewAreaInput').value='';
   document.getElementById('modalNewPersonnelInput').value='';
-  document.getElementById('modalNewEquipmentInput').value='';
   document.getElementById('modalNewSpecInput').value='';
   document.getElementById('modalCatSaveBtn').textContent='추가';
   document.getElementById('modalAreaSaveBtn').textContent='추가';
   document.getElementById('modalPersonnelSaveBtn').textContent='추가';
-  document.getElementById('modalEquipmentSaveBtn').textContent='추가';
   document.getElementById('modalSpecSaveBtn').textContent='추가';
 }
 function renderModalMenuTabs(){
@@ -831,46 +791,6 @@ function modalRemovePersonnel(i){
   editingPersonnelIdx=-1; document.getElementById('modalNewPersonnelInput').value=''; document.getElementById('modalPersonnelSaveBtn').textContent='추가';
   renderModalPersonnelChips();
   if(typeof window.renderPnList==='function') window.renderPnList();
-  pushSettingsToSupabase();
-}
-function renderModalEquipmentChips(){
-  document.getElementById('modalEquipmentChips').innerHTML = customEquipment.map(function(p,i){
-    return '<span class="chip">'+p
-      +'<button type="button" class="chip-edit" onclick="modalEditEquipment('+i+')" title="수정">✏️</button>'
-      +'<button type="button" class="chip-del" onclick="modalRemoveEquipment('+i+')" title="삭제">✕</button></span>';
-  }).join('');
-}
-function modalEditEquipment(i){
-  editingEquipmentIdx = i;
-  document.getElementById('modalNewEquipmentInput').value = customEquipment[i];
-  document.getElementById('modalNewEquipmentInput').focus();
-  document.getElementById('modalEquipmentSaveBtn').textContent = '저장';
-}
-function modalAddEquipment(){
-  var inp = document.getElementById('modalNewEquipmentInput');
-  var v = inp.value.trim();
-  if(!v) return;
-  if(editingEquipmentIdx>=0){
-    if(customEquipment.indexOf(v)!==-1 && customEquipment[editingEquipmentIdx]!==v) return;
-    customEquipment[editingEquipmentIdx] = v;
-    editingEquipmentIdx = -1;
-    document.getElementById('modalEquipmentSaveBtn').textContent = '추가';
-  }else{
-    if(customEquipment.indexOf(v)!==-1) return;
-    customEquipment.push(v);
-  }
-  inp.value = '';
-  renderModalEquipmentChips();
-  if(typeof window.renderPnList==='function') window.renderPnList();
-  populateEquipLogSelect();
-  pushSettingsToSupabase();
-}
-function modalRemoveEquipment(i){
-  customEquipment.splice(i,1);
-  editingEquipmentIdx=-1; document.getElementById('modalNewEquipmentInput').value=''; document.getElementById('modalEquipmentSaveBtn').textContent='추가';
-  renderModalEquipmentChips();
-  if(typeof window.renderPnList==='function') window.renderPnList();
-  populateEquipLogSelect();
   pushSettingsToSupabase();
 }
 function renderModalSpecChips(){
@@ -1038,41 +958,6 @@ function editItem(idx){
   document.getElementById('noteInput').value = it.note || '';
   setCamBoxState(!!it.photo || hasPhoto);
   showToast('✏️ 수정 모드 — 값을 고친 뒤 저장하세요', 'var(--brand-2)');
-}
-/* ── 장비 사용(equipmentLog) — 공종/작업분류와 무관하게 항상 입력 가능, daily_reports.equipment에 저장,
-   장비현황 탭 금일/전일누계/누계 집계의 원본 데이터가 된다 ── */
-var equipmentLog = [];
-function populateEquipLogSelect(){
-  var sel = document.getElementById('equipLogSelect');
-  if(!sel) return;
-  var cur = sel.value;
-  sel.innerHTML = customEquipment.map(function(e){ return '<option value="'+e.replace(/"/g,'&quot;')+'">'+e+'</option>'; }).join('');
-  if(cur && customEquipment.indexOf(cur)!==-1) sel.value = cur;
-}
-function renderEquipLog(){
-  document.getElementById('equipLogCount').textContent = equipmentLog.length;
-  document.getElementById('equipLogList').innerHTML = equipmentLog.map(function(e,i){
-    return '<span class="chip">'+e.name+' × '+e.qty+'<button type="button" class="chip-del" onclick="removeEquipLogEntry('+i+')" title="삭제">✕</button></span>';
-  }).join('');
-}
-function addEquipLogEntry(){
-  var sel = document.getElementById('equipLogSelect');
-  var name = sel.value;
-  var qty = Number(document.getElementById('equipLogQty').value) || 0;
-  if(!name || qty<=0){ showToast('⚠️ 장비와 수량을 확인해주세요', 'var(--err)'); return; }
-  var existing = equipmentLog.find(function(e){ return e.name===name; });
-  if(existing) existing.qty += qty;
-  else equipmentLog.push({name:name, qty:qty});
-  renderEquipLog();
-  upsertDailyReport({equipment:equipmentLog});
-  if(typeof window.loadPersonnelEquipmentData==='function') window.loadPersonnelEquipmentData();
-  showToast('➕ 장비 사용 추가됨', 'var(--ok)');
-}
-function removeEquipLogEntry(i){
-  equipmentLog.splice(i,1);
-  renderEquipLog();
-  upsertDailyReport({equipment:equipmentLog});
-  if(typeof window.loadPersonnelEquipmentData==='function') window.loadPersonnelEquipmentData();
 }
 /* ── daily_reports 임시저장(draft)/제출(submitted) — 팀+날짜 단위 1행, 로그인 필요(SHEET10 결정) ── */
 function todayStr(){
@@ -1312,7 +1197,6 @@ function showToast(msg, color){
 
 fetchSettingsFromSupabase();
 subscribeSettingsRealtime();
-populateEquipLogSelect();
 
 /* 미리보기 갔다가 전송 없이 돌아온 경우: 저장 안 하고 있던 입력칸 내용을 그대로 복원 */
 function restorePendingEntry(){
@@ -2394,23 +2278,21 @@ loadProgressData();
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════
-     인원및장비 탭 — 인원현황은 daily_reports.crew(출력체크), 장비현황은 daily_reports.equipment
-     (일보입력의 "장비 사용")를 전체 팀/전체 날짜 기준으로 집계한다(loadPersonnelEquipmentData).
-     인원현황은 team 단위(daily_reports.team이 customPersonnel 항목과 동일한 팀명), 장비현황은
-     equipment[].name 단위로 today/before 합산. 조회 전용, PIN 없음.
+     인원현황 탭 — daily_reports.crew(출력체크)를 전체 팀/전체 날짜 기준으로 집계한다
+     (loadPersonnelEquipmentData). team 단위(daily_reports.team이 customPersonnel 항목과
+     동일한 팀명)로 today/before 합산. 조회 전용, PIN 없음.
      ══════════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
-var pnSub='people';
-var PN_PEOPLE_TODAY={}, PN_PEOPLE_BEFORE={}, PN_EQUIP_TODAY={}, PN_EQUIP_BEFORE={};
+var PN_PEOPLE_TODAY={}, PN_PEOPLE_BEFORE={};
 function sumValues(obj){ return Object.keys(obj).reduce(function(s,k){ return s+obj[k]; },0); }
 async function loadPersonnelEquipmentData(){
   if(!sbClient) return;
   try{
-    var res = await sbClient.from('daily_reports').select('team,date,crew,equipment');
+    var res = await sbClient.from('daily_reports').select('team,date,crew');
     if(res.error || !res.data) return;
     var today = todayStr();
-    var pT={}, pB={}, eT={}, eB={};
+    var pT={}, pB={};
     res.data.forEach(function(row){
       var isToday = row.date===today, isBefore = row.date<today;
       if(!isToday && !isBefore) return;
@@ -2419,44 +2301,23 @@ async function loadPersonnelEquipmentData(){
         var pTarget = isToday ? pT : pB;
         pTarget[row.team] = (pTarget[row.team]||0) + crew.length;
       }
-      var equip = Array.isArray(row.equipment) ? row.equipment : [];
-      var eTarget = isToday ? eT : eB;
-      equip.forEach(function(e){
-        if(!e || !e.name) return;
-        eTarget[e.name] = (eTarget[e.name]||0) + (Number(e.qty)||0);
-      });
     });
-    PN_PEOPLE_TODAY=pT; PN_PEOPLE_BEFORE=pB; PN_EQUIP_TODAY=eT; PN_EQUIP_BEFORE=eB;
+    PN_PEOPLE_TODAY=pT; PN_PEOPLE_BEFORE=pB;
     renderPnList();
-  }catch(e){ console.error('인원및장비 데이터 불러오기 실패', e); }
+  }catch(e){ console.error('인원현황 데이터 불러오기 실패', e); }
 }
 function pnItemHtml(name,unit,isTotal){
-  var todayMap = pnSub==='people' ? PN_PEOPLE_TODAY : PN_EQUIP_TODAY;
-  var beforeMap = pnSub==='people' ? PN_PEOPLE_BEFORE : PN_EQUIP_BEFORE;
-  var today = isTotal ? sumValues(todayMap) : (todayMap[name]||0);
-  var before = isTotal ? sumValues(beforeMap) : (beforeMap[name]||0);
+  var today = isTotal ? sumValues(PN_PEOPLE_TODAY) : (PN_PEOPLE_TODAY[name]||0);
+  var before = isTotal ? sumValues(PN_PEOPLE_BEFORE) : (PN_PEOPLE_BEFORE[name]||0);
   return '<div class="pg-item'+(isTotal?' pg-item-total':'')+'"><div class="pg-item-top"><span class="pg-item-name">'+name+'</span><span class="pg-item-unit">'+unit+'</span></div>'
     +'<div class="pg-item-nums"><span>전일누계 <b>'+before+'</b></span><span>금일 <b>'+today+'</b></span><span>누계 <b>'+(before+today)+'</b></span></div></div>';
 }
 function renderPnList(){
-  var html;
-  if(pnSub==='people'){
-    html = pnItemHtml('전체인원','명',true) + customPersonnel.map(function(name){ return pnItemHtml(name,'명',false); }).join('');
-  }else{
-    html = pnItemHtml('전체장비','대',true) + customEquipment.map(function(name){ return pnItemHtml(name,'대',false); }).join('');
-  }
+  var html = pnItemHtml('전체인원','명',true) + customPersonnel.map(function(name){ return pnItemHtml(name,'명',false); }).join('');
   document.getElementById('pnList').innerHTML='<div class="card" style="padding:0;">'+html+'</div>';
 }
 window.renderPnList=renderPnList;
 window.loadPersonnelEquipmentData=loadPersonnelEquipmentData;
-window.showPersonnelSub=function(sub){
-  pnSub=sub;
-  document.getElementById('pnSubPeopleBtn').classList.toggle('active',sub==='people');
-  document.getElementById('pnSubEquipBtn').classList.toggle('active',sub==='equip');
-  document.getElementById('checkinCard').style.display = sub==='people' ? '' : 'none';
-  if(sub==='people' && typeof refreshCheckinDistance==='function') refreshCheckinDistance();
-  renderPnList();
-};
 renderPnList();
 loadPersonnelEquipmentData();
 })();
