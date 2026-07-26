@@ -72,6 +72,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <button class="admin-tab" onclick="showAdminTab(this,'out')">출력현황</button>
     <button class="admin-tab" onclick="showAdminTab(this,'reports')">작업일보 전체내용</button>
     <button class="admin-tab" onclick="showAdminTab(this,'cl')">Check List</button>
+    <button class="admin-tab" onclick="showAdminTab(this,'wl')">물량관리</button>
     <button class="admin-tab" onclick="showAdminTab(this,'members')">회원관리</button>
   </div>
 
@@ -82,21 +83,21 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
     </div>
     <table class="dtable">
-      <tr><th>작업분류</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>공정률</th></tr>
-      <tbody id="procTableRows"><tr><td colspan="6" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+      <tr><th>작업분류</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>공정률</th></tr>
+      <tbody id="procTableRows"><tr><td colspan="7" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
     </table>
   </div>
 
   <!-- 계획수량 설정 모달 — 웹관리자가 PC에서만 열 수 있고(⚙️ 버튼 자체를 모바일에선 숨김),
        여기 들어오기 전까지 표/카드는 항상 보여주기 전용이다 -->
   <div id="planModalOverlay" onclick="if(event.target===this) closePlanSettings()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9990;align-items:center;justify-content:center;">
-    <div style="background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.3);margin:0 14px;">
+    <div style="background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.3);margin:0 14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h3 style="font-size:16px;font-weight:800;color:var(--brand-1);margin:0;">계획수량 설정</h3>
+        <h3 style="font-size:16px;font-weight:800;color:var(--brand-1);margin:0;">계획/설치수량 설정</h3>
         <button type="button" onclick="closePlanSettings()" style="border:none;background:var(--field-bg);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px;color:var(--lbl);">✕</button>
       </div>
       <label style="display:block;text-align:center;border:1.5px dashed var(--brand-2);background:var(--field-bg);color:var(--brand-2);border-radius:8px;padding:9px;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:12px;">
-        📤 엑셀로 일괄 입력(작업분류별 계획수량 업로드 서식)
+        📤 엑셀로 일괄 입력(작업분류별 계획/설치수량 업로드 서식 v3)
         <input type="file" id="planExcelInput" accept=".xlsx,.xls" style="display:none;" onchange="handlePlanExcelUpload(this)">
       </label>
       <div id="planModalRows"></div>
@@ -146,6 +147,27 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     </div>
   </div>
 
+  <!-- 물량관리: work_log(일보를 행 단위로 펼친 백업 로그, report/app/index.html의 syncWorkLog 참고)를
+       공종/작업분류/TAG/날짜로 검색·조회. work_log 테이블이 없으면(사용자가 SQL 실행 전) 안내만 뜬다. -->
+  <div class="admin-pane" id="pane-wl">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+      <select id="wlMenuFilter" onchange="renderWorkLog()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
+      <select id="wlCatFilter" onchange="renderWorkLog()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 작업분류</option></select>
+      <input type="text" id="wlTagFilter" oninput="renderWorkLog()" placeholder="TAG 검색" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
+      <input type="date" id="wlDateFrom" onchange="renderWorkLog()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <span style="color:var(--lbl);font-size:12px;">~</span>
+      <input type="date" id="wlDateTo" onchange="renderWorkLog()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <button type="button" onclick="resetWlFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
+      <span id="wlSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="dtable">
+        <tr><th>날짜</th><th>공종</th><th>작업분류</th><th>TAG</th><th>규격</th><th>수량</th><th>상태</th><th>팀</th></tr>
+        <tbody id="wlRows"><tr><td colspan="8" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- 회원관리: 팀별로 그룹핑, 리더는 헤더로 표시. 리더 지정/해제·강제탈퇴는 관리자만 -->
   <div class="admin-pane" id="pane-members">
     <div id="membersList"><div style="text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
@@ -170,6 +192,7 @@ function showAdminTab(btn, key){
   if(key==='reports') loadAllReports();
   if(key==='members') loadMembers();
   if(key==='cl') loadChecklist();
+  if(key==='wl') loadWorkLog();
 }
 
 var SUPABASE_URL='https://feymoykefzfwucbrqoja.supabase.co';
@@ -185,7 +208,12 @@ function todayStr(){
    열면(예: 관리자가 폰으로 확인) 다른 화면들과 동일하게 숫자만 보여주고 수정은 막는다. */
 var admIsMobile=/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
 /* renderProcTable 밖(계획수량 수정 후 재렌더)에서도 써야 해서 loadDashboardData가 채운 값을 보관 */
-var dashCatToday={}, dashCatBefore={}, dashCatMenu={}, dashPlanQty={};
+var dashCatToday={}, dashCatBefore={}, dashCatMenu={}, dashPlanQty={}, dashInstallQty={};
+/* 공정률 %의 실적 기준 — report/app/index.html의 actualQty()와 동일한 규칙(엑셀로 올라온
+   설치수량이 있으면 그 값 우선, 없으면 일보 실시간 누계로 대체). */
+function actualFor(cat, catToday, catBefore, installQty){
+  return Object.prototype.hasOwnProperty.call(installQty, cat) ? installQty[cat] : ((catToday[cat]||0)+(catBefore[cat]||0));
+}
 
 /* app_settings.cats_by_menu — 아직 일보 실적이 하나도 없는 분류(예: 계획수량만 미리 잡아두려는 신규
    분류)도 계획수량 설정/엑셀 업로드 대상에 포함시키려고 별도로 읽어온다. report/app/index.html의
@@ -219,10 +247,11 @@ async function loadDashboardData(){
   if(!sbClient) return;
   try{
     var reportsRes = await sbClient.from('daily_reports').select('team,date,items,crew');
-    var settingsRes = await sbClient.from('app_settings').select('plan_qty,personnel').eq('id','global').single();
+    var settingsRes = await sbClient.from('app_settings').select('plan_qty,install_qty,personnel').eq('id','global').single();
     if(reportsRes.error || !reportsRes.data) return;
     var rows = reportsRes.data;
     var planQty = (settingsRes.data && settingsRes.data.plan_qty) || {};
+    var installQty = (settingsRes.data && settingsRes.data.install_qty) || {};
     var registeredTeams = (settingsRes.data && settingsRes.data.personnel) || [];
     var today = todayStr();
 
@@ -248,28 +277,28 @@ async function loadDashboardData(){
         }
       }
     });
-    dashCatToday=catToday; dashCatBefore=catBefore; dashCatMenu=catMenu; dashPlanQty=planQty;
-    renderProcGrid(catToday,catBefore,catMenu,planQty);
-    renderProcTable(catToday,catBefore,planQty);
+    dashCatToday=catToday; dashCatBefore=catBefore; dashCatMenu=catMenu; dashPlanQty=planQty; dashInstallQty=installQty;
+    renderProcGrid(catToday,catBefore,catMenu,planQty,installQty);
+    renderProcTable(catToday,catBefore,planQty,installQty);
     renderOutGrid(todayCrewByTeam,registeredTeams);
     renderOutTable(todayCrewByTeam,todayNamesByTeam);
   }catch(e){ console.error('대시보드 데이터 불러오기 실패', e); }
 }
-function renderProcGrid(catToday,catBefore,catMenu,planQty){
+function renderProcGrid(catToday,catBefore,catMenu,planQty,installQty){
   var MENUS=[{key:'시공',color:'var(--m-시공)'},{key:'품질',color:'var(--m-품질)'},{key:'자재',color:'var(--m-자재)'},{key:'안전',color:'var(--m-안전)'},{key:'화기/유도',color:'var(--m-화기)'}];
   var actual={}, plan={};
   Object.keys(catMenu).forEach(function(cat){
     var m=catMenu[cat];
-    actual[m]=(actual[m]||0)+(catToday[cat]||0)+(catBefore[cat]||0);
+    actual[m]=(actual[m]||0)+actualFor(cat,catToday,catBefore,installQty);
     plan[m]=(plan[m]||0)+(planQty[cat]||0);
   });
   document.getElementById('procGrid').innerHTML = MENUS.map(function(m){
     var a=actual[m.key]||0, p=plan[m.key]||0;
     var pct = p>0 ? Math.min(100,Math.round(a/p*100)) : 0;
-    return '<div class="proc-card"><div class="m" style="color:'+m.color+';">'+m.key+'</div><div class="pct">'+pct+'%</div><div class="proc-bar"><div style="width:'+pct+'%;background:'+m.color+';"></div></div><div class="d">계획 '+p+' / 실적 '+a+'</div></div>';
+    return '<div class="proc-card"><div class="m" style="color:'+m.color+';">'+m.key+'</div><div class="pct">'+pct+'%</div><div class="proc-bar"><div style="width:'+pct+'%;background:'+m.color+';"></div></div><div class="d">계획 '+p+' / 설치(실적) '+a+'</div></div>';
   }).join('');
 }
-/* 여기(표/카드)는 항상 보여주기 전용 — 계획수량 수정은 아래 "⚙️ 계획수량 설정" 모달에서만 가능 */
+/* 여기(표/카드)는 항상 보여주기 전용 — 계획/설치수량 수정은 아래 "⚙️ 계획수량 설정" 모달에서만 가능 */
 function getCatList(){
   var cats={}, list=[];
   function add(c){ if(!cats[c]){ cats[c]=1; list.push(c); } }
@@ -277,16 +306,18 @@ function getCatList(){
   Object.keys(dashCatToday).forEach(add);
   Object.keys(dashCatBefore).forEach(add);
   Object.keys(dashPlanQty).forEach(add);
+  Object.keys(dashInstallQty).forEach(add);
   return list;
 }
-function renderProcTable(catToday,catBefore,planQty){
+function renderProcTable(catToday,catBefore,planQty,installQty){
   var list=getCatList();
   var wrap=document.getElementById('procTableRows');
-  if(!list.length){ wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">데이터가 아직 없습니다</td></tr>'; return; }
+  if(!list.length){ wrap.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--lbl);">데이터가 아직 없습니다</td></tr>'; return; }
   wrap.innerHTML = list.map(function(cat){
     var before=catBefore[cat]||0, today=catToday[cat]||0, total=before+today, plan=planQty[cat]||0;
-    var pct = plan>0 ? Math.min(100,Math.round(total/plan*100)) : 0;
-    return '<tr><td>'+cat+'</td><td class="mono">'+(plan||'-')+'</td><td class="mono">'+before+'</td><td class="mono">'+today+'</td><td class="mono">'+total+'</td><td>'+pct+'%</td></tr>';
+    var actual=actualFor(cat,catToday,catBefore,installQty);
+    var pct = plan>0 ? Math.min(100,Math.round(actual/plan*100)) : 0;
+    return '<tr><td>'+cat+'</td><td class="mono">'+(plan||'-')+'</td><td class="mono">'+before+'</td><td class="mono">'+today+'</td><td class="mono">'+total+'</td><td class="mono">'+(Object.prototype.hasOwnProperty.call(installQty,cat)?installQty[cat]:'-')+'</td><td>'+pct+'%</td></tr>';
   }).join('');
 }
 /* ── 계획수량 설정 모달 — ⚙️ 버튼을 눌러 들어오기 전까지는 수정 진입로가 아예 없다 ── */
@@ -295,22 +326,26 @@ function openPlanSettings(){
   var wrap = document.getElementById('planModalRows');
   wrap.innerHTML = !list.length
     ? '<div style="text-align:center;color:var(--lbl);font-size:13px;padding:14px;">아직 작업분류 데이터가 없습니다.</div>'
-    : list.map(function(cat){
-        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--field-bg);">'
-          +'<span style="font-size:13px;color:var(--ink);">'+cat+'</span>'
-          +'<input type="number" min="0" data-cat="'+cat.replace(/"/g,'&quot;')+'" class="planModalInput" value="'+(dashPlanQty[cat]||'')+'" placeholder="0" style="width:80px;padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);text-align:right;">'
+    : ('<div style="display:flex;gap:10px;padding:0 0 6px;font-size:11px;color:var(--lbl);"><span style="flex:1;">작업분류</span><span style="width:80px;text-align:right;">계획</span><span style="width:80px;text-align:right;">설치</span></div>'
+    + list.map(function(cat){
+        var esc = cat.replace(/"/g,'&quot;');
+        return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--field-bg);">'
+          +'<span style="flex:1;font-size:13px;color:var(--ink);">'+cat+'</span>'
+          +'<input type="number" min="0" data-cat="'+esc+'" class="planModalInput" value="'+(dashPlanQty[cat]||'')+'" placeholder="0" style="width:80px;padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);text-align:right;">'
+          +'<input type="number" min="0" data-cat="'+esc+'" class="installModalInput" value="'+(dashInstallQty[cat]||'')+'" placeholder="0" style="width:80px;padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);text-align:right;">'
           +'</div>';
-      }).join('');
+      }).join(''));
   document.getElementById('planModalOverlay').style.display='flex';
 }
 function closePlanSettings(){
   document.getElementById('planModalOverlay').style.display='none';
 }
-/* 엑셀 일괄 업로드 — "작업분류별_계획수량_업로드서식_v2.xlsx" 형식 전용. 시트 하나 = 작업분류 하나.
-   1행 안내문, 2행 헤더(TAG NO(선택) | 단위 | <규격들 또는 계획수량 1열> | 비고), 3행부터 데이터.
-   규격 열이 여러 개면 TAG+규격 단위로 쪼개서 plan_items에 저장(나중에 TAG별 진행 현황 조회용),
-   화면(계획수량 입력칸/공정률)에는 분류별 합계만 반영한다. 여기서 만든 값은 아직 화면과 메모리에만
-   있고, Supabase 반영은 기존과 동일하게 "저장" 버튼을 눌러야 실행된다. */
+/* 엑셀 일괄 업로드 — "작업분류별_계획수량_업로드서식_v3.xlsx" 형식 전용. 시트 하나 = 작업분류 하나.
+   1행 안내문, 2행 헤더(TAG NO(선택) | 단위 | <규격별 계획/설치 쌍... 또는 계획수량/설치수량 1쌍> | 비고),
+   3행부터 데이터. 규격이 있으면 규격당 "규격명_계획","규격명_설치" 두 열이 붙어서 나온다(2열씩 묶어서
+   읽음). TAG+규격 단위로 쪼개서 plan_items(planned_qty/installed_qty)에 저장하고, 화면(계획수량
+   입력칸/공정률)에는 분류별 계획 합계·설치 합계 두 값만 반영한다. 여기서 만든 값은 아직 화면과
+   메모리에만 있고, Supabase 반영은 기존과 동일하게 "저장" 버튼을 눌러야 실행된다. */
 var pendingPlanItems=[];
 function handlePlanExcelUpload(input){
   var file = input.files && input.files[0];
@@ -320,8 +355,7 @@ function handlePlanExcelUpload(input){
     try{
       var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
       var knownCats = {}; getCatList().forEach(function(c){ knownCats[c]=1; });
-      var itemMap = {}; // key: cat|tag|spec -> {cat,tag,spec,unit,planned_qty}
-      var catTotal = {};
+      var itemMap = {}; // key: cat|tag|spec -> {cat,tag,spec,unit,planned_qty,installed_qty}
       var matched=[], unmatched=[];
       wb.SheetNames.forEach(function(sheetName){
         if(sheetName==='안내') return;
@@ -331,25 +365,27 @@ function handlePlanExcelUpload(input){
         var qtyColStart = 2, qtyColEnd = header.length-2; // 0:TAG NO, 1:단위, last:비고
         if(qtyColEnd < qtyColStart) return;
         var qtyCols = header.slice(qtyColStart, qtyColEnd+1);
-        var flat = (qtyCols.length===1 && qtyCols[0]==='계획수량');
+        var flat = (qtyCols.length===2 && qtyCols[0]==='계획수량' && qtyCols[1]==='설치수량');
         var unit = settingsItemUnit[sheetName] || 'EA';
-        var sheetSum = 0;
+        var planSum=0, instSum=0;
         rows.slice(2).forEach(function(r){
           if(!r) return;
           var tag = (r[0]==null ? '' : String(r[0]).trim());
-          for(var ci=qtyColStart; ci<=qtyColEnd; ci++){
-            var v = Number(r[ci]);
-            if(!v || isNaN(v)) continue;
-            var spec = flat ? '' : String(header[ci]);
+          for(var ci=qtyColStart; ci+1<=qtyColEnd; ci+=2){
+            var pv = Number(r[ci]) || 0;
+            var iv = Number(r[ci+1]) || 0;
+            if(!pv && !iv) continue;
+            var spec = flat ? '' : String(header[ci]).replace(/_계획$/,'');
             var key = sheetName+'|'+tag+'|'+spec;
-            if(!itemMap[key]) itemMap[key] = {cat:sheetName, tag:tag, spec:spec, unit:unit, planned_qty:0};
-            itemMap[key].planned_qty += v;
-            sheetSum += v;
+            if(!itemMap[key]) itemMap[key] = {cat:sheetName, tag:tag, spec:spec, unit:unit, planned_qty:0, installed_qty:0};
+            itemMap[key].planned_qty += pv;
+            itemMap[key].installed_qty += iv;
+            planSum += pv; instSum += iv;
           }
         });
-        if(sheetSum>0) dashPlanQty[sheetName]=sheetSum; else delete dashPlanQty[sheetName];
-        catTotal[sheetName]=sheetSum;
-        matched.push(sheetName+'('+sheetSum+')');
+        if(planSum>0) dashPlanQty[sheetName]=planSum; else delete dashPlanQty[sheetName];
+        if(instSum>0) dashInstallQty[sheetName]=instSum; else delete dashInstallQty[sheetName];
+        matched.push(sheetName+'(계획 '+planSum+' / 설치 '+instSum+')');
       });
       pendingPlanItems = Object.keys(itemMap).map(function(k){ return itemMap[k]; });
       openPlanSettings();
@@ -371,26 +407,31 @@ async function savePlanSettings(){
     var v = Number(inp.value)||0;
     if(v<=0) delete dashPlanQty[cat]; else dashPlanQty[cat]=v;
   });
-  renderProcGrid(dashCatToday,dashCatBefore,dashCatMenu,dashPlanQty);
-  renderProcTable(dashCatToday,dashCatBefore,dashPlanQty);
+  document.querySelectorAll('.installModalInput').forEach(function(inp){
+    var cat = inp.getAttribute('data-cat');
+    var v = Number(inp.value)||0;
+    if(v<=0) delete dashInstallQty[cat]; else dashInstallQty[cat]=v;
+  });
+  renderProcGrid(dashCatToday,dashCatBefore,dashCatMenu,dashPlanQty,dashInstallQty);
+  renderProcTable(dashCatToday,dashCatBefore,dashPlanQty,dashInstallQty);
   closePlanSettings();
   if(!sbClient) return;
   try{
-    var res = await sbClient.from('app_settings').upsert({id:'global', plan_qty:dashPlanQty, updated_at:new Date().toISOString()});
-    if(res.error) console.error('계획수량 저장 실패', res.error.message);
-  }catch(e){ console.error('계획수량 저장 실패', e); }
-  /* TAG/규격 단위 계획(plan_items) — 엑셀 업로드로 채워진 게 있을 때만 시도. 테이블이 아직
-     없으면(사용자가 SQL 실행 전) 에러만 남기고 조용히 넘어감 — plan_qty 저장 자체는 이미 끝났으므로
-     이 실패로 전체 저장이 막히면 안 됨. */
+    var res = await sbClient.from('app_settings').upsert({id:'global', plan_qty:dashPlanQty, install_qty:dashInstallQty, updated_at:new Date().toISOString()});
+    if(res.error) console.error('계획/설치수량 저장 실패', res.error.message);
+  }catch(e){ console.error('계획/설치수량 저장 실패', e); }
+  /* TAG/규격 단위 계획·설치(plan_items) — 엑셀 업로드로 채워진 게 있을 때만 시도. 테이블/컬럼이
+     아직 없으면(사용자가 SQL 실행 전) 에러만 남기고 조용히 넘어감 — plan_qty 저장 자체는 이미
+     끝났으므로 이 실패로 전체 저장이 막히면 안 됨. */
   if(pendingPlanItems.length){
     try{
       var up = await sbClient.from('plan_items').upsert(
-        pendingPlanItems.map(function(it){ return {cat:it.cat, tag:it.tag, spec:it.spec, unit:it.unit, planned_qty:it.planned_qty, updated_at:new Date().toISOString()}; }),
+        pendingPlanItems.map(function(it){ return {cat:it.cat, tag:it.tag, spec:it.spec, unit:it.unit, planned_qty:it.planned_qty, installed_qty:it.installed_qty, updated_at:new Date().toISOString()}; }),
         {onConflict:'cat,tag,spec'}
       );
-      if(up.error) console.error('TAG/규격별 계획(plan_items) 저장 실패(plan_items 테이블이 아직 없을 수 있음)', up.error.message);
+      if(up.error) console.error('TAG/규격별 계획·설치(plan_items) 저장 실패(plan_items 테이블/installed_qty 컬럼이 아직 없을 수 있음)', up.error.message);
       else pendingPlanItems=[];
-    }catch(e){ console.error('TAG/규격별 계획(plan_items) 저장 실패', e); }
+    }catch(e){ console.error('TAG/규격별 계획·설치(plan_items) 저장 실패', e); }
   }
 }
 function renderOutGrid(todayCrewByTeam,registeredTeams){
@@ -588,6 +629,64 @@ function showClSub(sub){
   document.getElementById('clSubQtyBtn').classList.toggle('active',sub==='qty');
   document.getElementById('clSubVolBtn').classList.toggle('active',sub==='vol');
   renderChecklist();
+}
+
+/* ── 물량관리: work_log(report/app/index.html의 syncWorkLog가 daily_reports에서 매번
+   재계산해서 채우는 정규화 로그)를 공종/작업분류/TAG/날짜로 검색·조회. 필터 select 옵션은
+   불러온 데이터 안의 실제 값으로 채워서 항상 실제 일보 내용과 일치한다. */
+var wlLoaded=false, wlRows=[];
+async function loadWorkLog(){
+  if(wlLoaded) return;
+  var wrap=document.getElementById('wlRows');
+  if(!sbClient){ wrap.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--lbl);">연결 실패</td></tr>'; return; }
+  try{
+    var res = await sbClient.from('work_log').select('*').order('report_date',{ascending:false});
+    if(res.error||!res.data){ wrap.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--lbl);">불러오기 실패(work_log 테이블이 아직 없을 수 있음)</td></tr>'; return; }
+    wlRows = res.data;
+    wlLoaded = true;
+    var menus={}, cats={};
+    wlRows.forEach(function(r){ if(r.menu) menus[r.menu]=1; if(r.cat) cats[r.cat]=1; });
+    var menuSel=document.getElementById('wlMenuFilter'), catSel=document.getElementById('wlCatFilter');
+    Object.keys(menus).sort().forEach(function(m){ menuSel.insertAdjacentHTML('beforeend','<option value="'+m+'">'+m+'</option>'); });
+    Object.keys(cats).sort().forEach(function(c){ catSel.insertAdjacentHTML('beforeend','<option value="'+c+'">'+c+'</option>'); });
+    renderWorkLog();
+  }catch(e){ wrap.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; }
+}
+function resetWlFilters(){
+  document.getElementById('wlMenuFilter').value='';
+  document.getElementById('wlCatFilter').value='';
+  document.getElementById('wlTagFilter').value='';
+  document.getElementById('wlDateFrom').value='';
+  document.getElementById('wlDateTo').value='';
+  renderWorkLog();
+}
+function renderWorkLog(){
+  var wrap=document.getElementById('wlRows');
+  if(!wlRows.length){ wrap.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--lbl);">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; document.getElementById('wlSummary').textContent=''; return; }
+  var menu=document.getElementById('wlMenuFilter').value;
+  var cat=document.getElementById('wlCatFilter').value;
+  var tagQ=document.getElementById('wlTagFilter').value.trim().toLowerCase();
+  var from=document.getElementById('wlDateFrom').value;
+  var to=document.getElementById('wlDateTo').value;
+  var filtered = wlRows.filter(function(r){
+    if(menu && r.menu!==menu) return false;
+    if(cat && r.cat!==cat) return false;
+    if(tagQ && (!r.tag || r.tag.toLowerCase().indexOf(tagQ)===-1)) return false;
+    if(from && r.report_date<from) return false;
+    if(to && r.report_date>to) return false;
+    return true;
+  });
+  if(!filtered.length){
+    wrap.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--lbl);">조건에 맞는 항목이 없습니다</td></tr>';
+    document.getElementById('wlSummary').textContent='';
+    return;
+  }
+  var qtySum=0;
+  wrap.innerHTML = filtered.map(function(r){
+    qtySum += Number(r.qty)||0;
+    return '<tr><td class="mono">'+r.report_date+'</td><td>'+(r.menu||'-')+'</td><td>'+(r.cat||'-')+'</td><td class="mono">'+(r.tag||'-')+'</td><td>'+(r.spec||'-')+'</td><td class="mono">'+r.qty+'</td><td>'+(r.status||'-')+'</td><td>'+(r.team||'-')+'</td></tr>';
+  }).join('');
+  document.getElementById('wlSummary').textContent = filtered.length+'건 · 수량 합계 '+qtySum;
 }
 </script>
 </body>

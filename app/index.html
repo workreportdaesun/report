@@ -658,6 +658,7 @@ function applyRemoteSettings(data){
     refreshCheckinDistance();
   }
   if(data.plan_qty && typeof window.setPlanQty==='function') window.setPlanQty(data.plan_qty);
+  if(data.install_qty && typeof window.setInstallQty==='function') window.setInstallQty(data.install_qty);
   if(typeof window.shootSyncCategory==='function') window.shootSyncCategory();
 }
 async function fetchSettingsFromSupabase(){
@@ -1096,6 +1097,7 @@ async function saveEntryRows(){
   });
   if(typeof window.loadProgressData==='function') window.loadProgressData();
   if(typeof window.syncProgressChecklist==='function') window.syncProgressChecklist();
+  if(typeof window.syncWorkLog==='function') window.syncWorkLog();
   showToast('💾 '+saved+'건 저장됨', 'var(--ok)');
   document.getElementById('entryRows').innerHTML = '';
   addEntryRow();
@@ -2398,8 +2400,14 @@ function buildPgItems(){
   });
   return list;
 }
-var PG_TODAY={}, PG_BEFORE={}, planQty={};
+var PG_TODAY={}, PG_BEFORE={}, planQty={}, installQty={};
 function sumValues(obj){ return Object.keys(obj).reduce(function(s,k){ return s+obj[k]; },0); }
+/* 공정률 %의 실적 기준 — 엑셀로 업로드된 설치수량(app_settings.install_qty)이 그 분류에 있으면
+   그 값을 우선 쓰고, 아직 업로드가 안 된 분류는 지금처럼 일보 실시간 누계(전일+금일)를 대신 쓴다.
+   전일누계/금일/누계 숫자 표시 자체는 이 값과 무관하게 항상 daily_reports 실시간 집계 그대로. */
+function actualQty(name){
+  return Object.prototype.hasOwnProperty.call(installQty, name) ? installQty[name] : ((PG_BEFORE[name]||0)+(PG_TODAY[name]||0));
+}
 async function loadProgressData(){
   if(!sbClient) return;
   try{
@@ -2422,13 +2430,15 @@ async function loadProgressData(){
   }catch(e){ console.error('공정률 데이터 불러오기 실패', e); }
 }
 window.setPlanQty=function(obj){ planQty=obj||{}; renderPgList(); };
-/* 계획수량은 admin.html(웹관리자, PC 전용)에서만 입력하고 여기선 항상 숫자만 보여준다 */
+window.setInstallQty=function(obj){ installQty=obj||{}; renderPgList(); };
+/* 계획수량/설치수량은 admin.html(웹관리자, PC 전용)에서만 입력하고 여기선 항상 숫자만 보여준다 */
 function pgItemHtml(name,unit,isTotal){
   var today = isTotal ? sumValues(PG_TODAY) : (PG_TODAY[name]||0);
   var before = isTotal ? sumValues(PG_BEFORE) : (PG_BEFORE[name]||0);
   var total = before+today;
   var plan = isTotal ? sumValues(planQty) : (planQty[name]||0);
-  var pct = plan>0 ? Math.min(100, Math.round(total/plan*100)) : 0;
+  var actual = isTotal ? buildPgItems().reduce(function(s,d){ return s+actualQty(d.item); },0) : actualQty(name);
+  var pct = plan>0 ? Math.min(100, Math.round(actual/plan*100)) : 0;
   var planCell = '<b>'+plan+'</b>';
   return '<div class="pg-item'+(isTotal?' pg-item-total':'')+'">'
     +'<div class="pg-item-top"><span class="pg-item-name">'+name+'</span><span class="pg-item-unit">'+unit+'</span></div>'
@@ -2490,6 +2500,46 @@ async function syncProgressChecklist(){
 }
 window.syncProgressChecklist = syncProgressChecklist;
 syncProgressChecklist();
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     work_log 백업/조회용 정규화 로그 (2026-07-26) — admin.html의 새 "작업물량" 탭이 공종/작업분류/
+     TAG/규격/날짜 단위로 조회할 수 있도록, daily_reports(JSON 배열)를 매번 행 단위로 통째로
+     다시 펼쳐서 work_log 테이블에 채운다. 이 테이블은 daily_reports에서 100% 재계산 가능한
+     파생 데이터라 "고유키로 upsert" 대신 매번 전체를 지우고 새로 채우는 방식(전체 재계산)을
+     쓴다 — item 하나하나에 자연스러운 고유키가 없어서(같은 TAG+분류+규격이 같은 날 여러 줄
+     있을 수 있음, seq로만 구분) upsert보다 이 방식이 더 단순하고 안전하다. work_log 테이블이
+     아직 없으면(사용자가 SQL 실행 전) 콘솔 경고만 남기고 조용히 무시 — 일보 저장 자체는 막히지
+     않는다. ══════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+async function syncWorkLog(){
+  if(!sbClient) return;
+  try{
+    var res = await sbClient.from('daily_reports').select('date,team,items');
+    if(res.error || !res.data) return;
+    var rows = [];
+    res.data.forEach(function(row){
+      var arr = Array.isArray(row.items) ? row.items : [];
+      arr.forEach(function(it, idx){
+        if(!it || !it.cat) return;
+        rows.push({
+          report_date: row.date, team: row.team||null, menu: it.menu||null, cat: it.cat,
+          tag: it.tag||null, spec: it.spec||null, qty: Number(it.qty)||0, status: it.status||null, seq: idx
+        });
+      });
+    });
+    var del = await sbClient.from('work_log').delete().neq('id', -1);
+    if(del.error){ console.error('work_log 초기화 실패(work_log 테이블이 아직 없을 수 있음)', del.error.message); return; }
+    if(rows.length){
+      var ins = await sbClient.from('work_log').insert(rows);
+      if(ins.error) console.error('work_log 저장 실패', ins.error.message);
+    }
+  }catch(e){ console.error('work_log 동기화 실패', e); }
+}
+window.syncWorkLog = syncWorkLog;
+syncWorkLog();
 })();
 </script>
 
