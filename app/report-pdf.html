@@ -223,7 +223,7 @@ async function renderReport(row){
   var workPhotos = [];
   if(sbClient && row.date){
     try{
-      var photoRes = await sbClient.from('work_photos').select('*').eq('date', row.date);
+      var photoRes = await sbClient.from('workreportdaesun-gallery').select('*').eq('date', row.date);
       if(!photoRes.error && photoRes.data) workPhotos = photoRes.data;
     }catch(e){ /* 조회 실패 시 빈 목록으로 진행 */ }
   }
@@ -252,7 +252,7 @@ async function renderReport(row){
       allPhotos.push({ url:p.photo_url, tag:it.tag||'-', cat:it.cat||'' });
     });
   });
-  document.getElementById('docPhotoCount').textContent = allPhotos.length + '건 · work_photos 연동';
+  document.getElementById('docPhotoCount').textContent = allPhotos.length + '건 · 갤러리 연동';
 
   document.getElementById('docPhotoNote').textContent = allPhotos.length
     ? '총 ' + allPhotos.length + '장 — 다음 페이지부터 확인'

@@ -1209,7 +1209,7 @@ window.refreshCheckinDistance=refreshCheckinDistance;
 /* ══════════════════════════════════════════════════════════════════
    작업사진: 진짜 shoot 웹앱(workreportdaesun/shoot)은 완전히 독립된 별도 페이지다.
    report는 공종/분류/기기번호를 미리 넘겨주지 않는다 — 작업자가 shoot에서 직접
-   고르고 찍으면 되고, report는 그 결과(work_photos)를 다시 읽어서 반영만 한다.
+   고르고 찍으면 되고, report는 그 결과(workreportdaesun-gallery)를 다시 읽어서 반영만 한다.
    ══════════════════════════════════════════════════════════════════ */
 function setCamBoxState(has){
   hasPhoto = has;
@@ -1221,7 +1221,7 @@ function setCamBoxState(has){
     : '<div style="font-size:22px;">📷</div><p>탭하여 작업사진으로 이동</p>';
 }
 
-/* work_photos(사진)에서 (공종,기기번호) 조합이 아직 items[]에 없으면 임시 항목으로
+/* workreportdaesun-gallery(사진)에서 (공종,기기번호) 조합이 아직 items[]에 없으면 임시 항목으로
    자동 추가한다 — 작업자는 수량·특이사항만 확인/수정하면 됨. 같은 공종 안에서
    기기번호가 중복되면(분류가 다르더라도) 최초 1건만 항목으로 반영한다. 진행상황은
    해당 공종의 유효 옵션(statusOptionsFor, MENU_CONFIG[menu].statusOptions)과 정확히
@@ -1230,7 +1230,7 @@ function setCamBoxState(has){
 async function refreshPhotoLinkage(manual){
   if(!sbClient) return;
   try{
-    var res = await sbClient.from('work_photos').select('menu,tag,cat,note,work_type').eq('date', todayStr());
+    var res = await sbClient.from('workreportdaesun-gallery').select('menu,tag,cat,note,work_type').eq('date', todayStr());
     if(res.error || !res.data) return;
 
     var catsWithPhoto = {};
@@ -1467,7 +1467,7 @@ async function sendToSupabase(){
         menu:p.info.menu||''
       };
       var OPTIONAL_COLS=['sender','menu'];
-      var dbRes=await sbClient.from('work_photos').insert(insertData);
+      var dbRes=await sbClient.from('workreportdaesun-gallery').insert(insertData);
       var attempts=0;
       while(dbRes.error&&attempts<OPTIONAL_COLS.length){
         var msg=(dbRes.error.message||'').toLowerCase();
@@ -1477,7 +1477,7 @@ async function sendToSupabase(){
           if((col in insertData)&&msg.includes(col)){ delete insertData[col]; stripped=true; break; }
         }
         if(!stripped)break;
-        dbRes=await sbClient.from('work_photos').insert(insertData);
+        dbRes=await sbClient.from('workreportdaesun-gallery').insert(insertData);
         attempts++;
       }
       if(dbRes.error){ failed.push({p:p,err:'[DB] '+dbRes.error.message}); continue; }
@@ -2001,7 +2001,7 @@ async function checkTagDuplicate(){
   var cat=document.getElementById("shootInCat").value;
   if(!tag||!cat||!sbClient)return;
   try{
-    var res=await sbClient.from('work_photos').select('id').eq('cat',cat).eq('tag',tag).limit(1);
+    var res=await sbClient.from('workreportdaesun-gallery').select('id').eq('cat',cat).eq('tag',tag).limit(1);
     if(res.error){console.error('중복 확인 실패',res.error);return;}
     if(res.data&&res.data.length){
       var keep=confirm('['+cat+'] 분류에 이미 등록된 TAG NO입니다: '+tag+'\n그래도 저장하시겠습니까?');
