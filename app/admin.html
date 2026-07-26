@@ -190,12 +190,13 @@ var dashCatToday={}, dashCatBefore={}, dashCatMenu={}, dashPlanQty={};
 /* app_settings.cats_by_menu — 아직 일보 실적이 하나도 없는 분류(예: 계획수량만 미리 잡아두려는 신규
    분류)도 계획수량 설정/엑셀 업로드 대상에 포함시키려고 별도로 읽어온다. report/app/index.html의
    buildPgItems()와 동일한 순서·중복제거 규칙(먼저 나온 공종의 분류명을 기준으로 병합)을 그대로 씀. */
-var settingsCatList=[];
+var settingsCatList=[], settingsItemUnit={};
 async function loadSettingsCatList(){
   if(!sbClient) return;
   try{
-    var res = await sbClient.from('app_settings').select('cats_by_menu').eq('id','global').single();
+    var res = await sbClient.from('app_settings').select('cats_by_menu,item_unit').eq('id','global').single();
     var catsByMenu = (res.data && res.data.cats_by_menu) || {};
+    settingsItemUnit = (res.data && res.data.item_unit) || {};
     var seen={}, list=[];
     Object.keys(catsByMenu).forEach(function(m){
       (catsByMenu[m]||[]).forEach(function(cat){
@@ -305,11 +306,12 @@ function openPlanSettings(){
 function closePlanSettings(){
   document.getElementById('planModalOverlay').style.display='none';
 }
-/* 엑셀 일괄 업로드 — "작업분류별_계획수량_업로드서식.xlsx" 형식 전용. 시트 하나 = 작업분류 하나,
-   1행은 안내문, 2행은 헤더, 3행부터 데이터. B열(계획수량)만 합산해서 그 분류의 계획수량으로 채운다
-   (TAG NO/비고는 여기선 안 쓰고 합계에만 반영 — TAG 단위 계획관리는 별도 논의 전까지 보류).
-   여기서는 화면의 입력칸 값만 갱신하고, Supabase 저장은 기존과 동일하게 "저장" 버튼을 눌러야
-   반영된다(업로드했다고 확인 없이 바로 저장되지 않게 하려는 의도). */
+/* 엑셀 일괄 업로드 — "작업분류별_계획수량_업로드서식_v2.xlsx" 형식 전용. 시트 하나 = 작업분류 하나.
+   1행 안내문, 2행 헤더(TAG NO(선택) | 단위 | <규격들 또는 계획수량 1열> | 비고), 3행부터 데이터.
+   규격 열이 여러 개면 TAG+규격 단위로 쪼개서 plan_items에 저장(나중에 TAG별 진행 현황 조회용),
+   화면(계획수량 입력칸/공정률)에는 분류별 합계만 반영한다. 여기서 만든 값은 아직 화면과 메모리에만
+   있고, Supabase 반영은 기존과 동일하게 "저장" 버튼을 눌러야 실행된다. */
+var pendingPlanItems=[];
 function handlePlanExcelUpload(input){
   var file = input.files && input.files[0];
   if(!file) return;
@@ -318,23 +320,42 @@ function handlePlanExcelUpload(input){
     try{
       var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
       var knownCats = {}; getCatList().forEach(function(c){ knownCats[c]=1; });
+      var itemMap = {}; // key: cat|tag|spec -> {cat,tag,spec,unit,planned_qty}
+      var catTotal = {};
       var matched=[], unmatched=[];
       wb.SheetNames.forEach(function(sheetName){
         if(sheetName==='안내') return;
-        var rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1});
-        var sum = 0;
-        rows.slice(2).forEach(function(r){
-          var v = Number(r && r[1]);
-          if(!isNaN(v)) sum += v;
-        });
         if(!knownCats[sheetName]){ unmatched.push(sheetName); return; }
-        if(sum>0) dashPlanQty[sheetName]=sum; else delete dashPlanQty[sheetName];
-        matched.push(sheetName+'('+sum+')');
+        var rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1});
+        var header = rows[1] || [];
+        var qtyColStart = 2, qtyColEnd = header.length-2; // 0:TAG NO, 1:단위, last:비고
+        if(qtyColEnd < qtyColStart) return;
+        var qtyCols = header.slice(qtyColStart, qtyColEnd+1);
+        var flat = (qtyCols.length===1 && qtyCols[0]==='계획수량');
+        var unit = settingsItemUnit[sheetName] || 'EA';
+        var sheetSum = 0;
+        rows.slice(2).forEach(function(r){
+          if(!r) return;
+          var tag = (r[0]==null ? '' : String(r[0]).trim());
+          for(var ci=qtyColStart; ci<=qtyColEnd; ci++){
+            var v = Number(r[ci]);
+            if(!v || isNaN(v)) continue;
+            var spec = flat ? '' : String(header[ci]);
+            var key = sheetName+'|'+tag+'|'+spec;
+            if(!itemMap[key]) itemMap[key] = {cat:sheetName, tag:tag, spec:spec, unit:unit, planned_qty:0};
+            itemMap[key].planned_qty += v;
+            sheetSum += v;
+          }
+        });
+        if(sheetSum>0) dashPlanQty[sheetName]=sheetSum; else delete dashPlanQty[sheetName];
+        catTotal[sheetName]=sheetSum;
+        matched.push(sheetName+'('+sheetSum+')');
       });
+      pendingPlanItems = Object.keys(itemMap).map(function(k){ return itemMap[k]; });
       openPlanSettings();
       var msg = '엑셀 업로드 완료\n\n반영된 분류: '+(matched.length ? matched.length+'개 — '+matched.join(', ') : '없음');
       if(unmatched.length) msg += '\n\n분류명이 일치하지 않아 반영 안 됨:\n'+unmatched.join(', ');
-      msg += '\n\n아래 목록에서 확인 후 "저장" 버튼을 눌러야 실제로 반영됩니다.';
+      msg += '\n\nTAG/규격 '+pendingPlanItems.length+'건 확인됨. 아래 목록에서 합계 확인 후 "저장"을 눌러야 실제로 반영됩니다.';
       alert(msg);
     }catch(err){
       alert('엑셀 파일을 읽는 중 오류가 발생했습니다: '+(err.message||err));
@@ -358,6 +379,19 @@ async function savePlanSettings(){
     var res = await sbClient.from('app_settings').upsert({id:'global', plan_qty:dashPlanQty, updated_at:new Date().toISOString()});
     if(res.error) console.error('계획수량 저장 실패', res.error.message);
   }catch(e){ console.error('계획수량 저장 실패', e); }
+  /* TAG/규격 단위 계획(plan_items) — 엑셀 업로드로 채워진 게 있을 때만 시도. 테이블이 아직
+     없으면(사용자가 SQL 실행 전) 에러만 남기고 조용히 넘어감 — plan_qty 저장 자체는 이미 끝났으므로
+     이 실패로 전체 저장이 막히면 안 됨. */
+  if(pendingPlanItems.length){
+    try{
+      var up = await sbClient.from('plan_items').upsert(
+        pendingPlanItems.map(function(it){ return {cat:it.cat, tag:it.tag, spec:it.spec, unit:it.unit, planned_qty:it.planned_qty, updated_at:new Date().toISOString()}; }),
+        {onConflict:'cat,tag,spec'}
+      );
+      if(up.error) console.error('TAG/규격별 계획(plan_items) 저장 실패(plan_items 테이블이 아직 없을 수 있음)', up.error.message);
+      else pendingPlanItems=[];
+    }catch(e){ console.error('TAG/규격별 계획(plan_items) 저장 실패', e); }
+  }
 }
 function renderOutGrid(todayCrewByTeam,registeredTeams){
   var total = Object.keys(todayCrewByTeam).reduce(function(s,t){ return s+todayCrewByTeam[t]; },0);
