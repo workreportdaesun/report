@@ -48,6 +48,8 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .pill-ok{background:#EAF7EE; color:var(--ok);}
 .pill-draft{background:#FDF3E3; color:#B9770E;}
 .pill-pdf{background:#EAF0F8; color:var(--brand-2); cursor:pointer; text-decoration:none;}
+.dtable tr.clickable{cursor:pointer;}
+.dtable tr.clickable:hover{background:var(--field-bg);}
 
 .out-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px;}
 .out-card{background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px; text-align:center;}
@@ -127,12 +129,39 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <div style="font-size:11px;color:var(--lbl);margin-top:8px;">작업자 앱의 "출력체크"(GPS 반경 체크인) 기록을 오늘 날짜 기준으로 팀별 집계한 것입니다.</div>
   </div>
 
-  <!-- 작업일보 전체내용 -->
+  <!-- 작업일보 전체내용 — 검색/필터 + 클릭 시 상세보기 모달 -->
   <div class="admin-pane" id="pane-reports">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+      <select id="rpTeamFilter" onchange="renderReportsTable()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 팀</option></select>
+      <select id="rpMenuFilter" onchange="renderReportsTable()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
+      <select id="rpStatusFilter" onchange="renderReportsTable()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+        <option value="">전체 상태</option>
+        <option value="submitted">제출완료</option>
+        <option value="draft">작성중</option>
+      </select>
+      <input type="date" id="rpDateFrom" onchange="renderReportsTable()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <span style="color:var(--lbl);font-size:12px;">~</span>
+      <input type="date" id="rpDateTo" onchange="renderReportsTable()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <input type="text" id="rpKeyword" oninput="renderReportsTable()" placeholder="기기번호/비고/특이사항 검색" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:180px;">
+      <button type="button" onclick="resetReportsFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
+      <span id="rpSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
+    </div>
     <table class="dtable">
       <tr><th>날짜</th><th>공종</th><th>팀명</th><th>항목수</th><th>PDF</th><th>상태</th></tr>
       <tbody id="reportsRows"><tr><td colspan="6" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
     </table>
+    <div style="font-size:11px;color:var(--lbl);margin-top:8px;">행을 클릭하면 그 날짜·팀 일보의 전체 입력 내용을 볼 수 있습니다.</div>
+  </div>
+
+  <!-- 작업일보 상세보기 모달 -->
+  <div id="reportDetailOverlay" onclick="if(event.target===this) closeReportDetail()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9990;align-items:center;justify-content:center;">
+    <div style="background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:640px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.3);margin:0 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 id="rdTitle" style="font-size:16px;font-weight:800;color:var(--brand-1);margin:0;">작업일보 상세</h3>
+        <button type="button" onclick="closeReportDetail()" style="border:none;background:var(--field-bg);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px;color:var(--lbl);">✕</button>
+      </div>
+      <div id="rdBody"></div>
+    </div>
   </div>
 
   <!-- Check List: TAG NO.×작업분류 그리드. progress_checklist(daily_reports에서 자동 집계됨, report/app/index.html의
@@ -454,7 +483,7 @@ function renderOutTable(todayCrewByTeam,todayNamesByTeam){
   }).join('');
 }
 
-var reportsLoaded = false;
+var reportsLoaded = false, reportsRows = [];
 async function loadAllReports(){
   if(reportsLoaded) return; // 관리자가 탭을 다시 눌러도 매번 새로 안 불러옴(간단한 1회 캐시) — 새로고침하면 최신화됨
   var wrap = document.getElementById('reportsRows');
@@ -462,22 +491,104 @@ async function loadAllReports(){
   try{
     var res = await sbClient.from('daily_reports').select('*').order('date',{ascending:false});
     if(res.error || !res.data){ wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; return; }
+    reportsRows = res.data;
     reportsLoaded = true;
-    if(!res.data.length){ wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">작업일보가 아직 없습니다</td></tr>'; return; }
-    wrap.innerHTML = res.data.map(function(r){
-      var items = Array.isArray(r.items) ? r.items : [];
-      var cats = items.map(function(it){ return it.menu; }).filter(function(v,i,a){ return v && a.indexOf(v)===i; }).join(', ') || '-';
-      var isSub = r.status==='submitted';
-      return '<tr>'
-        +'<td class="mono">'+(r.date||'-')+'</td>'
-        +'<td>'+cats+'</td>'
-        +'<td>'+(r.team||'-')+'</td>'
-        +'<td class="mono">'+items.length+'</td>'
-        +'<td>'+(isSub ? '<a class="pill pill-pdf" href="report-pdf.html?id='+encodeURIComponent(r.id)+'" target="_blank">📄 열기</a>' : '<span style="color:var(--lbl);font-size:11px;">-</span>')+'</td>'
-        +'<td>'+(isSub ? '<span class="pill pill-ok">제출완료</span>' : '<span class="pill pill-draft">작성중</span>')+'</td>'
-      +'</tr>';
-    }).join('');
+    if(!reportsRows.length){ wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">작업일보가 아직 없습니다</td></tr>'; return; }
+    var teams={}, menus={};
+    reportsRows.forEach(function(r){
+      if(r.team) teams[r.team]=1;
+      (Array.isArray(r.items)?r.items:[]).forEach(function(it){ if(it.menu) menus[it.menu]=1; });
+    });
+    var teamSel=document.getElementById('rpTeamFilter'), menuSel=document.getElementById('rpMenuFilter');
+    Object.keys(teams).sort().forEach(function(t){ teamSel.insertAdjacentHTML('beforeend','<option value="'+t+'">'+t+'</option>'); });
+    Object.keys(menus).sort().forEach(function(m){ menuSel.insertAdjacentHTML('beforeend','<option value="'+m+'">'+m+'</option>'); });
+    renderReportsTable();
   }catch(e){ wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; }
+}
+function resetReportsFilters(){
+  ['rpTeamFilter','rpMenuFilter','rpStatusFilter'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('rpDateFrom').value='';
+  document.getElementById('rpDateTo').value='';
+  document.getElementById('rpKeyword').value='';
+  renderReportsTable();
+}
+function reportMatchesKeyword(r, kw){
+  kw = kw.toLowerCase();
+  if((r.team||'').toLowerCase().indexOf(kw)!==-1) return true;
+  if((r.special_notes||'').toLowerCase().indexOf(kw)!==-1) return true;
+  if((r.next_day_plan||'').toLowerCase().indexOf(kw)!==-1) return true;
+  return (Array.isArray(r.items)?r.items:[]).some(function(it){
+    return [it.tag,it.note,it.cat].some(function(v){ return v && v.toLowerCase().indexOf(kw)!==-1; });
+  });
+}
+function renderReportsTable(){
+  var wrap = document.getElementById('reportsRows');
+  if(!reportsRows.length){ wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">작업일보가 아직 없습니다</td></tr>'; document.getElementById('rpSummary').textContent=''; return; }
+  var team=document.getElementById('rpTeamFilter').value;
+  var menu=document.getElementById('rpMenuFilter').value;
+  var status=document.getElementById('rpStatusFilter').value;
+  var from=document.getElementById('rpDateFrom').value;
+  var to=document.getElementById('rpDateTo').value;
+  var kw=document.getElementById('rpKeyword').value.trim();
+  var filtered = reportsRows.filter(function(r){
+    if(team && r.team!==team) return false;
+    if(status && r.status!==status) return false;
+    if(from && r.date<from) return false;
+    if(to && r.date>to) return false;
+    var items = Array.isArray(r.items) ? r.items : [];
+    if(menu && !items.some(function(it){ return it.menu===menu; })) return false;
+    if(kw && !reportMatchesKeyword(r,kw)) return false;
+    return true;
+  });
+  if(!filtered.length){
+    wrap.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--lbl);">조건에 맞는 작업일보가 없습니다</td></tr>';
+    document.getElementById('rpSummary').textContent='';
+    return;
+  }
+  wrap.innerHTML = filtered.map(function(r){
+    var items = Array.isArray(r.items) ? r.items : [];
+    var cats = items.map(function(it){ return it.menu; }).filter(function(v,i,a){ return v && a.indexOf(v)===i; }).join(', ') || '-';
+    var isSub = r.status==='submitted';
+    return '<tr class="clickable" onclick="openReportDetail(\''+r.id+'\')">'
+      +'<td class="mono">'+(r.date||'-')+'</td>'
+      +'<td>'+cats+'</td>'
+      +'<td>'+(r.team||'-')+'</td>'
+      +'<td class="mono">'+items.length+'</td>'
+      +'<td>'+(isSub ? '<a class="pill pill-pdf" href="report-pdf.html?id='+encodeURIComponent(r.id)+'" target="_blank" onclick="event.stopPropagation()">📄 열기</a>' : '<span style="color:var(--lbl);font-size:11px;">-</span>')+'</td>'
+      +'<td>'+(isSub ? '<span class="pill pill-ok">제출완료</span>' : '<span class="pill pill-draft">작성중</span>')+'</td>'
+    +'</tr>';
+  }).join('');
+  document.getElementById('rpSummary').textContent = filtered.length+'건';
+}
+function openReportDetail(id){
+  var r = reportsRows.find(function(x){ return x.id===id; });
+  if(!r) return;
+  var items = Array.isArray(r.items) ? r.items : [];
+  var crew = Array.isArray(r.crew) ? r.crew : [];
+  document.getElementById('rdTitle').textContent = (r.date||'-')+' · '+(r.team||'-')+' 작업일보';
+  var itemsHtml = items.length
+    ? '<table class="dtable" style="margin-bottom:14px;"><tr><th>공종</th><th>작업분류</th><th>기기번호</th><th>규격</th><th>수량</th><th>단위</th><th>진행상황</th><th>비고</th></tr>'
+      + items.map(function(it){
+          return '<tr><td>'+(it.menu||'-')+'</td><td>'+(it.cat||'-')+'</td><td class="mono">'+(it.tag||'-')+'</td><td>'+(it.spec||'-')+'</td><td class="mono">'+(it.qty!=null?it.qty:'-')+'</td><td>'+(it.unit||'-')+'</td><td>'+(it.status||'-')+'</td><td>'+(it.note||'-')+'</td></tr>';
+        }).join('')
+      + '</table>'
+    : '<div style="color:var(--lbl);font-size:13px;margin-bottom:14px;">입력된 항목이 없습니다.</div>';
+  var crewHtml = crew.length
+    ? crew.map(function(c){ return (c.member_name||'-')+(c.checkInAt ? ' ('+c.checkInAt.slice(11,16)+' 출력)' : ''); }).join(', ')
+    : '-';
+  document.getElementById('rdBody').innerHTML =
+    '<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;font-size:12px;color:var(--lbl);">'
+      +'<span>'+(r.status==='submitted' ? '<span class="pill pill-ok">제출완료</span>' : '<span class="pill pill-draft">작성중</span>')+'</span>'
+      +(r.status==='submitted' ? '<a class="pill pill-pdf" href="report-pdf.html?id='+encodeURIComponent(r.id)+'" target="_blank">📄 PDF 열기</a>' : '')
+    +'</div>'
+    + itemsHtml
+    + '<div style="font-size:13px;margin-bottom:8px;"><b>출력 인원</b> ('+crew.length+'명): '+crewHtml+'</div>'
+    + '<div style="font-size:13px;margin-bottom:8px;"><b>명일 작업계획</b>: '+(r.next_day_plan||'-')+'</div>'
+    + '<div style="font-size:13px;"><b>특이사항</b>: '+(r.special_notes||'-')+'</div>';
+  document.getElementById('reportDetailOverlay').style.display='flex';
+}
+function closeReportDetail(){
+  document.getElementById('reportDetailOverlay').style.display='none';
 }
 
 /* ── 현장 좌표 설정 — 작업자 앱(index.html)의 출력체크 반경 게이트 기준값 (app_settings.site_lat/site_lng/geofence_m) ── */
