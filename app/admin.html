@@ -395,9 +395,10 @@ function getCatList(){
   Object.keys(dashInstallQty).forEach(add);
   return list;
 }
-/* FACTOR 적용 공정률 — work-progress-daesun(PC 공정관리 앱)과 동일한 서식/계산 방식(2026-08-01).
-   행별 %도 FACTOR를 곱해서 보여주고, "합계"(전체 공정률)는 계획이 있는 분류들의 FACTOR 적용 %를
-   단순평균한다(work-progress의 renderFooter adj 계산과 동일한 공식). */
+/* FACTOR = 작업분류가 전체 공정에서 차지하는 비중(예: 공사비 기준 가중치, 기본값 1) — 각 분류의
+   진행률(%) 자체는 그대로 보여주고, "전체 공정률"만 이 비중으로 가중평균한다: Σ(진행률×FACTOR)/
+   Σ(FACTOR). 단순히 행마다 %에 FACTOR를 곱해서 보여주는 방식(work-progress-daesun 최초 버전)은
+   진짜 가중평균이 아니어서 공사비 비중처럼 쓰기엔 틀렸음 — 2026-08-01 사용자 설명으로 정정. */
 function renderProcTable(catToday,catBefore,planQty,installQty){
   var list=getCatList();
   var wrap=document.getElementById('procTableRows');
@@ -410,9 +411,8 @@ function renderProcTable(catToday,catBefore,planQty,installQty){
   var rowsData = list.map(function(cat){
     var before=catBefore[cat]||0, today=catToday[cat]||0, total=before+today, plan=planQty[cat]||0;
     var actual=actualFor(cat,catToday,catBefore,installQty);
-    var raw = plan>0 ? Math.min(100, +(actual/plan*100).toFixed(1)) : 0;
+    var pct = plan>0 ? Math.min(100, +(actual/plan*100).toFixed(1)) : 0;
     var factor = (dashFactor[cat]!=null) ? dashFactor[cat] : 1;
-    var pct = +(raw*factor).toFixed(1);
     return {cat:cat, before:before, today:today, total:total, plan:plan, install:installQty[cat], factor:factor, pct:pct};
   });
   wrap.innerHTML = rowsData.map(function(d){
@@ -423,17 +423,17 @@ function renderProcTable(catToday,catBefore,planQty,installQty){
     +'</tr>';
   }).join('');
   if(foot){
-    // work-progress-daesun 합계행과 동일한 서식 — 작업분류/단위는 "합계" 라벨, 계획/전일누계/
-    // 금일/누계/설치는 실제 합계. FACTOR 칸은 전체 분류의 FACTOR 값을 단순합산해서 보여준다
-    // (예: 분류 5개가 전부 FACTOR=1이면 5 — 값이 전부 1로 제대로 맞춰졌는지 한눈에 확인하는 용도).
+    // 합계행: 작업분류/단위는 "합계" 라벨, 계획/전일누계/금일/누계/설치는 실제 합계, FACTOR 칸은
+    // 전체 분류의 FACTOR 값을 단순합산(비중 배분이 맞게 됐는지 확인용). 공정률만 FACTOR 가중평균.
     var tp = rowsData.reduce(function(s,d){ return s+(d.plan||0); },0);
     var tprev = rowsData.reduce(function(s,d){ return s+d.before; },0);
     var ttod = rowsData.reduce(function(s,d){ return s+d.today; },0);
     var tcum = tprev+ttod;
     var tinstall = rowsData.reduce(function(s,d){ return s+(Object.prototype.hasOwnProperty.call(installQty,d.cat)?(d.install||0):0); },0);
     var tfactor = +(rowsData.reduce(function(s,d){ return s+(d.factor||0); },0)).toFixed(2);
-    var valid = rowsData.filter(function(d){ return d.plan>0; });
-    var adj = valid.length ? +(valid.reduce(function(s,d){ return s+d.pct; },0)/valid.length).toFixed(1) : 0;
+    var valid = rowsData.filter(function(d){ return d.plan>0 && d.factor>0; });
+    var wsum = valid.reduce(function(s,d){ return s+d.factor; },0);
+    var adj = wsum>0 ? +(valid.reduce(function(s,d){ return s+d.pct*d.factor; },0)/wsum).toFixed(1) : 0;
     var fc = pctColor(adj);
     foot.innerHTML = '<tr style="font-weight:800;background:var(--field-bg);">'
       +'<td colspan="2">합계</td>'
