@@ -248,6 +248,36 @@ function todayStr(){
 /* 계획수량 입력은 웹관리자(admin.html) 전용 — 그 중에서도 PC에서만 가능하게, 모바일에서 admin.html을
    열면(예: 관리자가 폰으로 확인) 다른 화면들과 동일하게 숫자만 보여주고 수정은 막는다. */
 var admIsMobile=/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
+/* app_settings에 아직 없는 컬럼(install_qty/cat_factor 등)이 하나라도 섞여 있으면 upsert 전체가
+   에러로 실패해서 plan_qty처럼 실제 있는 컬럼까지 같이 저장 안 되던 문제(2026-08-01, report/app/
+   index.html의 pushSettingsToSupabase와 동일한 원인·해법) — 에러 메시지에 언급된 컬럼만 골라
+   빼고 재시도, 나머지는 정상 저장되게 한다. 실패를 콘솔에만 남기지 않고 alert로도 알린다. */
+async function upsertAppSettingsResilient(payload){
+  var skipped = [];
+  for(var attempt=0; attempt<5; attempt++){
+    try{
+      var res = await sbClient.from('app_settings').upsert(payload);
+      if(!res.error){
+        if(skipped.length) alert('⚠️ "'+skipped.join(', ')+'" 값은 Supabase에 해당 컬럼이 없어 저장되지 않았습니다(관리자에게 문의). 나머지 값은 정상 저장됐습니다.');
+        return true;
+      }
+      var m = /Could not find the '([^']+)' column/.exec(res.error.message||'');
+      if(m && Object.prototype.hasOwnProperty.call(payload, m[1])){
+        skipped.push(m[1]);
+        delete payload[m[1]];
+        continue;
+      }
+      console.error('설정 저장 실패', res.error.message);
+      alert('⚠️ 저장 실패: '+res.error.message);
+      return false;
+    }catch(e){
+      console.error('설정 저장 실패', e);
+      alert('⚠️ 저장 실패: '+(e.message||e));
+      return false;
+    }
+  }
+  return false;
+}
 /* renderProcTable 밖(계획수량/FACTOR 수정 후 재렌더)에서도 써야 해서 loadDashboardData가 채운 값을 보관.
    dashCatTodaySikong/dashCatBeforeSikong은 시공만 걸러낸 값(상세표 기준) — 예전엔 이 값을 안 보관해서
    savePlanSettings() 재렌더가 실수로 전체 공종(catToday/catBefore) 기준으로 다시 그려지던 문제가
@@ -406,10 +436,7 @@ async function updateFactor(inp){
   dashFactor[cat] = isNaN(v) ? 1 : v;
   renderProcTable(dashCatTodaySikong, dashCatBeforeSikong, dashPlanQty, dashInstallQty);
   if(!sbClient) return;
-  try{
-    var res = await sbClient.from('app_settings').upsert({id:'global', cat_factor:dashFactor, updated_at:new Date().toISOString()});
-    if(res.error) console.error('FACTOR 저장 실패', res.error.message);
-  }catch(e){ console.error('FACTOR 저장 실패', e); }
+  await upsertAppSettingsResilient({id:'global', cat_factor:dashFactor, updated_at:new Date().toISOString()});
 }
 /* ── 계획수량 설정 모달 — ⚙️ 버튼을 눌러 들어오기 전까지는 수정 진입로가 아예 없다 ── */
 function openPlanSettings(){
@@ -505,10 +532,7 @@ async function savePlanSettings(){
   renderProcTable(dashCatTodaySikong,dashCatBeforeSikong,dashPlanQty,dashInstallQty);
   closePlanSettings();
   if(!sbClient) return;
-  try{
-    var res = await sbClient.from('app_settings').upsert({id:'global', plan_qty:dashPlanQty, install_qty:dashInstallQty, updated_at:new Date().toISOString()});
-    if(res.error) console.error('계획/설치수량 저장 실패', res.error.message);
-  }catch(e){ console.error('계획/설치수량 저장 실패', e); }
+  await upsertAppSettingsResilient({id:'global', plan_qty:dashPlanQty, install_qty:dashInstallQty, updated_at:new Date().toISOString()});
   /* TAG/규격 단위 설치수량(plan_items) — 엑셀 업로드로 채워진 게 있을 때만 시도. 계획수량은
      이제 항상 수기 입력이라 TAG/규격 단위로는 관리하지 않음(installed_qty만 반영). 테이블/컬럼이
      아직 없으면(사용자가 SQL 실행 전) 에러만 남기고 조용히 넘어감 — plan_qty 저장 자체는 이미
