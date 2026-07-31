@@ -1290,6 +1290,31 @@ async function refreshPhotoLinkage(manual){
       if(it.photo!==has){ it.photo=has; changed=true; if(has) linked++; }
     });
 
+    // "🔄 오늘 작업사진 불러오기"를 직접 눌렀고 지금 입력칸에 아직 저장 안 한 값이 없다면
+    // (= 다른 분류로 넘어가도 잃어버릴 게 없다면), 지금 열린 분류와 다른 분류의 새 사진이
+    // 있을 때 그 분류로 자동 전환해서 기기번호가 곧장 입력칸(표)에 보이게 한다 — 그 분류
+    // 카드를 따로 열어야만 보이던 불편을 줄이기 위함(2026-08-01). 카드 하나만 열 수 있는
+    // 구조라 여러 분류가 동시에 새로 도착하면 그중 하나로만 전환되고, 나머지는 기존처럼
+    // "오늘 입력한 항목"에 자동 저장되며(해당 분류 카드를 열면 표로 이어짐).
+    if(manual){
+      var hasUnsavedTyped = false;
+      document.querySelectorAll('#entryRows .entry-row [data-f="tag"]').forEach(function(inp){
+        if(inp.value.trim()) hasUnsavedTyped = true;
+      });
+      if(!hasUnsavedTyped){
+        var switchTarget = null;
+        Object.keys(photoByKey).some(function(key){
+          if(existingKeys[key]) return false;
+          var p = photoByKey[key];
+          if(p.menu!==activeMenu || p.cat!==activeCat){ switchTarget = p; return true; }
+          return false;
+        });
+        if(switchTarget && catsByMenu[switchTarget.menu] && catsByMenu[switchTarget.menu].indexOf(switchTarget.cat)!==-1){
+          openCardForCat(switchTarget.menu, switchTarget.cat);
+        }
+      }
+    }
+
     // 지금 이 (공종,분류)의 입력 카드가 열려 있으면, 저장된 항목이 아니라 입력칸에
     // 바로 채운다 — 이미 입력칸에 있는 기기번호(+진행상황)는 다시 채우지 않도록 먼저 파악해둔다.
     var cardOpen = document.getElementById('inputCard').style.display !== 'none';
