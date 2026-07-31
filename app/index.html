@@ -186,17 +186,17 @@ textarea.f{resize:none; height:44px;}
 .add-row button{flex-shrink:0; background:var(--brand-2); color:#fff; border:none; border-radius:8px; padding:0 16px; font-size:15px; font-weight:700; cursor:pointer;}
 
 /* ── 공정률 탭 (progress 화면 이식, 조회 전용) ── */
-.pg-item{display:flex; flex-direction:column; gap:6px; padding:10px 12px; border-bottom:1px solid var(--field-bd);}
-.pg-item:last-child{border-bottom:none;}
-.pg-item-top{display:flex; justify-content:space-between; align-items:baseline;}
-.pg-item-name{font-size:15px; font-weight:700; color:var(--ink);}
-.pg-item-unit{font-size:13px; color:var(--lbl);}
-.pg-item-nums{display:flex; gap:10px; font-size:13px; color:var(--lbl);}
-.pg-item-nums b{color:var(--ink);}
-.pg-pct{font-size:13px; font-weight:800; color:var(--brand-2);}
-.pg-item-total{background:rgba(46,95,158,0.08); border-left:3px solid var(--brand-2); padding-left:9px;}
-.pg-item-total .pg-item-name{color:var(--brand-2); font-size:16px;}
-.pg-item-total .pg-item-nums b{color:var(--brand-2);}
+/* 공정률 탭 표 — 관리자 화면(admin.html)과 같은 열 순서(작업분류/계획/전일누계/금일/누계/공정률)를
+   표 형태 한 줄로 보여줘서 한눈에 비교되게 함(2026-08-01, 카드 스택형에서 변경). */
+.pg-table-wrap{overflow-x:auto;}
+.pg-table{width:100%; border-collapse:collapse; font-size:12.5px; white-space:nowrap;}
+.pg-table th{font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; color:var(--lbl); background:var(--field-bg); padding:8px 7px; text-align:center; font-weight:700;}
+.pg-table th.lft{text-align:left;}
+.pg-table td{padding:10px 7px; text-align:center; border-top:1px solid var(--field-bd); color:var(--ink);}
+.pg-table td.lft{text-align:left; font-weight:700;}
+.pg-pct{font-weight:800; color:var(--brand-2);}
+.pg-total-row{background:rgba(46,95,158,0.08);}
+.pg-total-row td{font-weight:800; color:var(--brand-2);}
 
 </style>
 </head>
@@ -2537,24 +2537,32 @@ async function loadProgressData(){
 }
 window.setPlanQty=function(obj){ planQty=obj||{}; renderPgList(); };
 window.setInstallQty=function(obj){ installQty=obj||{}; renderPgList(); };
-/* 계획수량/설치수량은 admin.html(웹관리자, PC 전용)에서만 입력하고 여기선 항상 숫자만 보여준다 */
-function pgItemHtml(name,unit,isTotal){
+/* 계획수량/설치수량은 admin.html(웹관리자, PC 전용)에서만 입력하고 여기선 항상 숫자만 보여준다.
+   관리자 화면(admin.html) "공종별 공정률" 표와 같은 열 순서로 한 줄씩 보여준다(2026-08-01). */
+function pgRowHtml(name,isTotal){
   var today = isTotal ? sumValues(PG_TODAY) : (PG_TODAY[name]||0);
   var before = isTotal ? sumValues(PG_BEFORE) : (PG_BEFORE[name]||0);
   var total = before+today;
   var plan = isTotal ? sumValues(planQty) : (planQty[name]||0);
   var actual = isTotal ? buildPgItems().reduce(function(s,d){ return s+actualQty(d.item); },0) : actualQty(name);
   var pct = plan>0 ? Math.min(100, Math.round(actual/plan*100)) : 0;
-  var planCell = '<b>'+plan+'</b>';
-  return '<div class="pg-item'+(isTotal?' pg-item-total':'')+'">'
-    +'<div class="pg-item-top"><span class="pg-item-name">'+name+'</span><span class="pg-item-unit">'+unit+'</span></div>'
-    +'<div class="pg-item-nums"><span>계획 '+planCell+'</span><span>전일누계 <b>'+before+'</b></span><span>금일 <b>'+today+'</b></span><span>누계 <b>'+total+'</b> <b class="pg-pct">'+pct+'%</b></span></div>'
-    +'</div>';
+  return '<tr'+(isTotal?' class="pg-total-row"':'')+'>'
+    +'<td class="lft">'+name+'</td>'
+    +'<td>'+(plan||'-')+'</td>'
+    +'<td>'+(before||'-')+'</td>'
+    +'<td>'+(today||'-')+'</td>'
+    +'<td>'+(total||'-')+'</td>'
+    +'<td class="pg-pct">'+pct+'%</td>'
+    +'</tr>';
 }
 function renderPgList(){
   document.getElementById('pgList').innerHTML='<div class="card" style="padding:0;">'
-    +pgItemHtml('전체 공정률','',true)
-    +buildPgItems().map(function(d){ return pgItemHtml(d.item,d.unit,false); }).join('')
+    +'<div class="pg-table-wrap"><table class="pg-table">'
+    +'<thead><tr><th class="lft">작업분류</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>공정률</th></tr></thead>'
+    +'<tbody>'
+    +pgRowHtml('전체 공정률',true)
+    +buildPgItems().map(function(d){ return pgRowHtml(d.item,false); }).join('')
+    +'</tbody></table></div>'
     +'</div>';
 }
 window.renderPgList=renderPgList;
