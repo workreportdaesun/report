@@ -102,10 +102,11 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
         <h3 style="font-size:16px;font-weight:800;color:var(--brand-1);margin:0;">계획/설치수량 설정</h3>
         <button type="button" onclick="closePlanSettings()" style="border:none;background:var(--field-bg);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px;color:var(--lbl);">✕</button>
       </div>
-      <label style="display:block;text-align:center;border:1.5px dashed var(--brand-2);background:var(--field-bg);color:var(--brand-2);border-radius:8px;padding:9px;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:12px;">
-        📤 엑셀로 일괄 입력(작업분류별 계획/설치수량 업로드 서식 v3)
+      <label style="display:block;text-align:center;border:1.5px dashed var(--brand-2);background:var(--field-bg);color:var(--brand-2);border-radius:8px;padding:9px;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:4px;">
+        📤 엑셀로 설치수량 일괄 입력(작업분류별 계획/설치수량 업로드 서식 v3)
         <input type="file" id="planExcelInput" accept=".xlsx,.xls" style="display:none;" onchange="handlePlanExcelUpload(this)">
       </label>
+      <div style="font-size:11px;color:var(--lbl);text-align:center;margin-bottom:12px;">계획수량은 엑셀로 반영되지 않습니다 — 아래 목록에서 직접 입력하세요.</div>
       <div id="planModalRows"></div>
       <button type="button" onclick="savePlanSettings()" style="width:100%;margin-top:14px;background:var(--brand-2);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:800;cursor:pointer;">저장</button>
     </div>
@@ -383,9 +384,10 @@ function closePlanSettings(){
 /* 엑셀 일괄 업로드 — "작업분류별_계획수량_업로드서식_v3.xlsx" 형식 전용. 시트 하나 = 작업분류 하나.
    1행 안내문, 2행 헤더(TAG NO(선택) | 단위 | <규격별 계획/설치 쌍... 또는 계획수량/설치수량 1쌍> | 비고),
    3행부터 데이터. 규격이 있으면 규격당 "규격명_계획","규격명_설치" 두 열이 붙어서 나온다(2열씩 묶어서
-   읽음). TAG+규격 단위로 쪼개서 plan_items(planned_qty/installed_qty)에 저장하고, 화면(계획수량
-   입력칸/공정률)에는 분류별 계획 합계·설치 합계 두 값만 반영한다. 여기서 만든 값은 아직 화면과
-   메모리에만 있고, Supabase 반영은 기존과 동일하게 "저장" 버튼을 눌러야 실행된다. */
+   읽음). TAG+규격 단위로 쪼개서 plan_items(installed_qty)에 저장하고, 화면(공정률)에는 분류별 설치
+   합계만 반영한다. 계획수량은 엑셀로 덮어쓰지 않고 항상 수기 입력(planModalInput)으로만 정한다
+   (2026-08-01, 사용자 요청) — 파일의 계획 열은 위치 계산을 위해 읽기만 하고 값은 버린다. 여기서
+   만든 값은 아직 화면과 메모리에만 있고, Supabase 반영은 기존과 동일하게 "저장" 버튼을 눌러야 실행된다. */
 var pendingPlanItems=[];
 function handlePlanExcelUpload(input){
   var file = input.files && input.files[0];
@@ -407,29 +409,26 @@ function handlePlanExcelUpload(input){
         var qtyCols = header.slice(qtyColStart, qtyColEnd+1);
         var flat = (qtyCols.length===2 && qtyCols[0]==='계획수량' && qtyCols[1]==='설치수량');
         var unit = settingsItemUnit[sheetName] || 'EA';
-        var planSum=0, instSum=0;
+        var instSum=0;
         rows.slice(2).forEach(function(r){
           if(!r) return;
           var tag = (r[0]==null ? '' : String(r[0]).trim());
           for(var ci=qtyColStart; ci+1<=qtyColEnd; ci+=2){
-            var pv = Number(r[ci]) || 0;
             var iv = Number(r[ci+1]) || 0;
-            if(!pv && !iv) continue;
+            if(!iv) continue; // 계획(pv)은 더 이상 이 업로드로 반영하지 않으므로 설치값 없는 행은 무시
             var spec = flat ? '' : String(header[ci]).replace(/_계획$/,'');
             var key = sheetName+'|'+tag+'|'+spec;
-            if(!itemMap[key]) itemMap[key] = {cat:sheetName, tag:tag, spec:spec, unit:unit, planned_qty:0, installed_qty:0};
-            itemMap[key].planned_qty += pv;
+            if(!itemMap[key]) itemMap[key] = {cat:sheetName, tag:tag, spec:spec, unit:unit, installed_qty:0};
             itemMap[key].installed_qty += iv;
-            planSum += pv; instSum += iv;
+            instSum += iv;
           }
         });
-        if(planSum>0) dashPlanQty[sheetName]=planSum; else delete dashPlanQty[sheetName];
         if(instSum>0) dashInstallQty[sheetName]=instSum; else delete dashInstallQty[sheetName];
-        matched.push(sheetName+'(계획 '+planSum+' / 설치 '+instSum+')');
+        matched.push(sheetName+'(설치 '+instSum+')');
       });
       pendingPlanItems = Object.keys(itemMap).map(function(k){ return itemMap[k]; });
       openPlanSettings();
-      var msg = '엑셀 업로드 완료\n\n반영된 분류: '+(matched.length ? matched.length+'개 — '+matched.join(', ') : '없음');
+      var msg = '엑셀 업로드 완료(설치수량만 반영, 계획수량은 수기 입력 유지)\n\n반영된 분류: '+(matched.length ? matched.length+'개 — '+matched.join(', ') : '없음');
       if(unmatched.length) msg += '\n\n분류명이 일치하지 않아 반영 안 됨:\n'+unmatched.join(', ');
       msg += '\n\nTAG/규격 '+pendingPlanItems.length+'건 확인됨. 아래 목록에서 합계 확인 후 "저장"을 눌러야 실제로 반영됩니다.';
       alert(msg);
@@ -460,18 +459,19 @@ async function savePlanSettings(){
     var res = await sbClient.from('app_settings').upsert({id:'global', plan_qty:dashPlanQty, install_qty:dashInstallQty, updated_at:new Date().toISOString()});
     if(res.error) console.error('계획/설치수량 저장 실패', res.error.message);
   }catch(e){ console.error('계획/설치수량 저장 실패', e); }
-  /* TAG/규격 단위 계획·설치(plan_items) — 엑셀 업로드로 채워진 게 있을 때만 시도. 테이블/컬럼이
+  /* TAG/규격 단위 설치수량(plan_items) — 엑셀 업로드로 채워진 게 있을 때만 시도. 계획수량은
+     이제 항상 수기 입력이라 TAG/규격 단위로는 관리하지 않음(installed_qty만 반영). 테이블/컬럼이
      아직 없으면(사용자가 SQL 실행 전) 에러만 남기고 조용히 넘어감 — plan_qty 저장 자체는 이미
      끝났으므로 이 실패로 전체 저장이 막히면 안 됨. */
   if(pendingPlanItems.length){
     try{
       var up = await sbClient.from('plan_items').upsert(
-        pendingPlanItems.map(function(it){ return {cat:it.cat, tag:it.tag, spec:it.spec, unit:it.unit, planned_qty:it.planned_qty, installed_qty:it.installed_qty, updated_at:new Date().toISOString()}; }),
+        pendingPlanItems.map(function(it){ return {cat:it.cat, tag:it.tag, spec:it.spec, unit:it.unit, installed_qty:it.installed_qty, updated_at:new Date().toISOString()}; }),
         {onConflict:'cat,tag,spec'}
       );
-      if(up.error) console.error('TAG/규격별 계획·설치(plan_items) 저장 실패(plan_items 테이블/installed_qty 컬럼이 아직 없을 수 있음)', up.error.message);
+      if(up.error) console.error('TAG/규격별 설치(plan_items) 저장 실패(plan_items 테이블/installed_qty 컬럼이 아직 없을 수 있음)', up.error.message);
       else pendingPlanItems=[];
-    }catch(e){ console.error('TAG/규격별 계획·설치(plan_items) 저장 실패', e); }
+    }catch(e){ console.error('TAG/규격별 설치(plan_items) 저장 실패', e); }
   }
 }
 function renderOutGrid(todayCrewByTeam,registeredTeams){
