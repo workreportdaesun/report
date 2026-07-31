@@ -221,7 +221,7 @@ textarea.f{resize:none; height:44px;}
   <button class="worker-tab" id="wtabPersonnel" onclick="showWorkerPane('personnel')">👥 인원현황</button>
 </div>
 
-<div id="submittedBanner" style="display:none;background:var(--ok);color:#fff;border-radius:8px;padding:9px 12px;margin:10px 0;font-size:13px;font-weight:800;text-align:center;">✅ 오늘 일보 전송 완료</div>
+<div id="submittedBanner" style="display:none;background:var(--ok);color:#fff;border-radius:8px;padding:9px 12px;margin:10px 0;font-size:13px;font-weight:800;text-align:center;">✅ 오늘 이미 전송한 항목이 있습니다 — 새 작업분류/기기번호는 계속 추가·전송 가능</div>
 
 <!-- ══ 일보입력 ══ -->
 <div class="worker-pane active" id="pane-report">
@@ -1107,9 +1107,17 @@ async function saveEntryRows(){
   var unit = unitOf(activeCat);
   var note = document.getElementById('noteInput').value.trim();
   var saved = 0;
+  var dupTags = [];
   rows.forEach(function(row){
     var tag = row.querySelector('[data-f="tag"]').value.trim();
     if(!tag) return;
+    // 하루에 여러 번 전송할 수 있게 되면서(2026-08-01), 같은 (공종,분류,기기번호)를 이미
+    // 전송했는데 모르고 또 입력하는 실수를 막는다 — items[]는 loadTodayItems()로 오늘자
+    // 서버 상태(제출된 항목의 submitted:true 포함)를 반영하고 있으므로 여기서 바로 확인 가능.
+    var alreadySubmitted = items.some(function(it){
+      return it.submitted && it.menu===activeMenu && it.cat===activeCat && it.tag===tag;
+    });
+    if(alreadySubmitted){ dupTags.push(tag); return; }
     var qty = Number(row.querySelector('[data-f="qty"]').value) || 0;
     var status = row.querySelector('[data-f="status"]').value || statusOptionsFor(activeMenu)[0];
     var spec = row.querySelector('[data-f="spec"]').value || '';
@@ -1117,7 +1125,8 @@ async function saveEntryRows(){
     items.push({menu:activeMenu, cat:activeCat, tag:tag, qty:qty, unit:unit, status:status, spec:spec, note:note, photo:photo});
     saved++;
   });
-  if(!saved){ showToast('⚠️ 저장할 항목이 없습니다', 'var(--err)'); return; }
+  if(dupTags.length) showToast('⚠️ 이미 제출한 기기번호입니다: '+dupTags.join(', '), 'var(--err)');
+  if(!saved){ if(!dupTags.length) showToast('⚠️ 저장할 항목이 없습니다', 'var(--err)'); return; }
   renderItemList();
   document.getElementById('sendBtn').disabled = items.length===0;
   await upsertDailyReport({
@@ -1261,18 +1270,11 @@ function setCamBoxState(has){
 async function refreshPhotoLinkage(manual){
   if(!sbClient) return;
   try{
-    // 오늘치 일보가 이미 전송(submitted)됐으면 화면은 완전히 빈 상태여야 한다 — 전송 후
-    // "입력화면으로" 돌아왔을 때(또는 그냥 다시 열었을 때) 이미 끝난 오늘 사진들이 새 항목인
-    // 것처럼 다시 채워져 들어오는 문제가 있었다(2026-08-01). 여기서 막아두면 페이지 최초
-    // 로드 시 자동 호출·수동 "🔄 불러오기" 버튼 양쪽 다 한 번에 막힌다.
-    var statusRes = await sbClient.from('daily_reports').select('status').eq('id', draftId()).single();
-    var todaySubmitted = !!(statusRes.data && statusRes.data.status==='submitted');
-    var banner = document.getElementById('submittedBanner');
-    if(banner) banner.style.display = todaySubmitted ? 'block' : 'none';
-    if(todaySubmitted){
-      if(manual) showToast('✅ 오늘 일보는 이미 전송 완료됐습니다', 'var(--ok)');
-      return;
-    }
+    // 하루에 여러 번 전송할 수 있다(같은 팀이 오전엔 시공, 오후엔 품질처럼 작업분류를 나눠서
+    // 각각 전송하는 것도 허용, 2026-08-01) — 그래서 "오늘 이미 전송했다"고 이 함수 전체를
+    // 막지는 않는다. 대신 items[]가 loadTodayItems()로 이미 오늘자 서버 상태(제출된 항목의
+    // submitted:true 포함)를 반영하고 있으므로, 아래 existingKeys 계산이 자연히 이미 제출된
+    // (공종,분류,기기번호)를 "새 항목"으로 다시 끌어오지 않게 막아준다.
     var res = await sbClient.from('workreportdaesun-gallery').select('menu,tag,cat,note,work_type').eq('date', todayStr());
     if(res.error || !res.data) return;
 
@@ -1398,7 +1400,7 @@ function renderItemList(){
     return '<div class="item-card">'
       +'<div class="item-bar" style="background:'+MENU_COLOR[it.menu]+';"></div>'
       +'<div class="item-thumb">'+(it.photo?'🖼️':'—')+'</div>'
-      +'<div class="item-body"><div class="item-title">'+it.cat+' · '+it.tag+(it.autoImported?' <span style="font-size:11px;font-weight:800;color:var(--brand-2);background:var(--field-bg);padding:1px 5px;border-radius:8px;">📷 자동입력</span>':'')+'</div><div class="item-sub">'+it.menu+(it.spec?' · '+it.spec:'')+' · '+it.qty+' '+UNIT_LABEL[it.unit]+' · '+(it.status||'-')+'</div></div>'
+      +'<div class="item-body"><div class="item-title">'+it.cat+' · '+it.tag+(it.autoImported?' <span style="font-size:11px;font-weight:800;color:var(--brand-2);background:var(--field-bg);padding:1px 5px;border-radius:8px;">📷 자동입력</span>':'')+(it.submitted?' <span style="font-size:11px;font-weight:800;color:var(--ok);background:var(--field-bg);padding:1px 5px;border-radius:8px;">✅ 제출됨</span>':'')+'</div><div class="item-sub">'+it.menu+(it.spec?' · '+it.spec:'')+' · '+it.qty+' '+UNIT_LABEL[it.unit]+' · '+(it.status||'-')+'</div></div>'
       +'<button type="button" class="item-edit" onclick="editItem('+idx+')" aria-label="수정">✏️</button>'
       +'</div>';
   }).join('');
@@ -1469,11 +1471,31 @@ function restorePendingEntry(){
   }catch(e){ return false; }
 }
 
+/* 오늘 이 팀이 이미 저장(또는 전송)해둔 항목을 서버에서 불러와 items[]/목록에 반영한다.
+   하루에 여러 번 전송할 수 있게 되면서(2026-08-01), 오전에 저장·전송한 내용이 있는 채로
+   오후에 다시 접속했을 때도 "오늘 입력한 항목" 목록이 비어 보이지 않고, 이미 전송된
+   기기번호(submitted:true)를 중복 저장 방지 체크(saveEntryRows)가 정확히 알아볼 수 있도록
+   페이지를 열 때마다 items[]를 서버 상태로 맞춰둔다. */
+async function loadTodayItems(){
+  if(!sbClient) return;
+  try{
+    var res = await sbClient.from('daily_reports').select('items,status').eq('id', draftId()).single();
+    if(res.data){
+      if(Array.isArray(res.data.items)) items = res.data.items;
+      renderItemList();
+      document.getElementById('sendBtn').disabled = items.length===0;
+      var banner = document.getElementById('submittedBanner');
+      if(banner) banner.style.display = res.data.status==='submitted' ? 'block' : 'none';
+    }
+  }catch(e){ console.error('오늘 항목 불러오기 실패', e); }
+}
+
 /* 최초 작업분류 선택 이후에는 최종 선택된 작업분류의 입력 카드로 바로 열림 (work-shoot의 last_category 기억 방식과 동일).
    사진 자동 반영은 "페이지를 열 때"만 한 번 실행하고, 카드를 열 때마다는 다시 하지 않는다 —
    입력 중에 예고 없이 항목이 끼어드는 걸 막기 위함. 그 이후엔 "🔄 오늘 작업사진 불러오기"
    버튼으로 작업자가 원할 때 직접 갱신한다. */
-(function openLastSelectedCat(){
+(async function openLastSelectedCat(){
+  await loadTodayItems();
   if(!restorePendingEntry()){
     try{
       var m = localStorage.getItem(LS_LAST_MENU), c = localStorage.getItem(LS_LAST_CAT);

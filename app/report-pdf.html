@@ -272,8 +272,12 @@ async function renderReport(row){
   document.getElementById('docNextDayCell').textContent = row.next_day_plan || '-';
   document.getElementById('docNoteCell').textContent = row.special_notes || '특이사항 없음';
 
+  // 하루에 여러 번 전송할 수 있다(2026-08-01) — row.status만으로 잠그면 오전에 한 번
+  // 전송한 뒤로 오후에 새로 입력한 항목을 다시 전송할 방법이 없어진다. 대신 "아직 전송
+  // 안 된(submitted:true가 아닌) 항목이 남아있는지"로 버튼 노출 여부를 정한다.
+  var hasUnsubmitted = items.some(function(it){ return !it.submitted; });
   var submitBtn = document.getElementById('submitBtn');
-  if(row.status==='submitted' || viewingOtherReport){
+  if(!hasUnsubmitted || viewingOtherReport){
     submitBtn.style.display='none';
     if(row.status==='submitted'){
       var pill=document.createElement('span');
@@ -288,7 +292,14 @@ async function renderReport(row){
 async function doSubmitReport(){
   if(!sbClient) return;
   var id = myDraftId();
-  var up = await sbClient.from('daily_reports').update({status:'submitted', submitted_at:new Date().toISOString()}).eq('id', id);
+  // 하루에 여러 번 전송할 수 있다(2026-08-01) — 그래서 row 전체를 한 번만 submitted로
+  // 잠그는 대신, "지금 이 시점에 올라와 있는 항목들"을 각각 submitted:true로 표시(봉인)해서
+  // index.html이 같은 (공종,분류,기기번호)를 또 저장하려 할 때 중복임을 알아챌 수 있게 한다.
+  // 이후 새로 입력해서 다시 전송하면 그 새 항목들만 추가로 봉인된다.
+  var curRes = await sbClient.from('daily_reports').select('items').eq('id', id).single();
+  var curItems = Array.isArray(curRes.data && curRes.data.items) ? curRes.data.items : [];
+  curItems.forEach(function(it){ it.submitted = true; });
+  var up = await sbClient.from('daily_reports').update({items:curItems, status:'submitted', submitted_at:new Date().toISOString()}).eq('id', id);
   if(up.error){ showToast('❌ 전송 실패: '+up.error.message, 'var(--brand-2)'); return; }
   try{ sessionStorage.removeItem('wr_pending_entry'); }catch(e){} // 전송 완료됐으니 입력화면 복원용 임시상태는 정리
   showToast('✅ 전송 완료 — 관리자·팀원 전체 일보 목록에 표시됩니다', 'var(--brand-2)');
