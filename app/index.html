@@ -1238,7 +1238,8 @@ async function refreshPhotoLinkage(manual){
     if(res.error || !res.data) return;
 
     var catsWithPhoto = {};
-    // "menu|tag|status" -> {menu, cat, tag, note, status} (공종+기기번호+진행상황이 모두 같아야 중복으로 본다.
+    // "menu|cat|tag|status" -> {menu, cat, tag, note, status} (공종+작업분류+기기번호+진행상황이
+    // 모두 같아야 중복으로 본다 — 같은 기기번호라도 작업분류가 다르면 별개 항목이다.
     // 진행/완료는 같은 기기번호라도 서로 다른 시점의 기록이라 별도 항목으로 취급한다.)
     var photoByKey = {};
     res.data.forEach(function(r){
@@ -1246,7 +1247,7 @@ async function refreshPhotoLinkage(manual){
       catsWithPhoto[r.cat] = true;
       if(!r.tag) return;
       var status = statusOptionsFor(r.menu).indexOf(r.work_type)!==-1 ? r.work_type : '';
-      var key = r.menu + '|' + r.tag + '|' + status;
+      var key = r.menu + '|' + r.cat + '|' + r.tag + '|' + status;
       if(!photoByKey[key]) photoByKey[key] = {menu:r.menu, cat:r.cat, tag:r.tag, note:r.note||'', status:status};
     });
 
@@ -1257,7 +1258,7 @@ async function refreshPhotoLinkage(manual){
     });
 
     var existingKeys = {};
-    items.forEach(function(it){ existingKeys[it.menu+'|'+it.tag+'|'+(it.status||'')] = true; });
+    items.forEach(function(it){ existingKeys[it.menu+'|'+it.cat+'|'+it.tag+'|'+(it.status||'')] = true; });
 
     // 지금 이 (공종,분류)의 입력 카드가 열려 있으면, 저장된 항목이 아니라 입력칸에
     // 바로 채운다 — 이미 입력칸에 있는 기기번호(+진행상황)는 다시 채우지 않도록 먼저 파악해둔다.
@@ -1267,7 +1268,7 @@ async function refreshPhotoLinkage(manual){
       document.getElementById('entryRows').querySelectorAll('.entry-row').forEach(function(row){
         var t = row.querySelector('[data-f="tag"]').value.trim();
         var s = row.querySelector('[data-f="status"]').value;
-        if(t) filledKeys[activeMenu+'|'+t+'|'+s] = true;
+        if(t) filledKeys[activeMenu+'|'+activeCat+'|'+t+'|'+s] = true;
       });
     }
 
