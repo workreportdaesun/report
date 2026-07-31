@@ -227,8 +227,12 @@ async function renderReport(row){
       if(!photoRes.error && photoRes.data) workPhotos = photoRes.data;
     }catch(e){ /* 조회 실패 시 빈 목록으로 진행 */ }
   }
+  // 공종+작업분류만으로 매칭하면 같은 분류 안의 다른 기기번호 사진까지 전부 걸려서,
+  // 그 분류의 항목 수만큼 같은 사진이 중복 집계되는 문제가 있었다(예: 사진 3장인데
+  // 같은 분류 항목이 4개면 3×4=12장으로 보임). 기기번호(tag)까지 정확히 일치할 때만
+  // 그 항목의 사진으로 인정한다.
   var itemPhotos = items.map(function(it){
-    return workPhotos.filter(function(p){ return p.menu===it.menu && p.cat===it.cat; });
+    return workPhotos.filter(function(p){ return p.menu===it.menu && p.cat===it.cat && p.tag===it.tag; });
   });
 
   document.getElementById('docBodyRows').innerHTML = items.length
@@ -246,9 +250,14 @@ async function renderReport(row){
       }).join('')
     : '<tr><td colspan="8" style="text-align:center;color:var(--lbl);">입력된 항목 없음</td></tr>';
 
-  var allPhotos = [];
+  // 같은 사진이 여러 항목에 걸쳐 다시 세어지지 않도록(예: 사진 하나가 우연히 두 항목과
+  // 매칭되는 경우) id 기준으로 한 번만 담는다.
+  var allPhotos = [], seenPhotoIds = {};
   items.forEach(function(it,i){
     itemPhotos[i].forEach(function(p){
+      var pid = p.id!=null ? p.id : p.photo_url;
+      if(seenPhotoIds[pid]) return;
+      seenPhotoIds[pid] = true;
       allPhotos.push({ url:p.photo_url, tag:it.tag||'-', cat:it.cat||'' });
     });
   });
