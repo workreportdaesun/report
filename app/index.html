@@ -1263,20 +1263,21 @@ async function refreshPhotoLinkage(manual){
     if(res.error || !res.data) return;
 
     var catsWithPhoto = {};
-    // "menu|cat|tag|status" -> {menu, cat, tag, note, status} (공종+작업분류+기기번호+진행상황이
-    // 모두 같아야 중복으로 본다 — 같은 기기번호라도 작업분류가 다르면 별개 항목이다.
-    // 진행/완료는 같은 기기번호라도 서로 다른 시점의 기록이라 별도 항목으로 취급한다.)
+    // "menu|cat|tag" -> {menu, cat, tag, note, status} (공종+작업분류+기기번호가 모두 같아야
+    // 중복으로 본다 — 같은 기기번호라도 작업분류가 다르면 별개 항목이다. 진행상황은 매칭 키에
+    // 넣지 않는다 — 같은 날 같은 기기번호를 진행과 완료로 동시에 올리는 경우는 없기 때문에
+    // 굳이 구분할 필요가 없다(2026-08-01, 사용자 확인).)
     var photoByKey = {};
     res.data.forEach(function(r){
       if(!r.menu || !r.cat) return;
       catsWithPhoto[r.cat] = true;
       if(!r.tag) return;
       var status = statusOptionsFor(r.menu).indexOf(r.work_type)!==-1 ? r.work_type : '';
-      var key = r.menu + '|' + r.cat + '|' + r.tag + '|' + status;
+      var key = r.menu + '|' + r.cat + '|' + r.tag;
       if(!photoByKey[key]) photoByKey[key] = {menu:r.menu, cat:r.cat, tag:r.tag, note:r.note||'', status:status};
     });
 
-    // 항목별 photo 표시는 "이 항목의 정확한 (공종,분류,기기번호,진행상황) 키에 실제로 사진이
+    // 항목별 photo 표시는 "이 항목의 정확한 (공종,분류,기기번호) 키에 실제로 사진이
     // 있는가"로 판단한다 — 예전엔 같은 분류에 사진이 하나라도 있으면 그 분류의 다른 기기번호
     // 항목까지 전부 photo:true로 뭉뚱그려서, 정작 사진이 있는 기기번호를 구분해서 보여주지
     // 못했다. 이 갱신 자체가 "이미 저장된 항목에 나중에 찍은 사진을 연동"하는 역할도 겸한다
@@ -1284,7 +1285,7 @@ async function refreshPhotoLinkage(manual){
     var changed=false, linked=0;
     var existingKeys = {};
     items.forEach(function(it){
-      var key = it.menu+'|'+it.cat+'|'+it.tag+'|'+(it.status||'');
+      var key = it.menu+'|'+it.cat+'|'+it.tag;
       existingKeys[key] = true;
       var has = !!photoByKey[key];
       if(it.photo!==has){ it.photo=has; changed=true; if(has) linked++; }
@@ -1316,14 +1317,13 @@ async function refreshPhotoLinkage(manual){
     }
 
     // 지금 이 (공종,분류)의 입력 카드가 열려 있으면, 저장된 항목이 아니라 입력칸에
-    // 바로 채운다 — 이미 입력칸에 있는 기기번호(+진행상황)는 다시 채우지 않도록 먼저 파악해둔다.
+    // 바로 채운다 — 이미 입력칸에 있는 기기번호는 다시 채우지 않도록 먼저 파악해둔다.
     var cardOpen = document.getElementById('inputCard').style.display !== 'none';
     var filledKeys = {};
     if(cardOpen){
       document.getElementById('entryRows').querySelectorAll('.entry-row').forEach(function(row){
         var t = row.querySelector('[data-f="tag"]').value.trim();
-        var s = row.querySelector('[data-f="status"]').value;
-        if(t) filledKeys[activeMenu+'|'+activeCat+'|'+t+'|'+s] = true;
+        if(t) filledKeys[activeMenu+'|'+activeCat+'|'+t] = true;
       });
     }
 
