@@ -221,6 +221,8 @@ textarea.f{resize:none; height:44px;}
   <button class="worker-tab" id="wtabPersonnel" onclick="showWorkerPane('personnel')">👥 인원현황</button>
 </div>
 
+<div id="submittedBanner" style="display:none;background:var(--ok);color:#fff;border-radius:8px;padding:9px 12px;margin:10px 0;font-size:13px;font-weight:800;text-align:center;">✅ 오늘 일보 전송 완료</div>
+
 <!-- ══ 일보입력 ══ -->
 <div class="worker-pane active" id="pane-report">
 
@@ -1264,7 +1266,10 @@ async function refreshPhotoLinkage(manual){
     // 것처럼 다시 채워져 들어오는 문제가 있었다(2026-08-01). 여기서 막아두면 페이지 최초
     // 로드 시 자동 호출·수동 "🔄 불러오기" 버튼 양쪽 다 한 번에 막힌다.
     var statusRes = await sbClient.from('daily_reports').select('status').eq('id', draftId()).single();
-    if(statusRes.data && statusRes.data.status==='submitted'){
+    var todaySubmitted = !!(statusRes.data && statusRes.data.status==='submitted');
+    var banner = document.getElementById('submittedBanner');
+    if(banner) banner.style.display = todaySubmitted ? 'block' : 'none';
+    if(todaySubmitted){
       if(manual) showToast('✅ 오늘 일보는 이미 전송 완료됐습니다', 'var(--ok)');
       return;
     }
