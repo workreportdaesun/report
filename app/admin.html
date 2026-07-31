@@ -255,11 +255,9 @@ async function loadSettingsCatList(){
     var catsByMenu = (res.data && res.data.cats_by_menu) || {};
     settingsItemUnit = (res.data && res.data.item_unit) || {};
     var seen={}, list=[];
-    Object.keys(catsByMenu).forEach(function(m){
-      (catsByMenu[m]||[]).forEach(function(cat){
-        if(seen[cat]) return;
-        seen[cat]=true; list.push(cat);
-      });
+    (catsByMenu['시공']||[]).forEach(function(cat){
+      if(seen[cat]) return;
+      seen[cat]=true; list.push(cat);
     });
     settingsCatList=list;
   }catch(e){ console.error('작업분류 목록 불러오기 실패', e); }
@@ -285,6 +283,7 @@ async function loadDashboardData(){
     var today = todayStr();
 
     var catToday={}, catBefore={}, catMenu={};
+    var catTodaySikong={}, catBeforeSikong={};
     var todayCrewByTeam={}, todayNamesByTeam={};
     rows.forEach(function(row){
       var isToday = row.date===today, isBefore = row.date<today;
@@ -296,6 +295,10 @@ async function loadDashboardData(){
           var target = isToday ? catToday : catBefore;
           target[it.cat] = (target[it.cat]||0)+q;
           if(it.menu) catMenu[it.cat]=it.menu;
+          if(it.menu==='시공'){
+            var targetSikong = isToday ? catTodaySikong : catBeforeSikong;
+            targetSikong[it.cat] = (targetSikong[it.cat]||0)+q;
+          }
         });
       }
       if(isToday && row.team){
@@ -308,7 +311,7 @@ async function loadDashboardData(){
     });
     dashCatToday=catToday; dashCatBefore=catBefore; dashCatMenu=catMenu; dashPlanQty=planQty; dashInstallQty=installQty;
     renderProcGrid(catToday,catBefore,catMenu,planQty,installQty);
-    renderProcTable(catToday,catBefore,planQty,installQty);
+    renderProcTable(catTodaySikong,catBeforeSikong,planQty,installQty);
     renderOutGrid(todayCrewByTeam,registeredTeams);
     renderOutTable(todayCrewByTeam,todayNamesByTeam);
   }catch(e){ console.error('대시보드 데이터 불러오기 실패', e); }
@@ -330,7 +333,11 @@ function renderProcGrid(catToday,catBefore,catMenu,planQty,installQty){
 /* 여기(표/카드)는 항상 보여주기 전용 — 계획/설치수량 수정은 아래 "⚙️ 계획수량 설정" 모달에서만 가능 */
 function getCatList(){
   var cats={}, list=[];
-  function add(c){ if(!cats[c]){ cats[c]=1; list.push(c); } }
+  function add(c){
+    if(cats[c]) return;
+    if(dashCatMenu[c] && dashCatMenu[c]!=='시공') return;
+    cats[c]=1; list.push(c);
+  }
   settingsCatList.forEach(add);
   Object.keys(dashCatToday).forEach(add);
   Object.keys(dashCatBefore).forEach(add);

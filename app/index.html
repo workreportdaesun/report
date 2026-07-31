@@ -2395,12 +2395,10 @@ window.pickSaveFolder=pickSaveFolder;
 (function(){
 function buildPgItems(){
   var seen={}, list=[];
-  MENUS.forEach(function(m){
-    (catsByMenu[m]||[]).forEach(function(cat){
-      if(seen[cat]) return;
-      seen[cat]=true;
-      list.push({item:cat, unit:UNIT_LABEL[unitOf(cat)]||unitOf(cat)});
-    });
+  (catsByMenu['시공']||[]).forEach(function(cat){
+    if(seen[cat]) return;
+    seen[cat]=true;
+    list.push({item:cat, unit:UNIT_LABEL[unitOf(cat)]||unitOf(cat)});
   });
   return list;
 }
@@ -2424,7 +2422,7 @@ async function loadProgressData(){
       var target = row.date===today ? t : (row.date<today ? b : null);
       if(!target) return;
       arr.forEach(function(it){
-        if(!it || !it.cat) return;
+        if(!it || !it.cat || it.menu!=='시공') return;
         var w = (typeof connectionQtyWeight==='function') ? connectionQtyWeight(it.cat, it.spec) : 1;
         target[it.cat] = (target[it.cat]||0) + (Number(it.qty)||0)*w;
       });
