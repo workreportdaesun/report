@@ -1259,6 +1259,15 @@ function setCamBoxState(has){
 async function refreshPhotoLinkage(manual){
   if(!sbClient) return;
   try{
+    // 오늘치 일보가 이미 전송(submitted)됐으면 화면은 완전히 빈 상태여야 한다 — 전송 후
+    // "입력화면으로" 돌아왔을 때(또는 그냥 다시 열었을 때) 이미 끝난 오늘 사진들이 새 항목인
+    // 것처럼 다시 채워져 들어오는 문제가 있었다(2026-08-01). 여기서 막아두면 페이지 최초
+    // 로드 시 자동 호출·수동 "🔄 불러오기" 버튼 양쪽 다 한 번에 막힌다.
+    var statusRes = await sbClient.from('daily_reports').select('status').eq('id', draftId()).single();
+    if(statusRes.data && statusRes.data.status==='submitted'){
+      if(manual) showToast('✅ 오늘 일보는 이미 전송 완료됐습니다', 'var(--ok)');
+      return;
+    }
     var res = await sbClient.from('workreportdaesun-gallery').select('menu,tag,cat,note,work_type').eq('date', todayStr());
     if(res.error || !res.data) return;
 
@@ -1470,6 +1479,14 @@ function restorePendingEntry(){
   }
   refreshPhotoLinkage();
 })();
+
+/* report-pdf.html의 "← 입력화면으로"는 history.back()을 쓰는데, 브라우저가 이 페이지를
+   bfcache(스크립트 재실행 없이 메모리 상태 그대로)로 복원하면 방금 전송(제출)한 화면이
+   그대로 남아있는 것처럼 보이는 문제가 있었다(2026-08-01). persisted가 true면(=bfcache
+   복원) 강제로 새로고침해서 항상 이 시점의 refreshPhotoLinkage 제출여부 체크를 다시 거치게 한다. */
+window.addEventListener('pageshow', function(e){
+  if(e.persisted) location.reload();
+});
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════
