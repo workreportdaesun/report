@@ -424,12 +424,14 @@ function renderProcTable(catToday,catBefore,planQty,installQty){
   }).join('');
   if(foot){
     // work-progress-daesun 합계행과 동일한 서식 — 작업분류/단위는 "합계" 라벨, 계획/전일누계/
-    // 금일/누계/설치는 실제 합계, FACTOR는 합산 의미가 없어 "–", 공정률만 FACTOR 적용 가중평균.
+    // 금일/누계/설치는 실제 합계. FACTOR 칸은 전체 분류의 FACTOR 값을 단순합산해서 보여준다
+    // (예: 분류 5개가 전부 FACTOR=1이면 5 — 값이 전부 1로 제대로 맞춰졌는지 한눈에 확인하는 용도).
     var tp = rowsData.reduce(function(s,d){ return s+(d.plan||0); },0);
     var tprev = rowsData.reduce(function(s,d){ return s+d.before; },0);
     var ttod = rowsData.reduce(function(s,d){ return s+d.today; },0);
     var tcum = tprev+ttod;
     var tinstall = rowsData.reduce(function(s,d){ return s+(Object.prototype.hasOwnProperty.call(installQty,d.cat)?(d.install||0):0); },0);
+    var tfactor = +(rowsData.reduce(function(s,d){ return s+(d.factor||0); },0)).toFixed(2);
     var valid = rowsData.filter(function(d){ return d.plan>0; });
     var adj = valid.length ? +(valid.reduce(function(s,d){ return s+d.pct; },0)/valid.length).toFixed(1) : 0;
     var fc = pctColor(adj);
@@ -440,7 +442,7 @@ function renderProcTable(catToday,catBefore,planQty,installQty){
       +'<td class="mono">'+(ttod||'-')+'</td>'
       +'<td class="mono">'+(tcum||'-')+'</td>'
       +'<td class="mono">'+(tinstall||'-')+'</td>'
-      +'<td style="text-align:center;color:var(--lbl);">–</td>'
+      +'<td class="mono" style="text-align:center;">'+tfactor+'</td>'
       +'<td style="color:'+fc+';">'+(valid.length?adj+'%':'-')+'</td>'
     +'</tr>';
   }
