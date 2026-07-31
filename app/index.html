@@ -545,7 +545,7 @@ var MENUS = Object.keys(MENU_CONFIG);
    5번째 메뉴 키는 work-shoot과 동일하게 "화기/유도"(슬래시 있음)로 통일함(2026-07-16). */
 var catsByMenu = {};
 MENUS.forEach(function(m){ catsByMenu[m] = MENU_CONFIG[m].items.slice(); });
-var customAreas = [];
+var customAreas = ['SCC','U&O'];
 /* 인원현황(팀원 명단) — Supabase app_settings.personnel로 동기화됨. 목록 맨 위 "전체인원"은 이 배열에
    포함되지 않는 고정 집계행이고, 이 배열의 각 항목이 그 아래 개별 팀원 행이 된다. */
 var customPersonnel = ['1팀(계장)','2팀(계장)','품질팀','안전관리팀'];
