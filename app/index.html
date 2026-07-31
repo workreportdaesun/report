@@ -637,7 +637,11 @@ function applyRemoteSettings(data){
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalCatSelect();
     if(typeof window.renderPgList==='function') window.renderPgList();
   }
-  if(Array.isArray(data.areas) && data.areas.length){ customAreas = data.areas; }
+  if(Array.isArray(data.areas) && data.areas.length){
+    customAreas = data.areas;
+    populateAreaSelect(true);
+    if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalAreaChips();
+  }
   if(Array.isArray(data.personnel) && data.personnel.length){
     customPersonnel = data.personnel;
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalPersonnelChips();
