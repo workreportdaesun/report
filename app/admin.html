@@ -98,7 +98,6 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <!-- 수량별 공정관리: progress_checklist(Check List "작업수량"과 같은 데이터)를 분류별로
          묶어서, 시공 TAG 중 완료(complete_date 있음) 비율로 공정률을 계산한다. -->
     <div id="procSubQty">
-      <div class="proc-grid" id="procQtyGrid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
       <table class="dtable">
         <tr><th>작업분류</th><th>전체 TAG</th><th>완료</th><th>공정률</th></tr>
         <tbody id="procQtyRows"><tr><td colspan="4" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
@@ -913,12 +912,8 @@ async function loadProcQtyStatus(){
   }catch(e){ wrap.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; }
 }
 function renderProcQtyStatus(){
-  var grid=document.getElementById('procQtyGrid'), wrap=document.getElementById('procQtyRows'), foot=document.getElementById('procQtyFoot');
-  if(!procQtyRows.length){
-    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">아직 데이터가 없습니다</div>';
-    wrap.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--lbl);">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; foot.innerHTML='';
-    return;
-  }
+  var wrap=document.getElementById('procQtyRows'), foot=document.getElementById('procQtyFoot');
+  if(!procQtyRows.length){ wrap.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--lbl);">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; foot.innerHTML=''; return; }
   var byCat={};
   procQtyRows.forEach(function(r){
     if(!byCat[r.cat]) byCat[r.cat]={total:0,done:0};
@@ -933,13 +928,6 @@ function renderProcQtyStatus(){
       ? '<div class="pbar-wrap"><div class="pbar"><div class="pbar-fill" style="width:'+Math.min(pct,100)+'%;background:'+c+';"></div></div><span class="pct-val" style="color:'+c+';">'+pct+'%</span></div>'
       : '<span style="color:var(--lbl);">–</span>';
   }
-  // 물량별 공정관리(renderProcGrid)와 같은 카드형 그리드 — 공종 대신 분류별 카드, "계획/설치" 대신 "전체/완료"
-  grid.innerHTML = cats.map(function(c){
-    var g=byCat[c];
-    var pct=g.total>0?Math.round(g.done/g.total*100):0;
-    var col=pctColor(pct);
-    return '<div class="proc-card"><div class="m" style="color:'+col+';">'+c+'</div><div class="pct">'+pct+'%</div><div class="proc-bar"><div style="width:'+pct+'%;background:'+col+';"></div></div><div class="d">전체 '+g.total+' / 완료 '+g.done+'</div></div>';
-  }).join('');
   var totalAll=0, doneAll=0;
   wrap.innerHTML=cats.map(function(c){
     var g=byCat[c];
