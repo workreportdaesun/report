@@ -1096,7 +1096,27 @@ function addEntryRow(prefill){
     +'</select></div>'
     +'<button type="button" class="entry-del" onclick="this.closest(\'.entry-row\').remove()" aria-label="행 삭제">✕</button>';
   wrap.appendChild(row);
+  row.querySelector('[data-f="tag"]').addEventListener('blur', function(){ checkReportTagDuplicate(this); });
   return row;
+}
+/* 사진 불러오기로 자동 채워지거나 직접 입력한 기기번호가, 같은 분류(activeCat)로 오늘
+   이미 저장된 항목이나 지금 입력칸의 다른 행과 겹치는지 확인한다(shoot 탭의
+   checkTagDuplicate와 같은 방식). 사진 전송 시 "진행" 사진은 중복검사를 생략하므로,
+   여기서 기기번호가 실제로 report에 등록되는 시점에 한 번 걸러준다. */
+function checkReportTagDuplicate(tagEl){
+  var tag=(tagEl.value||"").trim();
+  if(!tag)return;
+  var cat=activeCat;
+  var dup = items.some(function(it){ return it.cat===cat && it.tag===tag; });
+  if(!dup){
+    document.getElementById('entryRows').querySelectorAll('[data-f="tag"]').forEach(function(inp){
+      if(inp!==tagEl && inp.value.trim()===tag) dup=true;
+    });
+  }
+  if(dup){
+    var keep=confirm('['+cat+'] 분류에 이미 등록된 기기번호입니다: '+tag+'\n그래도 저장하시겠습니까?');
+    if(!keep){ tagEl.value=''; tagEl.focus(); }
+  }
 }
 function onRowStatusChange(sel){
   if(!sel.value) return;
@@ -2114,7 +2134,12 @@ async function checkTagDuplicate(){
   var cat=document.getElementById("shootInCat").value;
   if(!tag||!cat||!sbClient)return;
   try{
-    var res=await sbClient.from('workreportdaesun-gallery').select('id').eq('cat',cat).eq('tag',tag).limit(1);
+    var q=sbClient.from('workreportdaesun-gallery').select('id').eq('cat',cat).eq('tag',tag);
+    /* 진행중인 기기번호는 며칠에 걸쳐 같은 번호로 계속 촬영되는 게 정상이라, 어제 이전 것과
+       겹치는 건 중복이 아니다 — 오늘 날짜 안에서만 중복을 확인한다. 완료 상태는 이미 끝난
+       기기를 다시 완료로 올리는 걸 막기 위해 날짜 제한 없이 전체 기간에서 확인한다. */
+    if(getWorkLabel()==='진행') q=q.eq('date', todayStr());
+    var res=await q.limit(1);
     if(res.error){console.error('중복 확인 실패',res.error);return;}
     if(res.data&&res.data.length){
       var keep=confirm('['+cat+'] 분류에 이미 등록된 TAG NO입니다: '+tag+'\n그래도 저장하시겠습니까?');
