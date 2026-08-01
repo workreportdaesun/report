@@ -348,19 +348,16 @@ function connectionQtyWeight(cat, spec){
 }
 
 /* ── 공정률/출력현황 실데이터 집계 — daily_reports(전체 팀·전체 날짜).items/crew + app_settings.plan_qty/personnel ── */
-/* 일보 항목을 작업분류별 전일누계/금일로 집계한다. useCount가 false면 물량별(qty 실측값을
-   그대로 합산), true면 수량별(항목 하나=1로 계산, 기기번호가 있으면 입력된 날짜 수만큼).
-   기기번호가 있는 항목은 진행중 상태로 며칠에 걸쳐 다시 입력될 수 있어(report/app/index.html의
-   같은 기기번호 "진행" 중복검사가 오늘 날짜로만 걸리므로), 같은 기기가 전일누계/금일 두 구간에
-   나뉘어 잡히지 않도록 (공종,분류,기기번호)별로 입력된 모든 날짜의 값을 먼저 합산한 뒤, 그 합계
-   전체를 최초로 입력된 날짜가 속한 구간 한 곳에만 반영한다. 기기번호가 없는 항목은 예전처럼
-   등장한 날짜 그대로 각각 합산한다. */
-function aggregateProcRows(rows, today, useCount){
+/* 물량별: 단위가 M이면 진행/완료 상관없이 qty를 그대로(Connection FROM/TO 0.5 가중치 포함) 날짜마다
+   합산한다(기존과 동일). 그 외 단위(EA/PT 등)는 기기번호 하나가 진행→완료 등 몇 번에 걸쳐 입력되든
+   딱 1개로만 계산한다 — 기기번호가 없는 비-M 항목은 개별 식별이 안 되므로 등장할 때마다 1개로
+   계산한다. 기기번호가 있는 항목은 같은 기기가 전일누계/금일 두 구간에 나뉘어 잡히지 않도록
+   (공종,분류,기기번호)별로 값을 먼저 합산한 뒤, 그 합계 전체를 최초로 입력된 날짜가 속한 구간
+   한 곳에만 반영한다. */
+function aggregateProcVol(rows, today){
   var catToday={}, catBefore={}, catMenu={};
   var catTodaySikong={}, catBeforeSikong={};
-  function addQty(isToday, cat, menu, qty, spec){
-    var w = connectionQtyWeight(cat, spec);
-    var q = useCount ? 1 : (Number(qty)||0)*w;
+  function addTo(isToday, cat, menu, q){
     var target = isToday ? catToday : catBefore;
     target[cat] = (target[cat]||0)+q;
     if(menu) catMenu[cat]=menu;
@@ -374,39 +371,65 @@ function aggregateProcRows(rows, today, useCount){
     (row.items||[]).forEach(function(it){
       if(!it || !it.cat || !it.tag) return;
       var key = (it.menu||'')+'|'+it.cat+'|'+it.tag;
-      if(!byKey[key]) byKey[key] = {menu:it.menu, cat:it.cat, qty:0, dates:{}, firstDate:row.date};
+      if(!byKey[key]) byKey[key] = {menu:it.menu, cat:it.cat, qty:0, firstDate:row.date};
       var g = byKey[key];
-      if(useCount){
-        // 같은 날짜에 같은 기기번호가 여러 팀 이름으로 중복 입력돼 있어도(테스트 데이터 등),
-        // "입력된 날짜" 기준으로는 하루로 세야 하므로 날짜를 Set으로 모아뒀다가 개수만 쓴다.
-        g.dates[row.date] = true;
-      } else {
+      if(it.unit==='M'){
         var w = connectionQtyWeight(it.cat, it.spec);
         g.qty += (Number(it.qty)||0)*w;
+      } else {
+        g.qty = 1; // 진행→완료로 몇 번 나뉘어 입력되든 기기번호당 1개
       }
       if(row.date<g.firstDate) g.firstDate=row.date;
     });
   });
   Object.keys(byKey).forEach(function(key){
     var g = byKey[key];
-    if(useCount) g.qty = Object.keys(g.dates).length;
     var isToday = g.firstDate===today, isBefore = g.firstDate<today;
     if(!isToday && !isBefore) return;
-    var target = isToday ? catToday : catBefore;
-    target[g.cat] = (target[g.cat]||0) + g.qty;
-    if(g.menu) catMenu[g.cat]=g.menu;
-    if(g.menu==='시공'){
-      var targetSikong = isToday ? catTodaySikong : catBeforeSikong;
-      targetSikong[g.cat] = (targetSikong[g.cat]||0) + g.qty;
-    }
+    addTo(isToday, g.cat, g.menu, g.qty);
   });
   rows.forEach(function(row){
     var isToday = row.date===today, isBefore = row.date<today;
     if(!isToday && !isBefore) return;
     (row.items||[]).forEach(function(it){
       if(!it || !it.cat || it.tag) return; // 기기번호 있는 건 위에서 이미 처리
-      addQty(isToday, it.cat, it.menu, it.qty, it.spec);
+      if(it.unit==='M'){
+        var w = connectionQtyWeight(it.cat, it.spec);
+        addTo(isToday, it.cat, it.menu, (Number(it.qty)||0)*w);
+      } else {
+        addTo(isToday, it.cat, it.menu, 1);
+      }
     });
+  });
+  return {catToday:catToday, catBefore:catBefore, catMenu:catMenu, catTodaySikong:catTodaySikong, catBeforeSikong:catBeforeSikong};
+}
+/* 수량별: 상태가 "완료"인 기기번호만 대상으로, 기기번호별 최초 완료일 하나에 1개씩만 카운트한다
+   (같은 기기가 여러 날 완료로 재입력돼도 최초 완료일로만 잡힘). 기기번호가 없는 항목은 개별
+   완료를 셀 수 없으므로 집계 대상에서 제외한다. */
+function aggregateProcCount(rows, today){
+  var catToday={}, catBefore={}, catMenu={};
+  var catTodaySikong={}, catBeforeSikong={};
+  var byKey = {};
+  rows.forEach(function(row){
+    (row.items||[]).forEach(function(it){
+      if(!it || !it.cat || !it.tag || it.status!=='완료') return;
+      var key = (it.menu||'')+'|'+it.cat+'|'+it.tag;
+      if(!byKey[key] || row.date<byKey[key].firstDate){
+        byKey[key] = {menu:it.menu, cat:it.cat, firstDate:row.date};
+      }
+    });
+  });
+  Object.keys(byKey).forEach(function(key){
+    var g = byKey[key];
+    var isToday = g.firstDate===today, isBefore = g.firstDate<today;
+    if(!isToday && !isBefore) return;
+    var target = isToday ? catToday : catBefore;
+    target[g.cat] = (target[g.cat]||0) + 1;
+    if(g.menu) catMenu[g.cat]=g.menu;
+    if(g.menu==='시공'){
+      var targetSikong = isToday ? catTodaySikong : catBeforeSikong;
+      targetSikong[g.cat] = (targetSikong[g.cat]||0) + 1;
+    }
   });
   return {catToday:catToday, catBefore:catBefore, catMenu:catMenu, catTodaySikong:catTodaySikong, catBeforeSikong:catBeforeSikong};
 }
@@ -423,8 +446,8 @@ async function loadDashboardData(){
     dashFactor = (settingsRes.data && settingsRes.data.cat_factor) || {};
     var today = todayStr();
 
-    var vol = aggregateProcRows(rows, today, false);
-    var cnt = aggregateProcRows(rows, today, true);
+    var vol = aggregateProcVol(rows, today);
+    var cnt = aggregateProcCount(rows, today);
 
     var todayCrewByTeam={}, todayNamesByTeam={};
     rows.forEach(function(row){
