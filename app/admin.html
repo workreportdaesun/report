@@ -96,8 +96,8 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
          (showProcSub 참고). 계획수량 설정 모달은 수량별/물량별 둘 다 같은 모달(openPlanSettings)을
          공유하므로 버튼은 하나만 둔다. -->
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-      <button type="button" class="admin-tab active" id="procSubQtyBtn" onclick="showProcSub('qty')">수량별 공정률</button>
-      <button type="button" class="admin-tab" id="procSubVolBtn" onclick="showProcSub('vol')">물량별 공정률</button>
+      <button type="button" class="admin-tab active" id="procSubQtyBtn" onclick="showProcSub('qty')">수량공정</button>
+      <button type="button" class="admin-tab" id="procSubVolBtn" onclick="showProcSub('vol')">물량공정</button>
       <div class="proc-grid" id="procGridQty"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
       <div class="proc-grid" id="procGrid" style="display:none;"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
       <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="margin-left:auto;flex-shrink:0;border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
