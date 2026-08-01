@@ -428,11 +428,7 @@ textarea.f{resize:none; height:44px;}
       <div class="chip-row" id="modalCatChips"></div>
       <div class="add-row">
         <input type="text" id="modalNewCatInput" class="f" placeholder="새 분류 이름" onkeydown="if(event.key==='Enter'){event.preventDefault();modalAddCategory();}"/>
-        <select id="modalNewCatUnitSelect" class="f" style="flex-shrink:0;width:74px;" title="수량 단위">
-          <option value="EA">EA</option>
-          <option value="M">M</option>
-          <option value="PT">Point</option>
-        </select>
+        <select id="modalNewCatUnitSelect" class="f" style="flex-shrink:0;width:74px;" title="수량 단위"></select>
         <button type="button" id="modalCatSaveBtn" onclick="modalAddCategory()">추가</button>
       </div>
 
@@ -452,14 +448,18 @@ textarea.f{resize:none; height:44px;}
         <button type="button" id="modalSpecSaveBtn" onclick="modalAddSpec()">추가</button>
       </div>
 
-      <!-- 수량 단위: 규격과 같은 2단계(분류 먼저 고르고 그 분류의 단위를 EA/M/Point 중에서 선택) -->
-      <div class="cat-modal-sublbl">수량 단위 관리</div>
+      <!-- 단위 종류: 분류/구역/인원과 같은 방식(입력+추가 버튼)으로 자유롭게 추가·삭제 -->
+      <div class="cat-modal-sublbl">단위 관리</div>
+      <div class="chip-row" id="modalUnitChips"></div>
+      <div class="add-row">
+        <input type="text" id="modalNewUnitInput" class="f" placeholder="새 단위 이름" onkeydown="if(event.key==='Enter'){event.preventDefault();modalAddUnit();}"/>
+        <button type="button" id="modalUnitSaveBtn" onclick="modalAddUnit()">추가</button>
+      </div>
+
+      <!-- 분류별 단위 지정: 규격과 같은 2단계(분류를 먼저 고르고, 위 단위 목록 중 하나를 선택) -->
+      <div class="cat-modal-sublbl">분류별 단위 지정</div>
       <select id="modalUnitCatSelect" class="f" style="margin-bottom:8px;" onchange="renderModalUnitValueSelect()"></select>
-      <select id="modalUnitValueSelect" class="f" onchange="modalSetUnit()">
-        <option value="EA">EA</option>
-        <option value="M">M</option>
-        <option value="PT">Point</option>
-      </select>
+      <select id="modalUnitValueSelect" class="f" onchange="modalSetUnit()"></select>
 
       <div class="cat-modal-sublbl">인원 관리</div>
       <div class="chip-row" id="modalPersonnelChips"></div>
@@ -547,6 +547,11 @@ var ITEM_UNIT = {
 };
 var UNIT_LABEL = {'EA':'EA','M':'M','PT':'Point'};
 function unitOf(cat){ return ITEM_UNIT[cat] || 'EA'; }
+/* 단위 종류 목록 — Supabase app_settings.unit_options로 동기화됨(⚙️설정 "단위 관리", 규격 관리와
+   같은 추가/삭제 방식). 분류별로 이 목록 중 하나를 골라 지정한다(수량 단위 관리).
+   주의: admin.html의 물량 집계 로직이 단위 값 'M'을 문자열로 그대로 비교해서 M(길이)과
+   그 외(개수)를 구분한다 — 이 목록에서 'M'을 지우거나 이름을 바꾸면 그 집계가 깨진다. */
+var customUnits = ['EA','M','PT'];
 
 var MENUS = Object.keys(MENU_CONFIG);
 /* 공종별 작업분류 목록 — Supabase app_settings.cats_by_menu로 동기화됨. MENU_CONFIG[m].items는 최초 접속(원격 설정 없을 때) 기본값으로만 쓰임.
@@ -593,7 +598,7 @@ document.getElementById('hdrActiveMenu').textContent = ' ('+activeMenu+')';
 var modalMenu='시공';
 /* 설정(⚙️) 팝업의 분류/구역/인원/규격 관리 — 각 -1이면 "추가" 모드, 0 이상이면 그 인덱스 항목을
    수정 중이며 입력칸에 기존 값이 채워지고 버튼이 "저장"으로 바뀐다. */
-var editingCatIdx=-1, editingAreaIdx=-1, editingPersonnelIdx=-1, editingSpecIdx=-1;
+var editingCatIdx=-1, editingAreaIdx=-1, editingPersonnelIdx=-1, editingSpecIdx=-1, editingUnitIdx=-1;
 
 /* ── 작업분류/구역/현장좌표 클라우드 동기화 (work-shoot-daesun/index.html과 동일 패턴) ── */
 async function pushSettingsToSupabase(){
@@ -608,6 +613,7 @@ async function pushSettingsToSupabase(){
     personnel: customPersonnel,
     specs_by_cat: specsByCat,
     item_unit: ITEM_UNIT,
+    unit_options: customUnits,
     updated_at: new Date().toISOString()
   };
   var skipped = [];
@@ -659,6 +665,10 @@ function applyRemoteSettings(data){
     specsByCat = data.specs_by_cat;
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalSpecCatSelect();
     refreshEntrySpecOptions();
+  }
+  if(Array.isArray(data.unit_options) && data.unit_options.length){
+    customUnits = data.unit_options;
+    if(document.getElementById('catModalOverlay').classList.contains('show')){ renderModalUnitChips(); renderModalNewCatUnitOptions(); }
   }
   if(data.item_unit && typeof data.item_unit==='object'){
     ITEM_UNIT = data.item_unit;
@@ -715,6 +725,7 @@ function openCatModal(){
   renderModalAreaChips();
   renderModalPersonnelChips();
   renderModalSpecCatSelect();
+  renderModalUnitChips();
   renderModalUnitCatSelect();
   var overlay=document.getElementById('catModalOverlay'), panel=document.getElementById('catModalPanel');
   overlay.classList.add('show');
@@ -734,6 +745,7 @@ function closeCatModal(){
    Supabase 저장을 await하므로 여기서도 하나씩 순서대로 await — 동시에 여러 저장 요청이 겹쳐서
    먼저 보낸(내용이 더 적은) 요청이 나중에 도착해 최신 내용을 덮어쓰는 경합을 막기 위함. */
 async function saveAllSettings(){
+  await modalAddUnit();
   await modalAddCategory();
   await modalAddArea();
   await modalAddSpec();
@@ -741,18 +753,20 @@ async function saveAllSettings(){
   var ok = await pushSettingsToSupabase();
   if(ok){ showToast('💾 설정 저장됨', 'var(--ok)'); closeCatModal(); }
 }
-/* 분류/구역/인원/규격 관리 입력칸을 전부 "추가" 모드로 되돌린다(수정 중이던 항목 취소) */
+/* 분류/구역/인원/규격/단위 관리 입력칸을 전부 "추가" 모드로 되돌린다(수정 중이던 항목 취소) */
 function resetModalEditStates(){
-  editingCatIdx=-1; editingAreaIdx=-1; editingPersonnelIdx=-1; editingSpecIdx=-1;
+  editingCatIdx=-1; editingAreaIdx=-1; editingPersonnelIdx=-1; editingSpecIdx=-1; editingUnitIdx=-1;
   document.getElementById('modalNewCatInput').value='';
   document.getElementById('modalNewCatUnitSelect').value='EA';
   document.getElementById('modalNewAreaInput').value='';
   document.getElementById('modalNewPersonnelInput').value='';
   document.getElementById('modalNewSpecInput').value='';
+  document.getElementById('modalNewUnitInput').value='';
   document.getElementById('modalCatSaveBtn').textContent='추가';
   document.getElementById('modalAreaSaveBtn').textContent='추가';
   document.getElementById('modalPersonnelSaveBtn').textContent='추가';
   document.getElementById('modalSpecSaveBtn').textContent='추가';
+  document.getElementById('modalUnitSaveBtn').textContent='추가';
 }
 function renderModalMenuTabs(){
   var wrap=document.getElementById('modalMenuTabs');
@@ -926,8 +940,56 @@ function currentSpecCat(){
   var sel = document.getElementById('modalSpecCatSelect');
   return sel ? sel.value : '';
 }
-/* 수량 단위 관리(2단계): 규격 관리와 같은 패턴 — 분류를 고르면 그 분류의 현재 단위(EA/M/Point)를
-   보여주고, 드롭다운에서 바로 고르면 즉시 저장된다(추가/삭제 개념이 없어 규격보다 단순함). */
+/* 단위 관리: 분류/구역/인원과 완전히 같은 입력+추가 버튼 패턴 — customUnits 배열에 새 단위
+   이름을 자유롭게 추가/수정/삭제한다(더 이상 EA/M/Point 3개로 고정되지 않음). */
+function renderModalUnitChips(){
+  document.getElementById('modalUnitChips').innerHTML = customUnits.map(function(u,i){
+    return '<span class="chip">'+u
+      +'<button type="button" class="chip-edit" onclick="modalEditUnit('+i+')" title="수정">✏️</button>'
+      +'<button type="button" class="chip-del" onclick="modalRemoveUnit('+i+')" title="삭제">✕</button></span>';
+  }).join('');
+  renderModalNewCatUnitOptions();
+  if(document.getElementById('modalUnitCatSelect').options.length) renderModalUnitValueSelect();
+}
+function modalEditUnit(i){
+  editingUnitIdx = i;
+  document.getElementById('modalNewUnitInput').value = customUnits[i];
+  document.getElementById('modalNewUnitInput').focus();
+  document.getElementById('modalUnitSaveBtn').textContent = '저장';
+}
+async function modalAddUnit(){
+  var inp = document.getElementById('modalNewUnitInput');
+  var v = inp.value.trim();
+  if(!v) return;
+  if(editingUnitIdx>=0){
+    if(customUnits.indexOf(v)!==-1 && customUnits[editingUnitIdx]!==v) return;
+    customUnits[editingUnitIdx] = v;
+    editingUnitIdx = -1;
+    document.getElementById('modalUnitSaveBtn').textContent = '추가';
+  }else{
+    if(customUnits.indexOf(v)!==-1) return;
+    customUnits.push(v);
+  }
+  inp.value = '';
+  renderModalUnitChips();
+  await pushSettingsToSupabase();
+}
+function modalRemoveUnit(i){
+  if(customUnits.length<=1) return;
+  customUnits.splice(i,1);
+  editingUnitIdx=-1; document.getElementById('modalNewUnitInput').value=''; document.getElementById('modalUnitSaveBtn').textContent='추가';
+  renderModalUnitChips();
+  pushSettingsToSupabase();
+}
+/* 새 분류 추가 시 바로 고를 단위 드롭다운(모달NewCatUnitSelect) — 옵션을 customUnits에서 매번 다시 만든다 */
+function renderModalNewCatUnitOptions(){
+  var sel = document.getElementById('modalNewCatUnitSelect');
+  var cur = sel.value;
+  sel.innerHTML = customUnits.map(function(u){ return '<option value="'+u.replace(/"/g,'&quot;')+'">'+u+'</option>'; }).join('');
+  if(cur && customUnits.indexOf(cur)!==-1) sel.value = cur;
+}
+/* 분류별 단위 지정(2단계): 규격 관리와 같은 패턴 — 분류를 고르면 그 분류의 현재 단위를 보여주고,
+   드롭다운(customUnits 목록)에서 바로 고르면 즉시 저장된다. */
 function renderModalUnitCatSelect(){
   var sel = document.getElementById('modalUnitCatSelect');
   var cur = sel.value;
@@ -938,7 +1000,10 @@ function renderModalUnitCatSelect(){
 }
 function renderModalUnitValueSelect(){
   var cat = document.getElementById('modalUnitCatSelect').value;
-  document.getElementById('modalUnitValueSelect').value = ITEM_UNIT[cat] || 'EA';
+  var sel = document.getElementById('modalUnitValueSelect');
+  sel.innerHTML = customUnits.map(function(u){ return '<option value="'+u.replace(/"/g,'&quot;')+'">'+u+'</option>'; }).join('');
+  var cur = ITEM_UNIT[cat] || 'EA';
+  if(customUnits.indexOf(cur)!==-1) sel.value = cur;
 }
 async function modalSetUnit(){
   var cat = document.getElementById('modalUnitCatSelect').value;
