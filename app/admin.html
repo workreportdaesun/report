@@ -80,7 +80,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
   </div>
 
   <div class="admin-tabs">
-    <button class="admin-tab active" onclick="showAdminTab(this,'proc')">공정률</button>
+    <button class="admin-tab active" onclick="showAdminTab(this,'proc')">공정관리</button>
     <button class="admin-tab" onclick="showAdminTab(this,'cl')">Check List</button>
     <button class="admin-tab" onclick="showAdminTab(this,'wl')">물량관리</button>
     <button class="admin-tab" onclick="showAdminTab(this,'reports')">작업일보</button>
@@ -88,17 +88,36 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <button class="admin-tab" onclick="showAdminTab(this,'members')">회원관리</button>
   </div>
 
-  <!-- 공정률 -->
+  <!-- 공정관리 -->
   <div class="admin-pane active" id="pane-proc">
-    <div class="proc-grid" id="procGrid"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-      <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button type="button" class="admin-tab active" id="procSubQtyBtn" onclick="showProcSub('qty')">수량별 공정관리</button>
+      <button type="button" class="admin-tab" id="procSubVolBtn" onclick="showProcSub('vol')">물량별 공정관리</button>
     </div>
-    <table class="dtable">
-      <tr><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
-      <tbody id="procTableRows"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
-      <tfoot id="procTableFoot"></tfoot>
-    </table>
+
+    <!-- 수량별 공정관리: progress_checklist(Check List "작업수량"과 같은 데이터)를 분류별로
+         묶어서, 시공 TAG 중 완료(complete_date 있음) 비율로 공정률을 계산한다. -->
+    <div id="procSubQty">
+      <table class="dtable">
+        <tr><th>작업분류</th><th>전체 TAG</th><th>완료</th><th>공정률</th></tr>
+        <tbody id="procQtyRows"><tr><td colspan="4" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+        <tfoot id="procQtyFoot"></tfoot>
+      </table>
+    </div>
+
+    <!-- 물량별 공정관리: daily_reports 수량(qty, Check List "작업물량"과 같은 개념)을 계획수량과
+         비교해 공정률을 계산한다(기존 공정률 탭 내용 그대로). -->
+    <div id="procSubVol" style="display:none;">
+      <div class="proc-grid" id="procGrid"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
+      </div>
+      <table class="dtable">
+        <tr><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
+        <tbody id="procTableRows"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+        <tfoot id="procTableFoot"></tfoot>
+      </table>
+    </div>
   </div>
 
   <!-- 계획수량 설정 모달 — 웹관리자가 PC에서만 열 수 있고(⚙️ 버튼 자체를 모바일에선 숨김),
@@ -759,6 +778,7 @@ if(admIsMobile){ var _psb=document.getElementById('planSettingsBtn'); if(_psb) _
 loadSiteSettings();
 loadDashboardData();
 loadSettingsCatList();
+loadProcQtyStatus();
 
 /* ── 회원관리: members를 team으로 그룹핑, is_leader=true인 사람을 헤더로 ──
    is_leader 컬럼이 아직 없으면 select('*')는 에러 없이 그냥 undefined로 오므로
@@ -874,6 +894,49 @@ function showClSub(sub){
   document.getElementById('clSubQtyBtn').classList.toggle('active',sub==='qty');
   document.getElementById('clSubVolBtn').classList.toggle('active',sub==='vol');
   renderChecklist();
+}
+
+/* ── 수량별 공정관리: progress_checklist(Check List "작업수량"과 같은 데이터, complete_date
+   기준)를 시공 분류별로 묶어서 "전체 TAG 중 완료(complete_date 있음) 비율"로 공정률을
+   계산한다. Check List 탭을 아직 안 열었어도 이 탭(공정관리, 기본 서브메뉴)에서 바로 보여야
+   하므로 progress_checklist를 여기서 별도로 불러온다. */
+var procQtyRows=[];
+async function loadProcQtyStatus(){
+  var wrap=document.getElementById('procQtyRows');
+  if(!sbClient){ wrap.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--lbl);">연결 실패</td></tr>'; return; }
+  try{
+    var res=await sbClient.from('progress_checklist').select('cat,menu,complete_date');
+    if(res.error||!res.data){ wrap.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--lbl);">불러오기 실패(progress_checklist 테이블이 아직 없을 수 있음)</td></tr>'; return; }
+    procQtyRows=res.data.filter(function(r){ return r.menu==='시공'; });
+    renderProcQtyStatus();
+  }catch(e){ wrap.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; }
+}
+function renderProcQtyStatus(){
+  var wrap=document.getElementById('procQtyRows'), foot=document.getElementById('procQtyFoot');
+  if(!procQtyRows.length){ wrap.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--lbl);">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; foot.innerHTML=''; return; }
+  var byCat={};
+  procQtyRows.forEach(function(r){
+    if(!byCat[r.cat]) byCat[r.cat]={total:0,done:0};
+    byCat[r.cat].total++;
+    if(r.complete_date) byCat[r.cat].done++;
+  });
+  var cats=Object.keys(byCat).sort();
+  var totalAll=0, doneAll=0;
+  wrap.innerHTML=cats.map(function(c){
+    var g=byCat[c];
+    totalAll+=g.total; doneAll+=g.done;
+    var pct=g.total>0?Math.round(g.done/g.total*100):0;
+    var col=pctColor(pct);
+    return '<tr><td>'+c+'</td><td class="mono">'+g.total+'</td><td class="mono">'+g.done+'</td><td style="color:'+col+';font-weight:700;">'+pct+'%</td></tr>';
+  }).join('');
+  var pctAll=totalAll>0?Math.round(doneAll/totalAll*100):0;
+  foot.innerHTML='<tr style="font-weight:800;background:var(--field-bg);"><td>전체</td><td class="mono">'+totalAll+'</td><td class="mono">'+doneAll+'</td><td style="color:'+pctColor(pctAll)+';">'+pctAll+'%</td></tr>';
+}
+function showProcSub(sub){
+  document.getElementById('procSubQtyBtn').classList.toggle('active',sub==='qty');
+  document.getElementById('procSubVolBtn').classList.toggle('active',sub==='vol');
+  document.getElementById('procSubQty').style.display=sub==='qty'?'':'none';
+  document.getElementById('procSubVol').style.display=sub==='vol'?'':'none';
 }
 
 /* ── 물량관리: work_log(report/app/index.html의 syncWorkLog가 daily_reports에서 매번
