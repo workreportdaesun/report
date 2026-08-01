@@ -2675,11 +2675,14 @@ syncProgressChecklist();
      work_log 백업/조회용 정규화 로그 (2026-07-26) — admin.html의 새 "작업물량" 탭이 공종/작업분류/
      TAG/규격/날짜 단위로 조회할 수 있도록, daily_reports(JSON 배열)를 매번 행 단위로 통째로
      다시 펼쳐서 work_log 테이블에 채운다. 이 테이블은 daily_reports에서 100% 재계산 가능한
-     파생 데이터라 "고유키로 upsert" 대신 매번 전체를 지우고 새로 채우는 방식(전체 재계산)을
-     쓴다 — item 하나하나에 자연스러운 고유키가 없어서(같은 TAG+분류+규격이 같은 날 여러 줄
-     있을 수 있음, seq로만 구분) upsert보다 이 방식이 더 단순하고 안전하다. work_log 테이블이
-     아직 없으면(사용자가 SQL 실행 전) 콘솔 경고만 남기고 조용히 무시 — 일보 저장 자체는 막히지
-     않는다. ══════════════════════════════════════════════════════════════════ -->
+     파생 데이터라 "고유키로 upsert" 대신 매번 전체를 지우고 새로 채우는 방식(전체 재계산)을 쓴다.
+     기기번호가 있는 항목은 진행중 상태로 며칠에 걸쳐 다시 입력될 수 있어서(2026-08-01),
+     (공종,분류,기기번호)별로 모든 날짜의 수량을 합산해 최초 입력일 한 줄로 남긴다(공정률/체크리스트/
+     admin 대시보드와 동일한 규칙) — 팀/규격/상태는 가장 최근 입력값을 표시. 기기번호가 없는
+     항목(개별 식별이 안 되는 수량형 입력)은 예전처럼 등장할 때마다 각각 한 줄씩 남긴다(같은
+     TAG+분류+규격이 같은 날 여러 줄 있을 수 있음, seq로만 구분). work_log 테이블이 아직 없으면
+     (사용자가 SQL 실행 전) 콘솔 경고만 남기고 조용히 무시 — 일보 저장 자체는 막히지 않는다.
+     ══════════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
 async function syncWorkLog(){
@@ -2688,16 +2691,36 @@ async function syncWorkLog(){
     var res = await sbClient.from('daily_reports').select('date,team,items');
     if(res.error || !res.data) return;
     var rows = [];
-    res.data.forEach(function(row){
+    var byKey = {};
+    // 날짜 오름차순으로 훑어서, 기기번호가 있는 항목은 (공종,분류,기기번호)별로 수량을 계속
+    // 합산하고 팀/규격/상태는 매번 최신값으로 덮어쓴다 — 끝까지 돌고 나면 report_date는
+    // 최초 입력일, team/spec/status는 가장 최근 입력값이 남는다.
+    var sortedData = res.data.slice().sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:0); });
+    sortedData.forEach(function(row){
       var arr = Array.isArray(row.items) ? row.items : [];
       arr.forEach(function(it, idx){
         if(!it || !it.cat) return;
-        rows.push({
-          report_date: row.date, team: row.team||null, menu: it.menu||null, cat: it.cat,
-          tag: it.tag||null, spec: it.spec||null, qty: Number(it.qty)||0, status: it.status||null, seq: idx
-        });
+        if(!it.tag){
+          rows.push({
+            report_date: row.date, team: row.team||null, menu: it.menu||null, cat: it.cat,
+            tag: null, spec: it.spec||null, qty: Number(it.qty)||0, status: it.status||null, seq: idx
+          });
+          return;
+        }
+        var key = (it.menu||'')+'|'+it.cat+'|'+it.tag;
+        if(!byKey[key]){
+          byKey[key] = {
+            report_date: row.date, team: row.team||null, menu: it.menu||null, cat: it.cat,
+            tag: it.tag, spec: it.spec||null, qty: 0, status: it.status||null, seq: idx
+          };
+        }
+        var g = byKey[key];
+        var w = (typeof connectionQtyWeight==='function') ? connectionQtyWeight(it.cat, it.spec) : 1;
+        g.qty += (Number(it.qty)||0)*w;
+        g.team = row.team||null; g.spec = it.spec||null; g.status = it.status||null;
       });
     });
+    Object.keys(byKey).forEach(function(k){ rows.push(byKey[k]); });
     var del = await sbClient.from('work_log').delete().neq('id', -1);
     if(del.error){ console.error('work_log 초기화 실패(work_log 테이블이 아직 없을 수 있음)', del.error.message); return; }
     if(rows.length){
