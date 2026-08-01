@@ -23,10 +23,10 @@
 body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-height:100vh;}
 .admin-wrap{max-width:1100px; margin:0 auto; padding:24px 20px 60px;}
 
-.admin-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;}
-.admin-head h2{font-size:19px; font-weight:800; color:var(--brand-1); margin:0; display:flex; align-items:center; gap:8px;}
+.admin-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; background:linear-gradient(135deg,var(--brand-1),var(--brand-2)); border-radius:12px; padding:12px 14px; color:#fff;}
+.admin-head h2{font-size:19px; font-weight:800; color:#fff; margin:0; display:flex; align-items:center; gap:8px;}
 .admin-head h2 img{width:36px; height:36px; border-radius:8px; flex-shrink:0;}
-.admin-head .proj{font-size:12px; color:var(--lbl);}
+.admin-head .proj{font-size:12px; color:rgba(255,255,255,0.75);}
 .admin-tabs{display:flex; gap:8px; margin-bottom:16px; border-bottom:2px solid var(--card-bd);}
 .admin-tab{border:none; background:none; padding:10px 6px; font-size:14px; font-weight:700; color:var(--lbl); cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; font-family:var(--font-body);}
 .admin-tab.active{color:var(--brand-2); border-bottom-color:var(--brand-2);}
@@ -74,8 +74,8 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <div class="proj" id="hdrCompany" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
-      <button type="button" onclick="location.href='index.html'" style="border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">← 작업자 화면</button>
-      <div style="font-size:12px;color:var(--lbl);" id="hdrDate"></div>
+      <button type="button" onclick="location.href='index.html'" style="border:1px solid rgba(255,255,255,0.4);background:rgba(255,255,255,0.15);color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">← 작업자 화면</button>
+      <div style="font-size:12px;color:rgba(255,255,255,0.9);" id="hdrDate"></div>
     </div>
   </div>
 
