@@ -80,7 +80,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
   </div>
 
   <div class="admin-tabs">
-    <button class="admin-tab active" onclick="showAdminTab(this,'proc')">공정관리</button>
+    <button class="admin-tab active" onclick="showAdminTab(this,'proc')">공정률</button>
     <button class="admin-tab" onclick="showAdminTab(this,'cl')">Check List</button>
     <button class="admin-tab" onclick="showAdminTab(this,'wl')">물량관리</button>
     <button class="admin-tab" onclick="showAdminTab(this,'reports')">작업일보</button>
@@ -88,11 +88,11 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <button class="admin-tab" onclick="showAdminTab(this,'members')">회원관리</button>
   </div>
 
-  <!-- 공정관리 -->
+  <!-- 공정률 -->
   <div class="admin-pane active" id="pane-proc">
     <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button type="button" class="admin-tab active" id="procSubQtyBtn" onclick="showProcSub('qty')">수량별 공정관리</button>
-      <button type="button" class="admin-tab" id="procSubVolBtn" onclick="showProcSub('vol')">물량별 공정관리</button>
+      <button type="button" class="admin-tab active" id="procSubQtyBtn" onclick="showProcSub('qty')">수량별 공정률</button>
+      <button type="button" class="admin-tab" id="procSubVolBtn" onclick="showProcSub('vol')">물량별 공정률</button>
     </div>
 
     <!-- 수량별 공정관리: progress_checklist(Check List "작업수량"과 같은 데이터)를 분류별로
