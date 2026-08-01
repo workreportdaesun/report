@@ -95,17 +95,24 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <button type="button" class="admin-tab" id="procSubVolBtn" onclick="showProcSub('vol')">물량별 공정률</button>
     </div>
 
-    <!-- 수량별 공정관리: progress_checklist(Check List "작업수량"과 같은 데이터)를 분류별로
-         묶어서, 시공 TAG 중 완료(complete_date 있음) 비율로 공정률을 계산한다. -->
+    <!-- 수량별 공정률: 물량별과 완전히 같은 화면 구조(카드 그리드+계획수량 설정+표). 계획/설치/FACTOR
+         설정은 물량별과 공유하고, "실적"만 다르게 계산한다 — 기기번호가 있는 항목은 입력된 날짜 하나당
+         수량(qty) 대신 1로 계산(며칠에 걸쳐 입력됐으면 그 날짜 수만큼), 기기번호가 없는 항목은 등장할
+         때마다 1로 계산. 물량별(qty 실측값 합산)과 계산 기준만 다르고 나머지 로직(최초 입력일 구간
+         반영 등)은 loadDashboardData의 동일한 집계 함수를 그대로 재사용. -->
     <div id="procSubQty">
+      <div class="proc-grid" id="procGridQty"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        <button type="button" id="planSettingsBtnQty" onclick="openPlanSettings()" style="border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
+      </div>
       <table class="dtable">
-        <tr><th>작업분류</th><th>전체 TAG</th><th>완료</th><th>공정률</th></tr>
-        <tbody id="procQtyRows"><tr><td colspan="4" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
-        <tfoot id="procQtyFoot"></tfoot>
+        <tr><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
+        <tbody id="procTableRowsQty"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+        <tfoot id="procTableFootQty"></tfoot>
       </table>
     </div>
 
-    <!-- 물량별 공정관리: daily_reports 수량(qty, Check List "작업물량"과 같은 개념)을 계획수량과
+    <!-- 물량별 공정률: daily_reports 수량(qty, Check List "작업물량"과 같은 개념)을 계획수량과
          비교해 공정률을 계산한다(기존 공정률 탭 내용 그대로). -->
     <div id="procSubVol" style="display:none;">
       <div class="proc-grid" id="procGrid"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
@@ -303,6 +310,10 @@ async function upsertAppSettingsResilient(payload){
    있었음, 여기서 같이 고침(2026-08-01). */
 var dashCatToday={}, dashCatBefore={}, dashCatMenu={}, dashPlanQty={}, dashInstallQty={}, dashFactor={};
 var dashCatTodaySikong={}, dashCatBeforeSikong={};
+/* 수량별 공정률(같은 계획/설치/FACTOR 설정을 공유하되 "실적"만 카운트 기준으로 계산) — 물량별과
+   같은 방식으로 재렌더 시점(FACTOR 수정, 계획수량 저장)에 참조하려고 별도 보관. */
+var dashCatTodayQty={}, dashCatBeforeQty={}, dashCatMenuQty={};
+var dashCatTodaySikongQty={}, dashCatBeforeSikongQty={};
 /* 공정률 % 색상 구간 — work-progress-daesun(PC 공정관리 앱)과 동일한 기준(100/70/40) */
 function pctColor(p){ return p>=100?'var(--ok)':p>=70?'var(--brand-2)':p>=40?'#B9770E':'#E74C3C'; }
 /* 공정률 %의 실적 기준 — report/app/index.html의 actualQty()와 동일한 규칙(엑셀로 올라온
@@ -337,6 +348,61 @@ function connectionQtyWeight(cat, spec){
 }
 
 /* ── 공정률/출력현황 실데이터 집계 — daily_reports(전체 팀·전체 날짜).items/crew + app_settings.plan_qty/personnel ── */
+/* 일보 항목을 작업분류별 전일누계/금일로 집계한다. useCount가 false면 물량별(qty 실측값을
+   그대로 합산), true면 수량별(항목 하나=1로 계산, 기기번호가 있으면 입력된 날짜 수만큼).
+   기기번호가 있는 항목은 진행중 상태로 며칠에 걸쳐 다시 입력될 수 있어(report/app/index.html의
+   같은 기기번호 "진행" 중복검사가 오늘 날짜로만 걸리므로), 같은 기기가 전일누계/금일 두 구간에
+   나뉘어 잡히지 않도록 (공종,분류,기기번호)별로 입력된 모든 날짜의 값을 먼저 합산한 뒤, 그 합계
+   전체를 최초로 입력된 날짜가 속한 구간 한 곳에만 반영한다. 기기번호가 없는 항목은 예전처럼
+   등장한 날짜 그대로 각각 합산한다. */
+function aggregateProcRows(rows, today, useCount){
+  var catToday={}, catBefore={}, catMenu={};
+  var catTodaySikong={}, catBeforeSikong={};
+  function addQty(isToday, cat, menu, qty, spec){
+    var w = connectionQtyWeight(cat, spec);
+    var q = useCount ? 1 : (Number(qty)||0)*w;
+    var target = isToday ? catToday : catBefore;
+    target[cat] = (target[cat]||0)+q;
+    if(menu) catMenu[cat]=menu;
+    if(menu==='시공'){
+      var targetSikong = isToday ? catTodaySikong : catBeforeSikong;
+      targetSikong[cat] = (targetSikong[cat]||0)+q;
+    }
+  }
+  var byKey = {};
+  rows.forEach(function(row){
+    (row.items||[]).forEach(function(it){
+      if(!it || !it.cat || !it.tag) return;
+      var key = (it.menu||'')+'|'+it.cat+'|'+it.tag;
+      if(!byKey[key]) byKey[key] = {menu:it.menu, cat:it.cat, qty:0, firstDate:row.date};
+      var g = byKey[key];
+      var w = connectionQtyWeight(it.cat, it.spec);
+      g.qty += useCount ? 1 : (Number(it.qty)||0)*w;
+      if(row.date<g.firstDate) g.firstDate=row.date;
+    });
+  });
+  Object.keys(byKey).forEach(function(key){
+    var g = byKey[key];
+    var isToday = g.firstDate===today, isBefore = g.firstDate<today;
+    if(!isToday && !isBefore) return;
+    var target = isToday ? catToday : catBefore;
+    target[g.cat] = (target[g.cat]||0) + g.qty;
+    if(g.menu) catMenu[g.cat]=g.menu;
+    if(g.menu==='시공'){
+      var targetSikong = isToday ? catTodaySikong : catBeforeSikong;
+      targetSikong[g.cat] = (targetSikong[g.cat]||0) + g.qty;
+    }
+  });
+  rows.forEach(function(row){
+    var isToday = row.date===today, isBefore = row.date<today;
+    if(!isToday && !isBefore) return;
+    (row.items||[]).forEach(function(it){
+      if(!it || !it.cat || it.tag) return; // 기기번호 있는 건 위에서 이미 처리
+      addQty(isToday, it.cat, it.menu, it.qty, it.spec);
+    });
+  });
+  return {catToday:catToday, catBefore:catBefore, catMenu:catMenu, catTodaySikong:catTodaySikong, catBeforeSikong:catBeforeSikong};
+}
 async function loadDashboardData(){
   if(!sbClient) return;
   try{
@@ -350,58 +416,12 @@ async function loadDashboardData(){
     dashFactor = (settingsRes.data && settingsRes.data.cat_factor) || {};
     var today = todayStr();
 
-    var catToday={}, catBefore={}, catMenu={};
-    var catTodaySikong={}, catBeforeSikong={};
+    var vol = aggregateProcRows(rows, today, false);
+    var cnt = aggregateProcRows(rows, today, true);
+
     var todayCrewByTeam={}, todayNamesByTeam={};
-    function addQty(isToday, cat, menu, qty, spec){
-      var w = connectionQtyWeight(cat, spec);
-      var q = (Number(qty)||0)*w;
-      var target = isToday ? catToday : catBefore;
-      target[cat] = (target[cat]||0)+q;
-      if(menu) catMenu[cat]=menu;
-      if(menu==='시공'){
-        var targetSikong = isToday ? catTodaySikong : catBeforeSikong;
-        targetSikong[cat] = (targetSikong[cat]||0)+q;
-      }
-    }
-    /* 기기번호가 있는 항목은 진행중 상태로 며칠에 걸쳐 다시 입력될 수 있어(report/app/index.html의
-       같은 기기번호 "진행" 중복검사가 오늘 날짜로만 걸리므로), 같은 기기가 전일누계/금일 두
-       구간에 나뉘어 잡히지 않도록 (공종,분류,기기번호)별로 입력된 모든 날짜의 수량을 먼저
-       합산한 뒤, 그 합계 전체를 최초로 입력된 날짜가 속한 구간 한 곳에만 반영한다. 기기번호가
-       없는 항목은 예전처럼 등장한 날짜 그대로 각각 합산한다. */
-    var byKey = {};
     rows.forEach(function(row){
-      (row.items||[]).forEach(function(it){
-        if(!it || !it.cat || !it.tag) return;
-        var key = (it.menu||'')+'|'+it.cat+'|'+it.tag;
-        if(!byKey[key]) byKey[key] = {menu:it.menu, cat:it.cat, qty:0, firstDate:row.date};
-        var g = byKey[key];
-        var w = connectionQtyWeight(it.cat, it.spec);
-        g.qty += (Number(it.qty)||0)*w;
-        if(row.date<g.firstDate) g.firstDate=row.date;
-      });
-    });
-    Object.keys(byKey).forEach(function(key){
-      var g = byKey[key];
-      var isToday = g.firstDate===today, isBefore = g.firstDate<today;
-      if(!isToday && !isBefore) return;
-      var target = isToday ? catToday : catBefore;
-      target[g.cat] = (target[g.cat]||0) + g.qty;
-      if(g.menu) catMenu[g.cat]=g.menu;
-      if(g.menu==='시공'){
-        var targetSikong = isToday ? catTodaySikong : catBeforeSikong;
-        targetSikong[g.cat] = (targetSikong[g.cat]||0) + g.qty;
-      }
-    });
-    rows.forEach(function(row){
-      var isToday = row.date===today, isBefore = row.date<today;
-      if(isToday || isBefore){
-        (row.items||[]).forEach(function(it){
-          if(!it || !it.cat || it.tag) return; // 기기번호 있는 건 위에서 이미 처리
-          addQty(isToday, it.cat, it.menu, it.qty, it.spec);
-        });
-      }
-      if(isToday && row.team){
+      if(row.date===today && row.team){
         var crew = Array.isArray(row.crew) ? row.crew : [];
         if(crew.length){
           todayCrewByTeam[row.team]=crew.length;
@@ -409,15 +429,21 @@ async function loadDashboardData(){
         }
       }
     });
-    dashCatToday=catToday; dashCatBefore=catBefore; dashCatMenu=catMenu; dashPlanQty=planQty; dashInstallQty=installQty;
-    dashCatTodaySikong=catTodaySikong; dashCatBeforeSikong=catBeforeSikong;
-    renderProcGrid(catToday,catBefore,catMenu,planQty,installQty);
-    renderProcTable(catTodaySikong,catBeforeSikong,planQty,installQty);
+
+    dashCatToday=vol.catToday; dashCatBefore=vol.catBefore; dashCatMenu=vol.catMenu; dashPlanQty=planQty; dashInstallQty=installQty;
+    dashCatTodaySikong=vol.catTodaySikong; dashCatBeforeSikong=vol.catBeforeSikong;
+    dashCatTodayQty=cnt.catToday; dashCatBeforeQty=cnt.catBefore; dashCatMenuQty=cnt.catMenu;
+    dashCatTodaySikongQty=cnt.catTodaySikong; dashCatBeforeSikongQty=cnt.catBeforeSikong;
+
+    renderProcGrid(vol.catToday,vol.catBefore,vol.catMenu,planQty,installQty,'procGrid');
+    renderProcTable(vol.catTodaySikong,vol.catBeforeSikong,planQty,installQty,'procTableRows','procTableFoot');
+    renderProcGrid(cnt.catToday,cnt.catBefore,cnt.catMenu,planQty,installQty,'procGridQty');
+    renderProcTable(cnt.catTodaySikong,cnt.catBeforeSikong,planQty,installQty,'procTableRowsQty','procTableFootQty');
     renderOutGrid(todayCrewByTeam,registeredTeams);
     renderOutTable(todayCrewByTeam,todayNamesByTeam);
   }catch(e){ console.error('대시보드 데이터 불러오기 실패', e); }
 }
-function renderProcGrid(catToday,catBefore,catMenu,planQty,installQty){
+function renderProcGrid(catToday,catBefore,catMenu,planQty,installQty,gridId){
   var MENUS=[{key:'시공',color:'var(--m-시공)'},{key:'품질',color:'var(--m-품질)'},{key:'자재',color:'var(--m-자재)'},{key:'안전',color:'var(--m-안전)'},{key:'화기/유도',color:'var(--m-화기)'}];
   var actual={}, plan={};
   Object.keys(catMenu).forEach(function(cat){
@@ -425,7 +451,7 @@ function renderProcGrid(catToday,catBefore,catMenu,planQty,installQty){
     actual[m]=(actual[m]||0)+actualFor(cat,catToday,catBefore,installQty);
     plan[m]=(plan[m]||0)+(planQty[cat]||0);
   });
-  document.getElementById('procGrid').innerHTML = MENUS.map(function(m){
+  document.getElementById(gridId||'procGrid').innerHTML = MENUS.map(function(m){
     var a=actual[m.key]||0, p=plan[m.key]||0;
     var pct = p>0 ? Math.min(100,Math.round(a/p*100)) : 0;
     return '<div class="proc-card"><div class="m" style="color:'+m.color+';">'+m.key+'</div><div class="pct">'+pct+'%</div><div class="proc-bar"><div style="width:'+pct+'%;background:'+m.color+';"></div></div><div class="d">계획 '+p+' / 설치(실적) '+a+'</div></div>';
@@ -450,10 +476,10 @@ function getCatList(){
    진행률(%) 자체는 그대로 보여주고, "전체 공정률"만 이 비중으로 가중평균한다: Σ(진행률×FACTOR)/
    Σ(FACTOR). 단순히 행마다 %에 FACTOR를 곱해서 보여주는 방식(work-progress-daesun 최초 버전)은
    진짜 가중평균이 아니어서 공사비 비중처럼 쓰기엔 틀렸음 — 2026-08-01 사용자 설명으로 정정. */
-function renderProcTable(catToday,catBefore,planQty,installQty){
+function renderProcTable(catToday,catBefore,planQty,installQty,rowsId,footId){
   var list=getCatList();
-  var wrap=document.getElementById('procTableRows');
-  var foot=document.getElementById('procTableFoot');
+  var wrap=document.getElementById(rowsId||'procTableRows');
+  var foot=document.getElementById(footId||'procTableFoot');
   if(!list.length){
     wrap.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--lbl);">데이터가 아직 없습니다</td></tr>';
     if(foot) foot.innerHTML='';
@@ -502,7 +528,9 @@ async function updateFactor(inp){
   var cat = inp.getAttribute('data-cat');
   var v = parseFloat(inp.value);
   dashFactor[cat] = isNaN(v) ? 1 : v;
-  renderProcTable(dashCatTodaySikong, dashCatBeforeSikong, dashPlanQty, dashInstallQty);
+  // FACTOR는 물량별/수량별이 공유하는 설정이라 둘 다 다시 그린다
+  renderProcTable(dashCatTodaySikong, dashCatBeforeSikong, dashPlanQty, dashInstallQty, 'procTableRows', 'procTableFoot');
+  renderProcTable(dashCatTodaySikongQty, dashCatBeforeSikongQty, dashPlanQty, dashInstallQty, 'procTableRowsQty', 'procTableFootQty');
   if(!sbClient) return;
   await upsertAppSettingsResilient({id:'global', cat_factor:dashFactor, updated_at:new Date().toISOString()});
 }
@@ -596,8 +624,11 @@ async function savePlanSettings(){
     var v = Number(inp.value)||0;
     if(v<=0) delete dashInstallQty[cat]; else dashInstallQty[cat]=v;
   });
-  renderProcGrid(dashCatToday,dashCatBefore,dashCatMenu,dashPlanQty,dashInstallQty);
-  renderProcTable(dashCatTodaySikong,dashCatBeforeSikong,dashPlanQty,dashInstallQty);
+  // 계획/설치수량은 물량별/수량별이 공유하는 설정이라 둘 다 다시 그린다
+  renderProcGrid(dashCatToday,dashCatBefore,dashCatMenu,dashPlanQty,dashInstallQty,'procGrid');
+  renderProcTable(dashCatTodaySikong,dashCatBeforeSikong,dashPlanQty,dashInstallQty,'procTableRows','procTableFoot');
+  renderProcGrid(dashCatTodayQty,dashCatBeforeQty,dashCatMenuQty,dashPlanQty,dashInstallQty,'procGridQty');
+  renderProcTable(dashCatTodaySikongQty,dashCatBeforeSikongQty,dashPlanQty,dashInstallQty,'procTableRowsQty','procTableFootQty');
   closePlanSettings();
   if(!sbClient) return;
   await upsertAppSettingsResilient({id:'global', plan_qty:dashPlanQty, install_qty:dashInstallQty, updated_at:new Date().toISOString()});
@@ -774,11 +805,13 @@ async function saveSiteSettings(){
     alert('현장 좌표가 저장되었습니다.');
   }catch(e){ alert('저장 실패: '+e.message); }
 }
-if(admIsMobile){ var _psb=document.getElementById('planSettingsBtn'); if(_psb) _psb.style.display='none'; }
+if(admIsMobile){
+  var _psb=document.getElementById('planSettingsBtn'); if(_psb) _psb.style.display='none';
+  var _psbQty=document.getElementById('planSettingsBtnQty'); if(_psbQty) _psbQty.style.display='none';
+}
 loadSiteSettings();
 loadDashboardData();
 loadSettingsCatList();
-loadProcQtyStatus();
 
 /* ── 회원관리: members를 team으로 그룹핑, is_leader=true인 사람을 헤더로 ──
    is_leader 컬럼이 아직 없으면 select('*')는 에러 없이 그냥 undefined로 오므로
@@ -896,48 +929,6 @@ function showClSub(sub){
   renderChecklist();
 }
 
-/* ── 수량별 공정관리: progress_checklist(Check List "작업수량"과 같은 데이터, complete_date
-   기준)를 시공 분류별로 묶어서 "전체 TAG 중 완료(complete_date 있음) 비율"로 공정률을
-   계산한다. Check List 탭을 아직 안 열었어도 이 탭(공정관리, 기본 서브메뉴)에서 바로 보여야
-   하므로 progress_checklist를 여기서 별도로 불러온다. */
-var procQtyRows=[];
-async function loadProcQtyStatus(){
-  var wrap=document.getElementById('procQtyRows');
-  if(!sbClient){ wrap.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--lbl);">연결 실패</td></tr>'; return; }
-  try{
-    var res=await sbClient.from('progress_checklist').select('cat,menu,complete_date');
-    if(res.error||!res.data){ wrap.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--lbl);">불러오기 실패(progress_checklist 테이블이 아직 없을 수 있음)</td></tr>'; return; }
-    procQtyRows=res.data.filter(function(r){ return r.menu==='시공'; });
-    renderProcQtyStatus();
-  }catch(e){ wrap.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; }
-}
-function renderProcQtyStatus(){
-  var wrap=document.getElementById('procQtyRows'), foot=document.getElementById('procQtyFoot');
-  if(!procQtyRows.length){ wrap.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--lbl);">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; foot.innerHTML=''; return; }
-  var byCat={};
-  procQtyRows.forEach(function(r){
-    if(!byCat[r.cat]) byCat[r.cat]={total:0,done:0};
-    byCat[r.cat].total++;
-    if(r.complete_date) byCat[r.cat].done++;
-  });
-  var cats=Object.keys(byCat).sort();
-  // 물량별 공정관리(renderProcTable)와 같은 진행바 서식(pbar-wrap/pbar-fill/pct-val)을 그대로 씀
-  function pctCell(pct, total){
-    var c = pctColor(pct);
-    return total>0
-      ? '<div class="pbar-wrap"><div class="pbar"><div class="pbar-fill" style="width:'+Math.min(pct,100)+'%;background:'+c+';"></div></div><span class="pct-val" style="color:'+c+';">'+pct+'%</span></div>'
-      : '<span style="color:var(--lbl);">–</span>';
-  }
-  var totalAll=0, doneAll=0;
-  wrap.innerHTML=cats.map(function(c){
-    var g=byCat[c];
-    totalAll+=g.total; doneAll+=g.done;
-    var pct=g.total>0?Math.round(g.done/g.total*100):0;
-    return '<tr><td>'+c+'</td><td class="mono">'+g.total+'</td><td class="mono">'+g.done+'</td><td>'+pctCell(pct,g.total)+'</td></tr>';
-  }).join('');
-  var pctAll=totalAll>0?Math.round(doneAll/totalAll*100):0;
-  foot.innerHTML='<tr style="font-weight:800;background:var(--field-bg);"><td>전체</td><td class="mono">'+totalAll+'</td><td class="mono">'+doneAll+'</td><td>'+pctCell(pctAll,totalAll)+'</td></tr>';
-}
 function showProcSub(sub){
   document.getElementById('procSubQtyBtn').classList.toggle('active',sub==='qty');
   document.getElementById('procSubVolBtn').classList.toggle('active',sub==='vol');
