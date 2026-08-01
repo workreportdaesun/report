@@ -89,21 +89,25 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 
   <!-- 공정률 -->
   <div class="admin-pane active" id="pane-proc">
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
+    <!-- Check List 탭(작업수량/작업물량 버튼行→바로 표)과 같은 위치를 맞추려고, 탭 버튼/시공%
+         카드/계획수량 설정 버튼을 전부 한 행에 둔다. 시공% 카드는 수량별/물량별 실적 계산 기준이
+         달라 두 개(procGridQty/procGrid)를 그대로 유지하되 활성 탭인 쪽만 보이도록 토글한다
+         (showProcSub 참고). 계획수량 설정 모달은 수량별/물량별 둘 다 같은 모달(openPlanSettings)을
+         공유하므로 버튼은 하나만 둔다. -->
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
       <button type="button" class="admin-tab active" id="procSubQtyBtn" onclick="showProcSub('qty')">수량별 공정률</button>
       <button type="button" class="admin-tab" id="procSubVolBtn" onclick="showProcSub('vol')">물량별 공정률</button>
+      <div class="proc-grid" id="procGridQty"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
+      <div class="proc-grid" id="procGrid" style="display:none;"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
+      <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="margin-left:auto;flex-shrink:0;border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
     </div>
 
-    <!-- 수량별 공정률: 물량별과 완전히 같은 화면 구조(카드 그리드+계획수량 설정+표). 계획/설치/FACTOR
-         설정은 물량별과 공유하고, "실적"만 다르게 계산한다 — 기기번호가 있는 항목은 입력된 날짜 하나당
-         수량(qty) 대신 1로 계산(며칠에 걸쳐 입력됐으면 그 날짜 수만큼), 기기번호가 없는 항목은 등장할
-         때마다 1로 계산. 물량별(qty 실측값 합산)과 계산 기준만 다르고 나머지 로직(최초 입력일 구간
-         반영 등)은 loadDashboardData의 동일한 집계 함수를 그대로 재사용. -->
+    <!-- 수량별 공정률: 물량별과 완전히 같은 화면 구조(표). 계획/설치/FACTOR 설정은 물량별과 공유하고,
+         "실적"만 다르게 계산한다 — 기기번호가 있는 항목은 입력된 날짜 하나당 수량(qty) 대신 1로 계산
+         (며칠에 걸쳐 입력됐으면 그 날짜 수만큼), 기기번호가 없는 항목은 등장할 때마다 1로 계산.
+         물량별(qty 실측값 합산)과 계산 기준만 다르고 나머지 로직(최초 입력일 구간 반영 등)은
+         loadDashboardData의 동일한 집계 함수를 그대로 재사용. -->
     <div id="procSubQty">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
-        <div class="proc-grid" id="procGridQty"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
-        <button type="button" id="planSettingsBtnQty" onclick="openPlanSettings()" style="flex-shrink:0;border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
-      </div>
       <table class="dtable">
         <tr><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
         <tbody id="procTableRowsQty"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
@@ -114,10 +118,6 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <!-- 물량별 공정률: daily_reports 수량(qty, Check List "작업물량"과 같은 개념)을 계획수량과
          비교해 공정률을 계산한다(기존 공정률 탭 내용 그대로). -->
     <div id="procSubVol" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
-        <div class="proc-grid" id="procGrid"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
-        <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="flex-shrink:0;border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
-      </div>
       <table class="dtable">
         <tr><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
         <tbody id="procTableRows"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
@@ -827,7 +827,6 @@ async function saveSiteSettings(){
 }
 if(admIsMobile){
   var _psb=document.getElementById('planSettingsBtn'); if(_psb) _psb.style.display='none';
-  var _psbQty=document.getElementById('planSettingsBtnQty'); if(_psbQty) _psbQty.style.display='none';
 }
 loadSiteSettings();
 loadDashboardData();
@@ -954,6 +953,8 @@ function showProcSub(sub){
   document.getElementById('procSubVolBtn').classList.toggle('active',sub==='vol');
   document.getElementById('procSubQty').style.display=sub==='qty'?'':'none';
   document.getElementById('procSubVol').style.display=sub==='vol'?'':'none';
+  document.getElementById('procGridQty').style.display=sub==='qty'?'':'none';
+  document.getElementById('procGrid').style.display=sub==='vol'?'':'none';
 }
 
 /* ── 물량관리: work_log(report/app/index.html의 syncWorkLog가 daily_reports에서 매번
