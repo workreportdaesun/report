@@ -921,16 +921,22 @@ function renderProcQtyStatus(){
     if(r.complete_date) byCat[r.cat].done++;
   });
   var cats=Object.keys(byCat).sort();
+  // 물량별 공정관리(renderProcTable)와 같은 진행바 서식(pbar-wrap/pbar-fill/pct-val)을 그대로 씀
+  function pctCell(pct, total){
+    var c = pctColor(pct);
+    return total>0
+      ? '<div class="pbar-wrap"><div class="pbar"><div class="pbar-fill" style="width:'+Math.min(pct,100)+'%;background:'+c+';"></div></div><span class="pct-val" style="color:'+c+';">'+pct+'%</span></div>'
+      : '<span style="color:var(--lbl);">–</span>';
+  }
   var totalAll=0, doneAll=0;
   wrap.innerHTML=cats.map(function(c){
     var g=byCat[c];
     totalAll+=g.total; doneAll+=g.done;
     var pct=g.total>0?Math.round(g.done/g.total*100):0;
-    var col=pctColor(pct);
-    return '<tr><td>'+c+'</td><td class="mono">'+g.total+'</td><td class="mono">'+g.done+'</td><td style="color:'+col+';font-weight:700;">'+pct+'%</td></tr>';
+    return '<tr><td>'+c+'</td><td class="mono">'+g.total+'</td><td class="mono">'+g.done+'</td><td>'+pctCell(pct,g.total)+'</td></tr>';
   }).join('');
   var pctAll=totalAll>0?Math.round(doneAll/totalAll*100):0;
-  foot.innerHTML='<tr style="font-weight:800;background:var(--field-bg);"><td>전체</td><td class="mono">'+totalAll+'</td><td class="mono">'+doneAll+'</td><td style="color:'+pctColor(pctAll)+';">'+pctAll+'%</td></tr>';
+  foot.innerHTML='<tr style="font-weight:800;background:var(--field-bg);"><td>전체</td><td class="mono">'+totalAll+'</td><td class="mono">'+doneAll+'</td><td>'+pctCell(pctAll,totalAll)+'</td></tr>';
 }
 function showProcSub(sub){
   document.getElementById('procSubQtyBtn').classList.toggle('active',sub==='qty');
