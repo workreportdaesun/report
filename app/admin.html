@@ -334,20 +334,52 @@ async function loadDashboardData(){
     var catToday={}, catBefore={}, catMenu={};
     var catTodaySikong={}, catBeforeSikong={};
     var todayCrewByTeam={}, todayNamesByTeam={};
+    function addQty(isToday, cat, menu, qty, spec){
+      var w = connectionQtyWeight(cat, spec);
+      var q = (Number(qty)||0)*w;
+      var target = isToday ? catToday : catBefore;
+      target[cat] = (target[cat]||0)+q;
+      if(menu) catMenu[cat]=menu;
+      if(menu==='시공'){
+        var targetSikong = isToday ? catTodaySikong : catBeforeSikong;
+        targetSikong[cat] = (targetSikong[cat]||0)+q;
+      }
+    }
+    /* 기기번호가 있는 항목은 진행중 상태로 며칠에 걸쳐 다시 입력될 수 있어(report/app/index.html의
+       같은 기기번호 "진행" 중복검사가 오늘 날짜로만 걸리므로), 같은 기기가 전일누계/금일 두
+       구간에 나뉘어 잡히지 않도록 (공종,분류,기기번호)별로 입력된 모든 날짜의 수량을 먼저
+       합산한 뒤, 그 합계 전체를 최초로 입력된 날짜가 속한 구간 한 곳에만 반영한다. 기기번호가
+       없는 항목은 예전처럼 등장한 날짜 그대로 각각 합산한다. */
+    var byKey = {};
+    rows.forEach(function(row){
+      (row.items||[]).forEach(function(it){
+        if(!it || !it.cat || !it.tag) return;
+        var key = (it.menu||'')+'|'+it.cat+'|'+it.tag;
+        if(!byKey[key]) byKey[key] = {menu:it.menu, cat:it.cat, qty:0, firstDate:row.date};
+        var g = byKey[key];
+        var w = connectionQtyWeight(it.cat, it.spec);
+        g.qty += (Number(it.qty)||0)*w;
+        if(row.date<g.firstDate) g.firstDate=row.date;
+      });
+    });
+    Object.keys(byKey).forEach(function(key){
+      var g = byKey[key];
+      var isToday = g.firstDate===today, isBefore = g.firstDate<today;
+      if(!isToday && !isBefore) return;
+      var target = isToday ? catToday : catBefore;
+      target[g.cat] = (target[g.cat]||0) + g.qty;
+      if(g.menu) catMenu[g.cat]=g.menu;
+      if(g.menu==='시공'){
+        var targetSikong = isToday ? catTodaySikong : catBeforeSikong;
+        targetSikong[g.cat] = (targetSikong[g.cat]||0) + g.qty;
+      }
+    });
     rows.forEach(function(row){
       var isToday = row.date===today, isBefore = row.date<today;
       if(isToday || isBefore){
         (row.items||[]).forEach(function(it){
-          if(!it || !it.cat) return;
-          var w = connectionQtyWeight(it.cat, it.spec);
-          var q = (Number(it.qty)||0)*w;
-          var target = isToday ? catToday : catBefore;
-          target[it.cat] = (target[it.cat]||0)+q;
-          if(it.menu) catMenu[it.cat]=it.menu;
-          if(it.menu==='시공'){
-            var targetSikong = isToday ? catTodaySikong : catBeforeSikong;
-            targetSikong[it.cat] = (targetSikong[it.cat]||0)+q;
-          }
+          if(!it || !it.cat || it.tag) return; // 기기번호 있는 건 위에서 이미 처리
+          addQty(isToday, it.cat, it.menu, it.qty, it.spec);
         });
       }
       if(isToday && row.team){

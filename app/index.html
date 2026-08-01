@@ -2551,14 +2551,38 @@ async function loadProgressData(){
     if(res.error || !res.data) return;
     var today = todayStr();
     var t={}, b={};
+    function addQty(target, cat, qty, spec){
+      var w = (typeof connectionQtyWeight==='function') ? connectionQtyWeight(cat, spec) : 1;
+      target[cat] = (target[cat]||0) + (Number(qty)||0)*w;
+    }
+    /* 기기번호가 있는 항목은 진행중 상태로 며칠에 걸쳐 다시 입력될 수 있어(같은 기기번호의
+       "진행" 중복검사는 오늘 날짜로만 걸리므로), 같은 기기가 전일누계/금일 두 구간에 나뉘어
+       잡히지 않도록 (분류,기기번호)별로 입력된 모든 날짜의 수량을 먼저 합산한 뒤, 그 합계
+       전체를 최초로 입력된 날짜가 속한 구간(오늘/그 이전) 한 곳에만 반영한다. 기기번호가
+       없는 항목(개별 식별이 안 되는 수량형 입력)은 예전처럼 등장한 날짜 그대로 각각 합산한다. */
+    var byKey = {};
     res.data.forEach(function(row){
-      var arr = Array.isArray(row.items) ? row.items : [];
+      (Array.isArray(row.items)?row.items:[]).forEach(function(it){
+        if(!it || !it.cat || it.menu!=='시공' || !it.tag) return;
+        var key = it.cat+'|'+it.tag;
+        if(!byKey[key]) byKey[key] = {cat:it.cat, qty:0, firstDate:row.date};
+        var g = byKey[key];
+        var w = (typeof connectionQtyWeight==='function') ? connectionQtyWeight(it.cat, it.spec) : 1;
+        g.qty += (Number(it.qty)||0)*w;
+        if(row.date<g.firstDate) g.firstDate=row.date;
+      });
+    });
+    Object.keys(byKey).forEach(function(key){
+      var g = byKey[key];
+      var target = g.firstDate===today ? t : (g.firstDate<today ? b : null);
+      if(target) target[g.cat] = (target[g.cat]||0) + g.qty;
+    });
+    res.data.forEach(function(row){
       var target = row.date===today ? t : (row.date<today ? b : null);
       if(!target) return;
-      arr.forEach(function(it){
-        if(!it || !it.cat || it.menu!=='시공') return;
-        var w = (typeof connectionQtyWeight==='function') ? connectionQtyWeight(it.cat, it.spec) : 1;
-        target[it.cat] = (target[it.cat]||0) + (Number(it.qty)||0)*w;
+      (Array.isArray(row.items)?row.items:[]).forEach(function(it){
+        if(!it || !it.cat || it.menu!=='시공' || it.tag) return; // 기기번호 있는 건 위에서 이미 처리
+        addQty(target, it.cat, it.qty, it.spec);
       });
     });
     PG_TODAY=t; PG_BEFORE=b;
