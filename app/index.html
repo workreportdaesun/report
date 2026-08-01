@@ -428,6 +428,11 @@ textarea.f{resize:none; height:44px;}
       <div class="chip-row" id="modalCatChips"></div>
       <div class="add-row">
         <input type="text" id="modalNewCatInput" class="f" placeholder="새 분류 이름" onkeydown="if(event.key==='Enter'){event.preventDefault();modalAddCategory();}"/>
+        <select id="modalNewCatUnitSelect" class="f" style="flex-shrink:0;width:74px;" title="수량 단위">
+          <option value="EA">EA</option>
+          <option value="M">M</option>
+          <option value="PT">Point</option>
+        </select>
         <button type="button" id="modalCatSaveBtn" onclick="modalAddCategory()">추가</button>
       </div>
 
@@ -740,6 +745,7 @@ async function saveAllSettings(){
 function resetModalEditStates(){
   editingCatIdx=-1; editingAreaIdx=-1; editingPersonnelIdx=-1; editingSpecIdx=-1;
   document.getElementById('modalNewCatInput').value='';
+  document.getElementById('modalNewCatUnitSelect').value='EA';
   document.getElementById('modalNewAreaInput').value='';
   document.getElementById('modalNewPersonnelInput').value='';
   document.getElementById('modalNewSpecInput').value='';
@@ -759,6 +765,7 @@ function selectModalMenu(m){
   // 분류 목록은 공종별로 달라서, 다른 공종 탭으로 넘어가면 수정 중이던 분류는 취소한다
   editingCatIdx=-1;
   document.getElementById('modalNewCatInput').value='';
+  document.getElementById('modalNewCatUnitSelect').value='EA';
   document.getElementById('modalCatSaveBtn').textContent='추가';
   renderModalMenuTabs();
   renderModalCatSelect();
@@ -782,7 +789,7 @@ function renderModalCatSelect(){
 function renderModalCatChips(){
   var list = catsByMenu[modalMenu] || [];
   document.getElementById('modalCatChips').innerHTML = list.map(function(c,i){
-    return '<span class="chip">'+c
+    return '<span class="chip">'+c+' <span style="color:var(--muted);font-size:12px;">('+unitOf(c)+')</span>'
       +'<button type="button" class="chip-edit" onclick="modalEditCategory('+i+')" title="수정">✏️</button>'
       +'<button type="button" class="chip-del" onclick="modalRemoveCategory('+i+')" title="삭제">✕</button></span>';
   }).join('');
@@ -792,16 +799,19 @@ function modalEditCategory(i){
   if(!list) return;
   editingCatIdx = i;
   document.getElementById('modalNewCatInput').value = list[i];
+  document.getElementById('modalNewCatUnitSelect').value = unitOf(list[i]);
   document.getElementById('modalNewCatInput').focus();
   document.getElementById('modalCatSaveBtn').textContent = '저장';
 }
 async function modalAddCategory(){
   var inp = document.getElementById('modalNewCatInput');
   var v = inp.value.trim();
+  var unit = document.getElementById('modalNewCatUnitSelect').value;
   var list = catsByMenu[modalMenu];
   if(!v || !list) return;
   if(editingCatIdx>=0){
     if(list.indexOf(v)!==-1 && list[editingCatIdx]!==v) return;
+    if(list[editingCatIdx]!==v && !ITEM_UNIT[v]) delete ITEM_UNIT[list[editingCatIdx]];
     list[editingCatIdx] = v;
     editingCatIdx = -1;
     document.getElementById('modalCatSaveBtn').textContent = '추가';
@@ -809,8 +819,11 @@ async function modalAddCategory(){
     if(list.indexOf(v)!==-1) return;
     list.push(v);
   }
+  ITEM_UNIT[v] = unit;
   inp.value = '';
+  document.getElementById('modalNewCatUnitSelect').value = 'EA';
   renderModalCatSelect();
+  renderModalUnitCatSelect();
   if(typeof window.renderPgList==='function') window.renderPgList();
   await pushSettingsToSupabase();
 }
