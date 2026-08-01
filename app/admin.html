@@ -41,8 +41,9 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .proc-bar > div{height:100%; border-radius:3px;}
 
 .dtable{width:100%; border-collapse:collapse; font-size:13px; background:var(--card); border:1px solid var(--card-bd); border-radius:10px; overflow:hidden;}
-.dtable th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--lbl); background:var(--field-bg); padding:10px 12px; font-weight:700;}
-.dtable td{padding:10px 12px; border-top:1px solid var(--card-bd); color:var(--ink); box-sizing:border-box; height:45px;}
+.dtable th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--lbl); background:var(--field-bg); padding:10px 12px; font-weight:700; border-right:1px solid var(--card-bd);}
+.dtable td{padding:10px 12px; border-top:1px solid var(--card-bd); border-right:1px solid var(--card-bd); color:var(--ink); box-sizing:border-box; height:45px;}
+.dtable th:last-child, .dtable td:last-child{border-right:none;}
 .dtable td.mono{font-family:var(--font-mono);}
 .pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;}
 .pill-ok{background:#EAF7EE; color:var(--ok);}
