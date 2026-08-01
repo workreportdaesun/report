@@ -374,15 +374,22 @@ function aggregateProcRows(rows, today, useCount){
     (row.items||[]).forEach(function(it){
       if(!it || !it.cat || !it.tag) return;
       var key = (it.menu||'')+'|'+it.cat+'|'+it.tag;
-      if(!byKey[key]) byKey[key] = {menu:it.menu, cat:it.cat, qty:0, firstDate:row.date};
+      if(!byKey[key]) byKey[key] = {menu:it.menu, cat:it.cat, qty:0, dates:{}, firstDate:row.date};
       var g = byKey[key];
-      var w = connectionQtyWeight(it.cat, it.spec);
-      g.qty += useCount ? 1 : (Number(it.qty)||0)*w;
+      if(useCount){
+        // 같은 날짜에 같은 기기번호가 여러 팀 이름으로 중복 입력돼 있어도(테스트 데이터 등),
+        // "입력된 날짜" 기준으로는 하루로 세야 하므로 날짜를 Set으로 모아뒀다가 개수만 쓴다.
+        g.dates[row.date] = true;
+      } else {
+        var w = connectionQtyWeight(it.cat, it.spec);
+        g.qty += (Number(it.qty)||0)*w;
+      }
       if(row.date<g.firstDate) g.firstDate=row.date;
     });
   });
   Object.keys(byKey).forEach(function(key){
     var g = byKey[key];
+    if(useCount) g.qty = Object.keys(g.dates).length;
     var isToday = g.firstDate===today, isBefore = g.firstDate<today;
     if(!isToday && !isBefore) return;
     var target = isToday ? catToday : catBefore;
