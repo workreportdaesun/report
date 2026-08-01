@@ -474,7 +474,7 @@ async function loadDashboardData(){
   }catch(e){ console.error('대시보드 데이터 불러오기 실패', e); }
 }
 function renderProcGrid(catToday,catBefore,catMenu,planQty,installQty,gridId){
-  var MENUS=[{key:'시공',color:'var(--m-시공)'},{key:'품질',color:'var(--m-품질)'},{key:'자재',color:'var(--m-자재)'},{key:'안전',color:'var(--m-안전)'},{key:'화기/유도',color:'var(--m-화기)'}];
+  var MENUS=[{key:'시공',color:'var(--m-시공)'}];
   var actual={}, plan={};
   Object.keys(catMenu).forEach(function(cat){
     var m=catMenu[cat];
@@ -530,25 +530,16 @@ function renderProcTable(catToday,catBefore,planQty,installQty,rowsId,footId){
     +'</tr>';
   }).join('');
   if(foot){
-    // 합계행: 작업분류/단위는 "합계" 라벨, 계획/전일누계/금일/누계/설치는 실제 합계, FACTOR 칸은
-    // 전체 분류의 FACTOR 값을 단순합산(비중 배분이 맞게 됐는지 확인용). 공정률만 FACTOR 가중평균.
-    var tp = rowsData.reduce(function(s,d){ return s+(d.plan||0); },0);
-    var tprev = rowsData.reduce(function(s,d){ return s+d.before; },0);
-    var ttod = rowsData.reduce(function(s,d){ return s+d.today; },0);
-    var tcum = tprev+ttod;
-    var tinstall = rowsData.reduce(function(s,d){ return s+(Object.prototype.hasOwnProperty.call(installQty,d.cat)?(d.install||0):0); },0);
+    // 합계행: 계획/전일누계/금일/누계/설치 개별 합산은 보여주지 않고 FACTOR 합계와 가중평균
+    // 공정률만 남긴다(2026-08-01, 사용자 요청). FACTOR는 전체 분류의 FACTOR 값을 단순합산
+    // (비중 배분이 맞게 됐는지 확인용), 공정률은 FACTOR 가중평균.
     var tfactor = +(rowsData.reduce(function(s,d){ return s+(d.factor||0); },0)).toFixed(2);
     var valid = rowsData.filter(function(d){ return d.plan>0 && d.factor>0; });
     var wsum = valid.reduce(function(s,d){ return s+d.factor; },0);
     var adj = wsum>0 ? +(valid.reduce(function(s,d){ return s+d.pct*d.factor; },0)/wsum).toFixed(1) : 0;
     var fc = pctColor(adj);
     foot.innerHTML = '<tr style="font-weight:800;background:var(--field-bg);">'
-      +'<td colspan="2">합계</td>'
-      +'<td class="mono">'+(tp||'-')+'</td>'
-      +'<td class="mono">'+(tprev||'-')+'</td>'
-      +'<td class="mono">'+(ttod||'-')+'</td>'
-      +'<td class="mono">'+(tcum||'-')+'</td>'
-      +'<td class="mono">'+(tinstall||'-')+'</td>'
+      +'<td colspan="7">합계</td>'
       +'<td class="mono" style="text-align:center;">'+tfactor+'</td>'
       +'<td style="color:'+fc+';">'+(valid.length?adj+'%':'-')+'</td>'
     +'</tr>';
