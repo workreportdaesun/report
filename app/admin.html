@@ -936,7 +936,7 @@ function renderChecklist(){
     var cells=cats.map(function(c){
       var r=byTagCat[t+'|'+c];
       var val = r ? (clSub==='qty' ? (r.complete_date||'') : (r.qty_total||'')) : '';
-      return '<td>'+(val ? (clSub==='qty' ? '<span class="pill pill-ok">'+val+'</span>' : val) : '<span style="color:var(--card-bd);">-</span>')+'</td>';
+      return '<td>'+(val ? '<span class="pill pill-ok">'+val+'</span>' : '<span style="color:var(--card-bd);">-</span>')+'</td>';
     }).join('');
     return '<tr><td class="mono">'+t+'</td>'+cells+'</tr>';
   }).join('');
