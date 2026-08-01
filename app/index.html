@@ -2099,6 +2099,11 @@ function updCat(){
   var v=document.getElementById("shootInCat").value;
   document.getElementById("shootCatBar").style.background=CC[v]||"#7F8C8D";
   localStorage.setItem("last_category",v);
+  /* 작업사진 탭에서 직접 분류를 바꾼 경우, 헤더 ⚙️설정에서 고른 것과 동일하게
+     activeMenu/activeCat 및 일보입력 카드까지 같이 갱신해서 어디서 선택하든 연동되게 한다.
+     v===activeCat 가드는 openCardForCat→shootSyncCategory→populateCatSelect→updCat로
+     되돌아오는 재귀호출을 끊기 위한 것(값이 이미 같으면 더 이상 진행하지 않음). */
+  if(v && v!==activeCat) openCardForCat(activeMenu, v);
 }
 
 document.getElementById("shootInTag").addEventListener("blur",checkTagDuplicate);
