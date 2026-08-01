@@ -33,13 +33,12 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .admin-pane{display:none;}
 .admin-pane.active{display:block;}
 
-.proc-grid{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px;}
+.proc-grid{display:flex; flex-wrap:wrap; gap:10px;}
 .proc-card{background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:8px 14px; display:flex; align-items:center; gap:10px;}
 .proc-card .m{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; margin-bottom:0;}
 .proc-card .pct{font-size:18px; font-weight:800; color:var(--ink); font-family:var(--font-mono);}
 .proc-bar{height:6px; width:100px; border-radius:3px; background:var(--field-bg); margin:0; overflow:hidden;}
 .proc-bar > div{height:100%; border-radius:3px;}
-.proc-card .d{font-size:11px; color:var(--lbl); white-space:nowrap;}
 
 .dtable{width:100%; border-collapse:collapse; font-size:13px; background:var(--card); border:1px solid var(--card-bd); border-radius:10px; overflow:hidden;}
 .dtable th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--lbl); background:var(--field-bg); padding:10px 12px; font-weight:700;}
@@ -101,9 +100,9 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
          때마다 1로 계산. 물량별(qty 실측값 합산)과 계산 기준만 다르고 나머지 로직(최초 입력일 구간
          반영 등)은 loadDashboardData의 동일한 집계 함수를 그대로 재사용. -->
     <div id="procSubQty">
-      <div class="proc-grid" id="procGridQty"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
-      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-        <button type="button" id="planSettingsBtnQty" onclick="openPlanSettings()" style="border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
+        <div class="proc-grid" id="procGridQty"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
+        <button type="button" id="planSettingsBtnQty" onclick="openPlanSettings()" style="flex-shrink:0;border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
       </div>
       <table class="dtable">
         <tr><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
@@ -115,9 +114,9 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <!-- 물량별 공정률: daily_reports 수량(qty, Check List "작업물량"과 같은 개념)을 계획수량과
          비교해 공정률을 계산한다(기존 공정률 탭 내용 그대로). -->
     <div id="procSubVol" style="display:none;">
-      <div class="proc-grid" id="procGrid"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
-      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-        <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
+        <div class="proc-grid" id="procGrid"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
+        <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="flex-shrink:0;border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
       </div>
       <table class="dtable">
         <tr><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
@@ -484,7 +483,7 @@ function renderProcGrid(catToday,catBefore,catMenu,planQty,installQty,gridId){
   document.getElementById(gridId||'procGrid').innerHTML = MENUS.map(function(m){
     var a=actual[m.key]||0, p=plan[m.key]||0;
     var pct = p>0 ? Math.min(100,Math.round(a/p*100)) : 0;
-    return '<div class="proc-card"><div class="m" style="color:'+m.color+';">'+m.key+'</div><div class="pct">'+pct+'%</div><div class="proc-bar"><div style="width:'+pct+'%;background:'+m.color+';"></div></div><div class="d">계획 '+p+' / 설치(실적) '+a+'</div></div>';
+    return '<div class="proc-card"><div class="m" style="color:'+m.color+';">'+m.key+'</div><div class="pct">'+pct+'%</div><div class="proc-bar"><div style="width:'+pct+'%;background:'+m.color+';"></div></div></div>';
   }).join('');
 }
 /* 여기(표/카드)는 항상 보여주기 전용 — 계획/설치수량 수정은 아래 "⚙️ 계획수량 설정" 모달에서만 가능 */
