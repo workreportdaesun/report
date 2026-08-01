@@ -326,35 +326,19 @@ function actualFor(cat, catToday, catBefore, installQty){
    분류)도 계획수량 설정/엑셀 업로드 대상에 포함시키려고 별도로 읽어온다. report/app/index.html의
    buildPgItems()와 동일한 순서·중복제거 규칙(먼저 나온 공종의 분류명을 기준으로 병합)을 그대로 씀. */
 var settingsCatList=[], settingsItemUnit={};
-function sikongCatsFrom(catsByMenu){
-  var seen={}, list=[];
-  ((catsByMenu||{})['시공']||[]).forEach(function(cat){
-    if(seen[cat]) return;
-    seen[cat]=true; list.push(cat);
-  });
-  return list;
-}
 async function loadSettingsCatList(){
   if(!sbClient) return;
   try{
     var res = await sbClient.from('app_settings').select('cats_by_menu,item_unit').eq('id','global').single();
+    var catsByMenu = (res.data && res.data.cats_by_menu) || {};
     settingsItemUnit = (res.data && res.data.item_unit) || {};
-    settingsCatList = sikongCatsFrom(res.data && res.data.cats_by_menu);
+    var seen={}, list=[];
+    (catsByMenu['시공']||[]).forEach(function(cat){
+      if(seen[cat]) return;
+      seen[cat]=true; list.push(cat);
+    });
+    settingsCatList=list;
   }catch(e){ console.error('작업분류 목록 불러오기 실패', e); }
-}
-/* 작업일보(report/app/index.html)의 ⚙️작업분류 설정에서 분류를 추가/수정/삭제하면 그 즉시
-   여기(체크리스트/공정률/계획수량 설정)에도 반영되도록 실시간 구독 — index.html의
-   subscribeSettingsRealtime과 같은 채널·같은 필터를 쓴다. */
-function subscribeAdminSettingsRealtime(){
-  if(!sbClient || !sbClient.channel) return;
-  sbClient.channel('app_settings_changes_admin')
-    .on('postgres_changes',{event:'*',schema:'public',table:'app_settings',filter:'id=eq.global'},function(payload){
-      if(!payload.new) return;
-      settingsItemUnit = payload.new.item_unit || {};
-      settingsCatList = sikongCatsFrom(payload.new.cats_by_menu);
-      if(document.getElementById('pane-cl').classList.contains('active')) renderChecklist();
-    })
-    .subscribe();
 }
 
 /* Connection은 규격(FROM/TO)으로 방향을 골라 입력 — 한쪽만 하면 0.5, 양쪽 다 하면 1로 집계
@@ -848,7 +832,6 @@ if(admIsMobile){
 loadSiteSettings();
 loadDashboardData();
 loadSettingsCatList();
-subscribeAdminSettingsRealtime();
 
 /* ── 회원관리: members를 team으로 그룹핑, is_leader=true인 사람을 헤더로 ──
    is_leader 컬럼이 아직 없으면 select('*')는 에러 없이 그냥 undefined로 오므로
@@ -927,15 +910,12 @@ document.getElementById('membersList').addEventListener('click', async function(
 });
 
 /* ── Check List: TAG NO.×작업분류 그리드, 읽기 전용 — progress_checklist를 그대로 보여줌.
-   가로축(작업분류)은 ⚙️작업분류 설정(settingsCatList) 기준이라, 탭을 열 때마다 최신 상태로
-   다시 받아온다(페이지를 새로고침하지 않아도 정확하도록 — 실시간 구독으로도 갱신되지만
-   이중 안전장치). */
+   가로축(작업분류)은 별도 동기화 없이 실제 존재하는 cat 값에서 뽑아서 항상 일보와 일치함. */
 var clSub='qty', clRows=[];
 async function loadChecklist(){
   var wrap=document.getElementById('clTable');
   if(!sbClient){ wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">연결 실패</td></tr>'; return; }
   try{
-    await loadSettingsCatList();
     var res=await sbClient.from('progress_checklist').select('*').order('tag');
     if(res.error||!res.data){ wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">불러오기 실패(progress_checklist 테이블이 아직 없을 수 있음)</td></tr>'; return; }
     clRows=res.data;
@@ -945,15 +925,9 @@ async function loadChecklist(){
 function renderChecklist(){
   var wrap=document.getElementById('clTable');
   if(!clRows.length){ wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; return; }
-  /* 가로축(작업분류)은 이제 실제 데이터(clRows)가 아니라 ⚙️작업분류 설정(settingsCatList)을
-     기준으로 삼는다 — 아직 실적이 없는 분류도 빠짐없이 열로 보이고, report/app/index.html에서
-     분류를 추가/수정/삭제하면 subscribeAdminSettingsRealtime을 통해 그대로 반영된다. 혹시 설정에서
-     이미 지워졌지만 과거 데이터가 남아있는 분류(clRows에만 있는 cat)도 뒤에 이어붙여 안 숨긴다. */
-  var cats=settingsCatList.slice(), seenCat={};
-  cats.forEach(function(c){ seenCat[c]=true; });
-  var tags=[], byTagCat={};
+  var cats=[], tags=[], byTagCat={};
   clRows.forEach(function(r){
-    if(!seenCat[r.cat]){ seenCat[r.cat]=true; cats.push(r.cat); }
+    if(cats.indexOf(r.cat)===-1) cats.push(r.cat);
     if(tags.indexOf(r.tag)===-1) tags.push(r.tag);
     byTagCat[r.tag+'|'+r.cat]=r;
   });
