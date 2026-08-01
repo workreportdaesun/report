@@ -642,7 +642,7 @@ function applyRemoteSettings(data){
   }
   if(Array.isArray(data.areas) && data.areas.length){
     customAreas = data.areas;
-    populateAreaSelect(true);
+    if(typeof window.populateAreaSelect==='function') window.populateAreaSelect(true);
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalAreaChips();
   }
   if(Array.isArray(data.personnel) && data.personnel.length){
@@ -2512,6 +2512,8 @@ window.sendToSupabase=sendToSupabase;
 window.shareToKakao=shareToKakao;
 window.removePhoto=removePhoto;
 window.pickSaveFolder=pickSaveFolder;
+// applyRemoteSettings(바깥 스코프)가 구역 목록 갱신 시 호출 — onclick용은 아니지만 같은 이유로 노출 필요
+window.populateAreaSelect=populateAreaSelect;
 
 })();
 </script>
