@@ -43,6 +43,10 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .dtable{width:100%; border-collapse:collapse; font-size:13px; background:var(--card); border:1px solid var(--card-bd); border-radius:10px; overflow:hidden;}
 .dtable th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--lbl); background:var(--field-bg); padding:7px 12px; font-weight:700; border-right:1px solid var(--card-bd);}
 .dtable td{padding:7px 12px; border-top:1px solid var(--card-bd); border-right:1px solid var(--card-bd); color:var(--ink); box-sizing:border-box; height:38px;}
+/* 체크리스트는 작업분류 수만큼 열이 늘어나서(2026-08-03), width:100%인 기본 .dtable이 컨테이너에
+   맞춰 열을 다 찌그러뜨리지 않고 실제로 가로 스크롤되도록 내용 너비만큼 최소 너비를 강제한다. */
+#clTable{width:auto; min-width:max-content;}
+#clTable th, #clTable td{white-space:nowrap;}
 .dtable th:last-child, .dtable td:last-child{border-right:none;}
 .dtable td.mono{font-family:var(--font-mono);}
 .pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;}
@@ -331,19 +335,36 @@ function actualFor(cat, catToday, catBefore, installQty){
    분류)도 계획수량 설정/엑셀 업로드 대상에 포함시키려고 별도로 읽어온다. report/app/index.html의
    buildPgItems()와 동일한 순서·중복제거 규칙(먼저 나온 공종의 분류명을 기준으로 병합)을 그대로 씀. */
 var settingsCatList=[], settingsItemUnit={};
+function sikongCatsFrom(catsByMenu){
+  var seen={}, list=[];
+  ((catsByMenu||{})['시공']||[]).forEach(function(cat){
+    if(seen[cat]) return;
+    seen[cat]=true; list.push(cat);
+  });
+  return list;
+}
 async function loadSettingsCatList(){
   if(!sbClient) return;
   try{
     var res = await sbClient.from('app_settings').select('cats_by_menu,item_unit').eq('id','global').single();
-    var catsByMenu = (res.data && res.data.cats_by_menu) || {};
     settingsItemUnit = (res.data && res.data.item_unit) || {};
-    var seen={}, list=[];
-    (catsByMenu['시공']||[]).forEach(function(cat){
-      if(seen[cat]) return;
-      seen[cat]=true; list.push(cat);
-    });
-    settingsCatList=list;
+    settingsCatList = sikongCatsFrom(res.data && res.data.cats_by_menu);
   }catch(e){ console.error('작업분류 목록 불러오기 실패', e); }
+}
+/* 작업일보(report/app/index.html)의 ⚙️작업분류 설정에서 분류를 추가/수정/삭제하면 그 즉시
+   여기(체크리스트)에도 반영되도록 실시간 구독 — index.html의 subscribeSettingsRealtime과
+   같은 채널·같은 필터를 쓴다(2026-08-03, 한 번 추가했다 되돌렸던 것을 스크롤 지원과 함께
+   다시 적용). */
+function subscribeAdminSettingsRealtime(){
+  if(!sbClient || !sbClient.channel) return;
+  sbClient.channel('app_settings_changes_admin')
+    .on('postgres_changes',{event:'*',schema:'public',table:'app_settings',filter:'id=eq.global'},function(payload){
+      if(!payload.new) return;
+      settingsItemUnit = payload.new.item_unit || {};
+      settingsCatList = sikongCatsFrom(payload.new.cats_by_menu);
+      if(document.getElementById('pane-cl').classList.contains('active')) renderChecklist();
+    })
+    .subscribe();
 }
 
 /* Connection은 규격(FROM/TO)으로 방향을 골라 입력 — 한쪽만 하면 0.5, 양쪽 다 하면 1로 집계
@@ -837,6 +858,7 @@ if(admIsMobile){
 loadSiteSettings();
 loadDashboardData();
 loadSettingsCatList();
+subscribeAdminSettingsRealtime();
 
 /* ── 회원관리: members를 team으로 그룹핑, is_leader=true인 사람을 헤더로 ──
    is_leader 컬럼이 아직 없으면 select('*')는 에러 없이 그냥 undefined로 오므로
@@ -929,11 +951,16 @@ async function loadChecklist(){
 }
 function renderChecklist(){
   var wrap=document.getElementById('clTable');
-  if(!clRows.length){ wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; document.getElementById('clSummary').textContent=''; return; }
+  if(!clRows.length && !settingsCatList.length){ wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; document.getElementById('clSummary').textContent=''; return; }
   var tagQ=document.getElementById('clTagFilter').value.trim().toLowerCase();
-  var cats=[], tags=[], byTagCat={};
+  // 열(작업분류)은 ⚙️작업분류 설정(settingsCatList)에 있는 걸 전부 먼저 보여준다(실적 없어도
+  // "-"로 표시) — 예전엔 progress_checklist에 실적이 이미 있는 분류만 보여서 신규 분류가
+  // 체크리스트에 아예 안 보였음. 설정에서 이미 지워졌지만 과거 데이터가 남은 분류는 뒤에
+  // 이어붙여서 안 숨긴다.
+  var cats=settingsCatList.slice(), tags=[], byTagCat={};
+  var catSeen={}; cats.forEach(function(c){ catSeen[c]=true; });
   clRows.forEach(function(r){
-    if(cats.indexOf(r.cat)===-1) cats.push(r.cat);
+    if(!catSeen[r.cat]){ catSeen[r.cat]=true; cats.push(r.cat); }
     if(tags.indexOf(r.tag)===-1) tags.push(r.tag);
     byTagCat[r.tag+'|'+r.cat]=r;
   });
