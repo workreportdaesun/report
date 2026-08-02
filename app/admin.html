@@ -47,12 +47,19 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .dtable{width:100%; border-collapse:collapse; font-size:13px; background:var(--card); border:1px solid var(--card-bd); border-radius:10px; overflow:hidden;}
 .dtable th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--lbl); background:var(--field-bg); padding:7px 12px; font-weight:700; border-right:1px solid var(--card-bd);}
 .dtable td{padding:7px 12px; border-top:1px solid var(--card-bd); border-right:1px solid var(--card-bd); color:var(--ink); box-sizing:border-box; height:38px;}
-/* 체크리스트는 작업분류 수만큼 열이 늘어나서(2026-08-03), width:100%인 기본 .dtable이 컨테이너에
-   맞춰 열을 다 찌그러뜨리지 않고 실제로 가로 스크롤되도록 내용 너비만큼 최소 너비를 강제한다. */
-#clTable{width:auto; min-width:max-content;}
-#clTable th, #clTable td{white-space:nowrap;}
 .dtable th:last-child, .dtable td:last-child{border-right:none;}
 .dtable td.mono{font-family:var(--font-mono);}
+/* 표마다 반복되는 "틀고정" 패턴(2026-08-03) — 체크리스트/물량관리/공정률(수량·물량) 전부 동일하게
+   적용: ① 첫 열(TAG NO./작업분류)을 가로로 스크롤해도 왼쪽에 고정 ② 머리글 행을 세로로 스크롤해도
+   위에 고정 ③ 표 자체를 뷰포트 안에 들어오는 높이로 잘라서, 세로로 얼마나 내려가든 가로 스크롤바가
+   항상 그 표 바로 아래(뷰포트 안)에 붙어있게 한다 — 페이지를 한참 내려야만 스크롤바가 보이는 문제
+   방지. 입력창(검색/필터 등)은 이 틀 밖에 있어서 표 스크롤과 분리되어 있음. */
+.scroll-frame{overflow:auto; border:1px solid var(--card-bd); border-radius:10px; max-height:min(560px, calc(100vh - 260px));}
+.scroll-frame .dtable{overflow:visible; border:none; border-radius:0; width:100%;}
+.scroll-frame .dtable th, .scroll-frame .dtable td{white-space:nowrap;}
+.scroll-frame .dtable-head-row th, .scroll-frame .dtable-head-row td{position:sticky; top:0; z-index:20; background:var(--field-bg);}
+.scroll-frame .dtable tr>*:first-child{position:sticky; left:0; z-index:10; background:var(--card);}
+.scroll-frame .dtable-head-row>*:first-child{z-index:30; background:var(--field-bg);}
 .pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;}
 .pill-ok{background:#EAF7EE; color:var(--ok);}
 .pill-draft{background:#FDF3E3; color:#B9770E;}
@@ -119,21 +126,25 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
          물량별(qty 실측값 합산)과 계산 기준만 다르고 나머지 로직(최초 입력일 구간 반영 등)은
          loadDashboardData의 동일한 집계 함수를 그대로 재사용. -->
     <div id="procSubQty">
+      <div class="scroll-frame">
       <table class="dtable">
-        <tr><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
+        <tr class="dtable-head-row"><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
         <tbody id="procTableRowsQty"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
         <tfoot id="procTableFootQty"></tfoot>
       </table>
+      </div>
     </div>
 
     <!-- 물량별 공정률: daily_reports 수량(qty, Check List "작업물량"과 같은 개념)을 계획수량과
          비교해 공정률을 계산한다(기존 공정률 탭 내용 그대로). -->
     <div id="procSubVol" style="display:none;">
+      <div class="scroll-frame">
       <table class="dtable">
-        <tr><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
+        <tr class="dtable-head-row"><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
         <tbody id="procTableRows"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
         <tfoot id="procTableFoot"></tfoot>
       </table>
+      </div>
     </div>
   </div>
 
@@ -170,10 +181,12 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       </div>
     </div>
     <div class="out-grid" id="outGrid"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
+    <div class="scroll-frame">
     <table class="dtable">
-      <tr><th>팀명</th><th>출력인원</th><th>체크인 성명</th></tr>
+      <tr class="dtable-head-row"><th>팀명</th><th>출력인원</th><th>체크인 성명</th></tr>
       <tbody id="outTableRows"><tr><td colspan="3" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
     </table>
+    </div>
     <div style="font-size:11px;color:var(--lbl);margin-top:8px;">작업자 앱의 "출력체크"(GPS 반경 체크인) 기록을 오늘 날짜 기준으로 팀별 집계한 것입니다.</div>
   </div>
 
@@ -194,10 +207,12 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <button type="button" onclick="resetReportsFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
       <span id="rpSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
     </div>
+    <div class="scroll-frame">
     <table class="dtable">
-      <tr><th style="width:110px;">날짜</th><th>공종</th><th>팀명</th><th>항목수</th><th>PDF</th><th>상태</th></tr>
+      <tr class="dtable-head-row"><th style="width:110px;">날짜</th><th>공종</th><th>팀명</th><th>항목수</th><th>PDF</th><th>상태</th></tr>
       <tbody id="reportsRows"><tr><td colspan="6" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
     </table>
+    </div>
     <div style="font-size:11px;color:var(--lbl);margin-top:8px;">행을 클릭하면 그 날짜·팀 일보의 전체 입력 내용을 볼 수 있습니다.</div>
   </div>
 
@@ -224,7 +239,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <button type="button" onclick="resetClFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
       <span id="clSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
     </div>
-    <div style="overflow-x:auto;">
+    <div class="scroll-frame">
       <table class="dtable" id="clTable"><tr><td style="text-align:center;color:var(--lbl);padding:20px;">불러오는 중...</td></tr></table>
     </div>
   </div>
@@ -242,9 +257,9 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <button type="button" onclick="resetWlFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
       <span id="wlSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
     </div>
-    <div style="overflow-x:auto;">
+    <div class="scroll-frame">
       <table class="dtable">
-        <tr><th style="width:110px;">날짜</th><th>공종</th><th>작업분류</th><th>TAG</th><th>규격</th><th>수량</th><th>상태</th><th>팀</th></tr>
+        <tr class="dtable-head-row"><th style="width:110px;">날짜</th><th>공종</th><th>작업분류</th><th>TAG</th><th>규격</th><th>수량</th><th>상태</th><th>팀</th></tr>
         <tbody id="wlRows"><tr><td colspan="8" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
       </table>
     </div>
@@ -982,7 +997,7 @@ function renderChecklist(){
     document.getElementById('clSummary').textContent='';
     return;
   }
-  var thead='<tr><th>TAG NO.</th>'+cats.map(function(c){ return '<th>'+c+'</th>'; }).join('')+'</tr>';
+  var thead='<tr class="dtable-head-row"><th>TAG NO.</th>'+cats.map(function(c){ return '<th>'+c+'</th>'; }).join('')+'</tr>';
   var body=tags.map(function(t){
     var cells=cats.map(function(c){
       var r=byTagCat[t+'|'+c];
