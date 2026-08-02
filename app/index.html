@@ -1381,12 +1381,35 @@ function setCamBoxState(has){
     : '<div style="font-size:22px;">📷</div><p>탭하여 작업사진으로 이동</p>';
 }
 
+/* workreportdaesun-gallery엔 team 컬럼이 없고 sender(찍은 사람 이름)만 있어서, 예전엔
+   오늘 찍힌 사진을 팀 구분 없이 전부 끌어왔다 — 여러 팀이 같은 날 동시에 작업하면 같은
+   사진이 모든 팀 일보에 중복으로 자동입력되는 문제가 있었다(2026-08-02, 실제 데이터에서
+   확인). members 테이블(이름→팀)로 "내 팀 동료들의 이름 목록"을 구해서 sender 필터에 쓴다.
+   팀 조회가 실패해도 최소한 내 이름(member_name)은 항상 포함해서 내가 찍은 사진은 보이게 함. */
+var teamMemberNamesCache = null;
+async function getTeamMemberNames(){
+  if(teamMemberNamesCache) return teamMemberNamesCache;
+  var team = localStorage.getItem('member_team') || '';
+  var myName = localStorage.getItem('member_name') || '';
+  var names = myName ? [myName] : [];
+  if(sbClient && team){
+    try{
+      var res = await sbClient.from('members').select('name').eq('team', team);
+      if(!res.error && res.data){
+        res.data.forEach(function(m){ if(m.name && names.indexOf(m.name)===-1) names.push(m.name); });
+      }
+    }catch(e){}
+  }
+  teamMemberNamesCache = names;
+  return names;
+}
+
 /* workreportdaesun-gallery(사진)에서 (공종,기기번호) 조합이 아직 items[]에 없으면 임시 항목으로
    자동 추가한다 — 작업자는 수량·특이사항만 확인/수정하면 됨. 같은 공종 안에서
    기기번호가 중복되면(분류가 다르더라도) 최초 1건만 항목으로 반영한다. 진행상황은
    해당 공종의 유효 옵션(statusOptionsFor, MENU_CONFIG[menu].statusOptions)과 정확히
-   일치할 때만 매핑하고, 그 외에는 비워둔다. 오늘 찍은 사진은 공종에 상관없이 전부
-   조회한다. */
+   일치할 때만 매핑하고, 그 외에는 비워둔다. 오늘 찍은 사진 중 우리 팀(getTeamMemberNames)이
+   찍은 것만 조회한다(2026-08-02 이전엔 팀 구분 없이 전부 조회해서 다른 팀 사진까지 끌어왔음). */
 async function refreshPhotoLinkage(manual){
   if(!sbClient) return;
   try{
@@ -1395,7 +1418,9 @@ async function refreshPhotoLinkage(manual){
     // 막지는 않는다. 대신 items[]가 loadTodayItems()로 이미 오늘자 서버 상태(제출된 항목의
     // submitted:true 포함)를 반영하고 있으므로, 아래 existingKeys 계산이 자연히 이미 제출된
     // (공종,분류,기기번호)를 "새 항목"으로 다시 끌어오지 않게 막아준다.
-    var res = await sbClient.from('workreportdaesun-gallery').select('menu,tag,cat,note,work_type').eq('date', todayStr());
+    var teamNames = await getTeamMemberNames();
+    if(!teamNames.length) return; // 내 이름조차 알 수 없으면(로그인 이상) 다른 팀과 섞이지 않게 아무것도 안 가져옴
+    var res = await sbClient.from('workreportdaesun-gallery').select('menu,tag,cat,note,work_type').eq('date', todayStr()).in('sender', teamNames);
     if(res.error || !res.data) return;
 
     var catsWithPhoto = {};
