@@ -500,7 +500,7 @@ async function loadDashboardData(){
     renderProcGrid(vol.catToday,vol.catBefore,vol.catMenu,planQty,installQty,'procGrid');
     renderProcTable(vol.catTodaySikong,vol.catBeforeSikong,planQty,installQty,'procTableRows','procTableFoot');
     renderProcGrid(cnt.catToday,cnt.catBefore,cnt.catMenu,planQty,installQty,'procGridQty');
-    renderProcTable(cnt.catTodaySikong,cnt.catBeforeSikong,planQty,installQty,'procTableRowsQty','procTableFootQty');
+    renderProcTable(cnt.catTodaySikong,cnt.catBeforeSikong,planQty,installQty,'procTableRowsQty','procTableFootQty',NO_TAG_CATS);
     renderOutGrid(todayCrewByTeam,registeredTeams);
     renderOutTable(todayCrewByTeam,todayNamesByTeam);
   }catch(e){ console.error('대시보드 데이터 불러오기 실패', e); }
@@ -519,11 +519,17 @@ function renderProcGrid(catToday,catBefore,catMenu,planQty,installQty,gridId){
     return '<div class="proc-card"><div class="m" style="color:'+m.color+';">'+m.key+'</div><div class="pct">'+pct+'%</div><div class="proc-bar"><div style="width:'+pct+'%;background:'+m.color+';"></div></div></div>';
   }).join('');
 }
+/* Cable Duct/Cable Tray/Support/Scaffolding/Others는 개별 기기번호를 입력하지 않는 분류라
+   "수량공정"(기기번호 기준 완료 개수 집계, aggregateProcCount)에는 애초에 값이 안 잡힌다 —
+   그런데도 작업분류 목록엔 있으니 0/"-"인 채로 행만 차지해서 표를 어수선하게 만들었음.
+   수량공정 표에서는 이 분류들을 행 자체에서 뺀다(2026-08-03) — 물량공정 표에는 그대로 나옴. */
+var NO_TAG_CATS = ['Cable Duct','Cable Tray','Support','Scaffolding','Others'];
 /* 여기(표/카드)는 항상 보여주기 전용 — 계획/설치수량 수정은 아래 "⚙️ 계획수량 설정" 모달에서만 가능 */
-function getCatList(){
+function getCatList(excludeCats){
   var cats={}, list=[];
+  var exclude={}; (excludeCats||[]).forEach(function(c){ exclude[c]=1; });
   function add(c){
-    if(cats[c]) return;
+    if(cats[c] || exclude[c]) return;
     if(dashCatMenu[c] && dashCatMenu[c]!=='시공') return;
     cats[c]=1; list.push(c);
   }
@@ -538,8 +544,8 @@ function getCatList(){
    진행률(%) 자체는 그대로 보여주고, "전체 공정률"만 이 비중으로 가중평균한다: Σ(진행률×FACTOR)/
    Σ(FACTOR). 단순히 행마다 %에 FACTOR를 곱해서 보여주는 방식(work-progress-daesun 최초 버전)은
    진짜 가중평균이 아니어서 공사비 비중처럼 쓰기엔 틀렸음 — 2026-08-01 사용자 설명으로 정정. */
-function renderProcTable(catToday,catBefore,planQty,installQty,rowsId,footId){
-  var list=getCatList();
+function renderProcTable(catToday,catBefore,planQty,installQty,rowsId,footId,excludeCats){
+  var list=getCatList(excludeCats);
   var wrap=document.getElementById(rowsId||'procTableRows');
   var foot=document.getElementById(footId||'procTableFoot');
   if(!list.length){
@@ -583,7 +589,7 @@ async function updateFactor(inp){
   dashFactor[cat] = isNaN(v) ? 1 : v;
   // FACTOR는 물량별/수량별이 공유하는 설정이라 둘 다 다시 그린다
   renderProcTable(dashCatTodaySikong, dashCatBeforeSikong, dashPlanQty, dashInstallQty, 'procTableRows', 'procTableFoot');
-  renderProcTable(dashCatTodaySikongQty, dashCatBeforeSikongQty, dashPlanQty, dashInstallQty, 'procTableRowsQty', 'procTableFootQty');
+  renderProcTable(dashCatTodaySikongQty, dashCatBeforeSikongQty, dashPlanQty, dashInstallQty, 'procTableRowsQty', 'procTableFootQty', NO_TAG_CATS);
   if(!sbClient) return;
   await upsertAppSettingsResilient({id:'global', cat_factor:dashFactor, updated_at:new Date().toISOString()});
 }
@@ -681,7 +687,7 @@ async function savePlanSettings(){
   renderProcGrid(dashCatToday,dashCatBefore,dashCatMenu,dashPlanQty,dashInstallQty,'procGrid');
   renderProcTable(dashCatTodaySikong,dashCatBeforeSikong,dashPlanQty,dashInstallQty,'procTableRows','procTableFoot');
   renderProcGrid(dashCatTodayQty,dashCatBeforeQty,dashCatMenuQty,dashPlanQty,dashInstallQty,'procGridQty');
-  renderProcTable(dashCatTodaySikongQty,dashCatBeforeSikongQty,dashPlanQty,dashInstallQty,'procTableRowsQty','procTableFootQty');
+  renderProcTable(dashCatTodaySikongQty,dashCatBeforeSikongQty,dashPlanQty,dashInstallQty,'procTableRowsQty','procTableFootQty',NO_TAG_CATS);
   closePlanSettings();
   if(!sbClient) return;
   await upsertAppSettingsResilient({id:'global', plan_qty:dashPlanQty, install_qty:dashInstallQty, updated_at:new Date().toISOString()});
