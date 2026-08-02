@@ -481,6 +481,11 @@ textarea.f{resize:none; height:44px;}
       <button type="button" class="sbtn sbtn-add" style="margin-top:10px;" onclick="saveAllSettings()">💾 저장</button>
 
       <div class="cat-modal-sublbl">계정</div>
+      <div class="flbl" style="margin-top:0;">내 공종</div>
+      <select id="myMenuSelect" class="f" onchange="renderMyCatOptions()"></select>
+      <div class="flbl">내 작업분류</div>
+      <select id="myCatSelect" class="f"></select>
+      <button type="button" class="sbtn sbtn-add" style="margin-top:8px;" onclick="saveMyMenuCat()">💾 내 공종/작업분류 저장</button>
       <button type="button" class="sbtn" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.5);color:#E74C3C;" onclick="withdrawMember()">회원탈퇴</button>
     </div>
   </div>
@@ -740,6 +745,7 @@ function openCatModal(){
   renderModalSpecCatSelect();
   renderModalUnitChips();
   renderModalUnitCatSelect();
+  renderMyMenuOptions();
   var overlay=document.getElementById('catModalOverlay'), panel=document.getElementById('catModalPanel');
   overlay.classList.add('show');
   // 항상 같은 기준선(헤더 바로 아래)에서 아래로 드롭다운 — 동적 콘텐츠(입력카드/목록 길이)에 영향받지 않음
@@ -2941,6 +2947,39 @@ loadPersonnelEquipmentData();
      없어도 조회는 그냥 undefined로 와서 에러 없이 카드가 숨겨진 채 유지됨.
      ══════════════════════════════════════════════════════════════════ -->
 <script>
+/* ⚙️설정 > 계정: 가입 때 고른 공종/작업분류(members.menu/cat)를 나중에라도 바꿀 수 있게 함
+   (2026-08-02) — 가입 전 회원이나 처음에 대충 고른 회원도 여기서 채우면 됨. 목록은
+   일보입력에서 쓰는 catsByMenu를 그대로 재사용(가입 화면 loadCatOptions()와 같은 소스). */
+function renderMyMenuOptions(){
+  var sel=document.getElementById('myMenuSelect');
+  sel.innerHTML = MENUS.map(function(m){ return '<option>'+m+'</option>'; }).join('');
+  var savedMenu = localStorage.getItem('member_menu')||'';
+  if(MENUS.indexOf(savedMenu)!==-1) sel.value = savedMenu;
+  renderMyCatOptions();
+}
+function renderMyCatOptions(){
+  var menu=document.getElementById('myMenuSelect').value;
+  var sel=document.getElementById('myCatSelect');
+  var cur=sel.value;
+  var list=catsByMenu[menu]||[];
+  sel.innerHTML = list.map(function(c){ return '<option>'+c+'</option>'; }).join('');
+  var savedCat = localStorage.getItem('member_cat')||'';
+  if(list.indexOf(savedCat)!==-1) sel.value = savedCat;
+  else if(list.indexOf(cur)!==-1) sel.value = cur;
+}
+async function saveMyMenuCat(){
+  var menu=document.getElementById('myMenuSelect').value;
+  var cat=document.getElementById('myCatSelect').value;
+  var id=localStorage.getItem('member_id');
+  if(!id||!sbClient) return;
+  try{
+    var res=await sbClient.from('members').update({menu:menu,cat:cat}).eq('id',id);
+    if(res.error){ showToast('⚠️ 저장 실패: '+res.error.message, 'var(--err)'); return; }
+    localStorage.setItem('member_menu', menu);
+    localStorage.setItem('member_cat', cat);
+    showToast('✅ 공종/작업분류 저장됨', 'var(--ok)');
+  }catch(e){ showToast('⚠️ 저장 실패: '+(e.message||e), 'var(--err)'); }
+}
 async function withdrawMember(){
   if(!confirm('정말 회원 탈퇴하시겠습니까? 계정 정보가 삭제되며 되돌릴 수 없습니다.'))return;
   var memberId=localStorage.getItem('member_id');
