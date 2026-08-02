@@ -220,6 +220,7 @@ textarea.f{resize:none; height:44px;}
   <button class="worker-tab" id="wtabShoot" onclick="showWorkerPane('shoot')">📷 작업사진</button>
   <button class="worker-tab" id="wtabProgress" onclick="showWorkerPane('progress')">📈 공정률</button>
   <button class="worker-tab" id="wtabPersonnel" onclick="showWorkerPane('personnel')">👥 인원현황</button>
+  <button class="worker-tab" id="wtabHistory" onclick="showWorkerPane('history')">🗂️ 일보조회</button>
 </div>
 
 <div id="submittedBanner" style="display:none;background:var(--ok);color:#fff;border-radius:8px;padding:9px 12px;margin:10px 0;font-size:13px;font-weight:800;text-align:center;">✅ 오늘 이미 전송한 항목이 있습니다 — 새 작업분류/기기번호는 계속 추가·전송 가능</div>
@@ -405,6 +406,15 @@ textarea.f{resize:none; height:44px;}
   <div id="pnList"></div>
 </div>
 <!-- ══ 인원현황 끝 ══ -->
+
+<!-- ══ 일보조회 — 우리 팀이 지금까지 제출한 일보 목록, 클릭하면 report-pdf.html?id=로 열람(조회 전용) ══ -->
+<div class="worker-pane" id="pane-history">
+  <div class="card" style="background:var(--field-bg); border-style:dashed; font-size:13px; color:var(--lbl); line-height:1.6;">
+    ⓘ 우리 팀이 지금까지 저장·제출한 일보 목록입니다. 날짜를 탭하면 PDF로 볼 수 있습니다.
+  </div>
+  <div id="historyList"><div class="empty-msg">불러오는 중...</div></div>
+</div>
+<!-- ══ 일보조회 끝 ══ -->
 
 <!-- ══ 작업분류 선택 팝업 ══ -->
 <div class="cat-modal-overlay" id="catModalOverlay" onclick="if(event.target===this)closeCatModal()">
@@ -705,16 +715,19 @@ function showWorkerPane(p){
   document.getElementById('pane-shoot').classList.toggle('active', p==='shoot');
   document.getElementById('pane-progress').classList.toggle('active', p==='progress');
   document.getElementById('pane-personnel').classList.toggle('active', p==='personnel');
+  document.getElementById('pane-history').classList.toggle('active', p==='history');
   document.getElementById('wtabReport').classList.toggle('active', p==='report');
   document.getElementById('wtabShoot').classList.toggle('active', p==='shoot');
   document.getElementById('wtabProgress').classList.toggle('active', p==='progress');
   document.getElementById('wtabPersonnel').classList.toggle('active', p==='personnel');
+  document.getElementById('wtabHistory').classList.toggle('active', p==='history');
   if(p==='shoot' && typeof window.shootSyncCategory==='function') window.shootSyncCategory();
   if(p==='progress' && typeof window.loadProgressData==='function') window.loadProgressData();
   if(p==='personnel'){
     if(typeof window.loadPersonnelEquipmentData==='function') window.loadPersonnelEquipmentData();
     refreshCheckinDistance();
   }
+  if(p==='history') loadReportHistory();
 }
 /* ── 작업분류 선택 팝업 ── */
 function openCatModal(){
@@ -1124,7 +1137,7 @@ function openCardForCat(menu, cat){
   // 가져온다 — 작업자는 기기번호는 그대로 두고 수량·특이사항만 확인/수정해서 저장하면 됨.
   var pulled = [];
   for(var i=items.length-1;i>=0;i--){
-    if(items[i].autoImported && items[i].menu===menu && items[i].cat===cat){
+    if(items[i].autoImported && items[i].menu===menu && items[i].cat===cat && !items[i].submitted){
       pulled.unshift(items.splice(i,1)[0]);
     }
   }
@@ -1136,7 +1149,7 @@ function openCardForCat(menu, cat){
     if(pulled.length){
       renderItemList();
       document.getElementById('sendBtn').disabled = items.length===0;
-      upsertDailyReport({items:items, status:'draft'});
+      upsertDailyReport({items:items, status:computeReportStatus(items)});
     }
   } else {
     document.getElementById('noteInput').value = '';
@@ -1230,7 +1243,7 @@ async function saveEntryRows(){
   document.getElementById('sendBtn').disabled = items.length===0;
   await upsertDailyReport({
     items:items,
-    status:'draft',
+    status:computeReportStatus(items),
     next_day_plan: document.getElementById('nextDayPlanInput').value.trim(),
     special_notes: document.getElementById('specialNotesInput').value.trim()
   });
@@ -1246,6 +1259,7 @@ async function saveEntryRows(){
 function editItem(idx){
   var it = items[idx];
   if(!it) return;
+  if(it.submitted){ showToast('⚠️ 이미 제출된 항목은 수정할 수 없습니다', 'var(--err)'); return; }
   items.splice(idx, 1);
   renderItemList();
   document.getElementById('sendBtn').disabled = items.length===0;
@@ -1260,6 +1274,13 @@ function editItem(idx){
   document.getElementById('noteInput').value = it.note || '';
   setCamBoxState(!!it.photo || hasPhoto);
   showToast('✏️ 수정 모드 — 값을 고친 뒤 저장하세요', 'var(--brand-2)');
+}
+/* items 저장 때마다 무조건 status:'draft'로 덮어써서, 이미 제출완료된 일보에 사진이 자동
+   연동되거나 다른 분류 항목이 추가되기만 해도 관리자 화면에 "작성중"으로 되돌아가 보이던
+   문제(2026-08-02)를 고쳤다 — 실제 항목들의 제출 여부로 status를 계산한다. 항목이 하나도
+   없거나 제출 안 된 항목이 하나라도 있으면 draft, 전부 제출됐으면 submitted. */
+function computeReportStatus(list){
+  return (list.length && list.every(function(it){ return it.submitted; })) ? 'submitted' : 'draft';
 }
 /* ── daily_reports 임시저장(draft)/제출(submitted) — 팀+날짜 단위 1행, 로그인 필요(SHEET10 결정) ── */
 function todayStr(){
@@ -1477,7 +1498,7 @@ async function refreshPhotoLinkage(manual){
       document.getElementById('sendBtn').disabled = items.length===0;
     }
     if(added || linked){
-      upsertDailyReport({items:items, status:'draft'});
+      upsertDailyReport({items:items, status:computeReportStatus(items)});
       var msg = [];
       if(added) msg.push('새 항목 '+added+'건 추가');
       if(linked) msg.push('기존 항목 '+linked+'건에 사진 연동');
@@ -1500,7 +1521,7 @@ function renderItemList(){
       +'<div class="item-bar" style="background:'+MENU_COLOR[it.menu]+';"></div>'
       +'<div class="item-thumb">'+(it.photo?'🖼️':'—')+'</div>'
       +'<div class="item-body"><div class="item-title">'+it.cat+' · '+it.tag+(it.autoImported?' <span style="font-size:11px;font-weight:800;color:var(--brand-2);background:var(--field-bg);padding:1px 5px;border-radius:8px;">📷 자동입력</span>':'')+(it.submitted?' <span style="font-size:11px;font-weight:800;color:var(--ok);background:var(--field-bg);padding:1px 5px;border-radius:8px;">✅ 제출됨</span>':'')+'</div><div class="item-sub">'+it.menu+(it.spec?' · '+it.spec:'')+' · '+it.qty+' '+UNIT_LABEL[it.unit]+' · '+(it.status||'-')+'</div></div>'
-      +'<button type="button" class="item-edit" onclick="editItem('+idx+')" aria-label="수정">✏️</button>'
+      +(it.submitted ? '<span class="item-edit" aria-label="제출완료" style="opacity:.5;">🔒</span>' : '<button type="button" class="item-edit" onclick="editItem('+idx+')" aria-label="수정">✏️</button>')
       +'</div>';
   }).join('');
 }
@@ -1536,7 +1557,7 @@ async function previewReport(){
   savePendingEntryState();
   await upsertDailyReport({
     items:items,
-    status:'draft',
+    status:computeReportStatus(items),
     next_day_plan: document.getElementById('nextDayPlanInput').value.trim(),
     special_notes: document.getElementById('specialNotesInput').value.trim()
   });
@@ -1587,6 +1608,31 @@ async function loadTodayItems(){
       if(banner) banner.style.display = res.data.status==='submitted' ? 'block' : 'none';
     }
   }catch(e){ console.error('오늘 항목 불러오기 실패', e); }
+}
+
+/* ── 일보조회: 우리 팀이 저장·제출한 daily_reports를 날짜 역순으로 보여주고, 탭하면
+   report-pdf.html?id=로 이동해서 조회 전용(viewingOtherReport)으로 PDF를 확인한다. ── */
+var historyLoaded=false;
+async function loadReportHistory(){
+  if(historyLoaded) return;
+  var wrap=document.getElementById('historyList');
+  if(!sbClient){ wrap.innerHTML='<div class="empty-msg">연결 실패</div>'; return; }
+  var team = localStorage.getItem('member_team') || '미지정';
+  try{
+    var res = await sbClient.from('daily_reports').select('id,date,status,items').eq('team',team).order('date',{ascending:false}).limit(60);
+    if(res.error || !res.data){ wrap.innerHTML='<div class="empty-msg">불러오기 실패</div>'; return; }
+    historyLoaded = true;
+    if(!res.data.length){ wrap.innerHTML='<div class="empty-msg">아직 저장된 일보가 없습니다</div>'; return; }
+    wrap.innerHTML = res.data.map(function(r){
+      var itemCount = Array.isArray(r.items) ? r.items.length : 0;
+      var isSub = r.status==='submitted';
+      return '<div class="item-card" style="cursor:pointer;" onclick="location.href=\'report-pdf.html?id='+encodeURIComponent(r.id)+'\'">'
+        +'<div class="item-bar" style="background:'+(isSub?'var(--ok)':'var(--brand-2)')+';"></div>'
+        +'<div class="item-thumb">📄</div>'
+        +'<div class="item-body"><div class="item-title">'+(r.date||'-')+'</div><div class="item-sub">항목 '+itemCount+'건 · '+(isSub?'제출완료':'작성중')+'</div></div>'
+      +'</div>';
+    }).join('');
+  }catch(e){ wrap.innerHTML='<div class="empty-msg">불러오기 실패</div>'; }
 }
 
 /* 최초 작업분류 선택 이후에는 최종 선택된 작업분류의 입력 카드로 바로 열림 (work-shoot의 last_category 기억 방식과 동일).
