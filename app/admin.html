@@ -62,17 +62,9 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .scroll-frame{overflow:auto; border:1px solid var(--card-bd); border-radius:10px; max-height:min(560px, calc(100vh - 260px));}
 .scroll-frame .dtable{overflow:visible; border:none; border-radius:0; width:100%;}
 .scroll-frame .dtable th, .scroll-frame .dtable td{white-space:nowrap;}
-/* 고정된 머리글행/첫열은 스크롤된 내용이 바로 밑/옆으로 지나가면서 구분이 안 됐음(2026-08-03) —
-   고정된 쪽에만 진한 경계선을 둬서 "여기까지가 고정 영역"이 스크롤 중에도 뚜렷이 보이게 함. */
-.scroll-frame .dtable-head-row th, .scroll-frame .dtable-head-row td{position:sticky; top:0; z-index:20; background:var(--field-bg); border-bottom:2px solid var(--brand-2);}
-.scroll-frame .dtable tr>*:first-child{position:sticky; left:0; z-index:10; background:var(--card); border-right:2px solid var(--brand-2);}
+.scroll-frame .dtable-head-row th, .scroll-frame .dtable-head-row td{position:sticky; top:0; z-index:20; background:var(--field-bg);}
+.scroll-frame .dtable tr>*:first-child{position:sticky; left:0; z-index:10; background:var(--card);}
 .scroll-frame .dtable-head-row>*:first-child{z-index:30; background:var(--field-bg);}
-/* 검색/필터 바(체크리스트·물량관리·작업일보 공통) — input/select/button 종류마다 기본 패딩이
-   미묘하게 달라서(특히 date input) 같은 줄인데도 높이가 서로 안 맞아 보였음(2026-08-03).
-   전부 높이를 고정해 한 줄로 가지런히 맞춘다. */
-.filter-bar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:10px 12px; margin-bottom:14px;}
-.filter-bar input, .filter-bar select{height:32px; padding:0 10px; border:1px solid var(--card-bd); border-radius:6px; font-size:12px; font-family:inherit; box-sizing:border-box; color:var(--ink); background:var(--card);}
-.filter-bar button{height:32px; padding:0 12px; border:1px solid var(--card-bd); background:var(--field-bg); color:var(--lbl); border-radius:6px; font-size:12px; cursor:pointer; font-family:inherit;}
 .pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;}
 .pill-ok{background:#EAF7EE; color:var(--ok);}
 .pill-draft{background:#FDF3E3; color:#B9770E;}
@@ -205,19 +197,19 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 
   <!-- 작업일보 전체내용 — 검색/필터 + 클릭 시 상세보기 모달 -->
   <div class="admin-pane" id="pane-reports">
-    <div class="filter-bar">
-      <select id="rpTeamFilter" onchange="renderReportsTable()"><option value="">전체 팀</option></select>
-      <select id="rpMenuFilter" onchange="renderReportsTable()"><option value="">전체 공종</option></select>
-      <select id="rpStatusFilter" onchange="renderReportsTable()">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+      <select id="rpTeamFilter" onchange="renderReportsTable()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 팀</option></select>
+      <select id="rpMenuFilter" onchange="renderReportsTable()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
+      <select id="rpStatusFilter" onchange="renderReportsTable()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
         <option value="">전체 상태</option>
         <option value="submitted">제출완료</option>
         <option value="draft">작성중</option>
       </select>
-      <input type="date" id="rpDateFrom" onchange="renderReportsTable()">
+      <input type="date" id="rpDateFrom" onchange="renderReportsTable()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
       <span style="color:var(--lbl);font-size:12px;">~</span>
-      <input type="date" id="rpDateTo" onchange="renderReportsTable()">
-      <input type="text" id="rpKeyword" oninput="renderReportsTable()" placeholder="기기번호/비고/특이사항 검색" style="width:180px;">
-      <button type="button" onclick="resetReportsFilters()">초기화</button>
+      <input type="date" id="rpDateTo" onchange="renderReportsTable()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <input type="text" id="rpKeyword" oninput="renderReportsTable()" placeholder="기기번호/비고/특이사항 검색" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:180px;">
+      <button type="button" onclick="resetReportsFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
       <span id="rpSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
     </div>
     <div class="scroll-frame">
@@ -247,9 +239,9 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <button type="button" class="admin-tab active" id="clSubQtyBtn" onclick="showClSub('qty')">작업수량</button>
       <button type="button" class="admin-tab" id="clSubVolBtn" onclick="showClSub('vol')">작업물량</button>
     </div>
-    <div class="filter-bar">
-      <input type="text" id="clTagFilter" oninput="renderChecklist()" placeholder="TAG 검색" style="width:120px;">
-      <button type="button" onclick="resetClFilters()">초기화</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+      <input type="text" id="clTagFilter" oninput="renderChecklist()" placeholder="TAG 검색" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
+      <button type="button" onclick="resetClFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
       <span id="clSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
     </div>
     <div class="scroll-frame">
@@ -260,14 +252,14 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
   <!-- 물량관리: work_log(일보를 행 단위로 펼친 백업 로그, report/app/index.html의 syncWorkLog 참고)를
        공종/작업분류/TAG/날짜로 검색·조회. work_log 테이블이 없으면(사용자가 SQL 실행 전) 안내만 뜬다. -->
   <div class="admin-pane" id="pane-wl">
-    <div class="filter-bar">
-      <select id="wlMenuFilter" onchange="renderWorkLog()"><option value="">전체 공종</option></select>
-      <select id="wlCatFilter" onchange="renderWorkLog()"><option value="">전체 작업분류</option></select>
-      <input type="date" id="wlDateFrom" onchange="renderWorkLog()">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+      <select id="wlMenuFilter" onchange="renderWorkLog()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
+      <select id="wlCatFilter" onchange="renderWorkLog()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 작업분류</option></select>
+      <input type="date" id="wlDateFrom" onchange="renderWorkLog()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
       <span style="color:var(--lbl);font-size:12px;">~</span>
-      <input type="date" id="wlDateTo" onchange="renderWorkLog()">
-      <input type="text" id="wlTagFilter" oninput="renderWorkLog()" placeholder="TAG 검색" style="width:120px;">
-      <button type="button" onclick="resetWlFilters()">초기화</button>
+      <input type="date" id="wlDateTo" onchange="renderWorkLog()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <input type="text" id="wlTagFilter" oninput="renderWorkLog()" placeholder="TAG 검색" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
+      <button type="button" onclick="resetWlFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
       <span id="wlSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
     </div>
     <div class="scroll-frame">
