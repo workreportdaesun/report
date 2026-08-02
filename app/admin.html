@@ -20,6 +20,11 @@
   --font-mono:"SFMono-Regular",Consolas,Menlo,monospace;
 }
 *{box-sizing:border-box; margin:0; padding:0;}
+/* 탭마다 내용 높이가 달라서(체크리스트처럼 긴 표 vs 짧은 목록) 세로 스크롤바가 생겼다 없어졌다
+   하면 그때마다 전체 화면이 스크롤바 너비만큼 좌우로 살짝 움직였음 — 스크롤바 자리를 항상
+   미리 확보해서 탭을 옮겨도 화면이 흔들리지 않게 함(report/app/index.html에 이미 적용한 것과
+   동일한 처리, 2026-08-03). */
+html{overflow-y:scroll; scrollbar-gutter:stable;}
 body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-height:100vh;}
 .admin-wrap{max-width:1100px; margin:0 auto; padding:24px 20px 60px;}
 
