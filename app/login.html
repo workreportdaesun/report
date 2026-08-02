@@ -78,6 +78,16 @@ body{background:var(--bg); font-family:var(--font-body); color:var(--ink); min-h
       <!-- 위 4개는 Supabase 연결 실패 시를 대비한 기본값 — 정상 연결되면 loadTeamOptions()가
            app_settings.personnel(⚙️설정 > 인원 관리와 동일한 목록)로 즉시 덮어씀 -->
       <div id="regTeamHint" style="font-size:11px;color:var(--lbl);margin-top:4px;"></div>
+      <div class="flbl">공종</div>
+      <select id="regMenu" class="f" onchange="renderRegCatOptions()">
+        <option>시공</option><option>품질</option><option>자재</option><option>안전</option><option>화기/유도</option>
+      </select>
+      <div class="flbl">작업분류</div>
+      <select id="regCat" class="f"></select>
+      <!-- 작업일보 앱(index.html)의 공종/작업분류(MENU_CONFIG·catsByMenu)와 같은 목록 —
+           Supabase 연결 실패 시를 대비한 기본값이고, 정상 연결되면 loadCatOptions()가
+           app_settings.cats_by_menu(작업일보 ⚙️설정과 동일한 목록)로 즉시 덮어씀 -->
+      <div id="regCatHint" style="font-size:11px;color:var(--lbl);margin-top:4px;"></div>
       <button class="sbtn" onclick="doSignup()">가입하기</button>
     </div>
   </div>
@@ -118,6 +128,8 @@ function saveSession(m){
   localStorage.setItem('member_project', m.project || '');
   localStorage.setItem('member_phone', m.phone);
   localStorage.setItem('member_team', m.team || '');
+  localStorage.setItem('member_menu', m.menu || '');
+  localStorage.setItem('member_cat', m.cat || '');
   localStorage.setItem('member_is_leader', m.is_leader ? '1' : '0');
   localStorage.setItem('senderName', m.name);
 }
@@ -137,32 +149,35 @@ async function doSignup(){
   var company = document.getElementById('regCompany').value.trim();
   var project = document.getElementById('regProject').value.trim();
   var team = document.getElementById('regTeam').value;
+  var menu = document.getElementById('regMenu').value;
+  var cat = document.getElementById('regCat').value;
   if(!name || phone.length < 10){ showToast('⚠️ 이름과 전화번호를 입력해 주세요', 'var(--err)'); return; }
   showToast('가입 중...', 'var(--brand-2)');
-  var insertData = {company:company, project:project, name:name, phone:phone, team:team, is_leader:false};
-  var res = await sbClient.from('members').insert(insertData).select().single();
-  if(res.error){
-    var msg = res.error.message || '';
-    /* is_leader/team 컬럼이 아직 Supabase에 없을 수 있어(순차 배포), 에러 메시지에 언급된
-       컬럼만 빼고 재시도 — 컬럼 추가 전에도 가입 자체는 막히지 않게 */
-    var retryData = Object.assign({}, insertData);
-    var strippedTeam=false, strippedLeader=false;
-    if(msg.toLowerCase().includes('is_leader')){ delete retryData.is_leader; strippedLeader=true; }
-    if(msg.toLowerCase().includes('team')){ delete retryData.team; strippedTeam=true; }
-    if(strippedTeam || strippedLeader){
-      res = await sbClient.from('members').insert(retryData).select().single();
-      if(res.data){
-        if(strippedTeam) res.data.team = team;
-        if(strippedLeader) res.data.is_leader = false;
-      }
+  var full = {company:company, project:project, name:name, phone:phone, team:team, menu:menu, cat:cat, is_leader:false};
+  var payload = Object.assign({}, full);
+  var stripped = [];
+  var res;
+  /* team/is_leader/menu/cat 컬럼이 아직 Supabase에 없을 수 있어(순차 배포) — 에러 메시지에
+     언급된 컬럼을 하나씩 빼면서 재시도한다(index.html의 pushSettingsToSupabase와 동일한
+     패턴). 컬럼이 여러 개 없어도(한 번에 하나씩만 알려주므로) 최대 5번까지 반복. */
+  for(var attempt=0; attempt<5; attempt++){
+    res = await sbClient.from('members').insert(payload).select().single();
+    if(!res.error) break;
+    var m = /Could not find the '([^']+)' column/.exec(res.error.message||'');
+    if(m && Object.prototype.hasOwnProperty.call(payload, m[1])){
+      stripped.push(m[1]);
+      delete payload[m[1]];
+      continue;
     }
-    if(res.error){
-      var msg2 = res.error.message || '';
-      if(msg2.includes('unique') || msg2.includes('duplicate')){ showToast('⚠️ 이미 등록된 전화번호입니다.', 'var(--err)'); }
-      else{ showToast('⚠️ 가입 실패: '+msg2, 'var(--err)'); }
-      return;
-    }
+    break;
   }
+  if(res.error){
+    var msg2 = res.error.message || '';
+    if(msg2.includes('unique') || msg2.includes('duplicate')){ showToast('⚠️ 이미 등록된 전화번호입니다.', 'var(--err)'); }
+    else{ showToast('⚠️ 가입 실패: '+msg2, 'var(--err)'); }
+    return;
+  }
+  stripped.forEach(function(col){ res.data[col] = full[col]; });
   saveSession(res.data);
   showToast('✅ 가입 완료 · work-shoot에도 동일 계정으로 로그인됩니다', 'var(--ok)');
   setTimeout(function(){ location.href='index.html'; }, 700);
@@ -192,6 +207,40 @@ async function loadTeamOptions(){
   }catch(e){ hint.textContent='⚠️ 팀 목록을 불러오지 못해 기본 목록으로 표시합니다.'; }
 }
 loadTeamOptions();
+
+/* 공종별 작업분류 목록 — 작업일보 앱(index.html)의 MENU_CONFIG 기본값과 동일한 목록을
+   Supabase 연결 실패 시 대비 기본값으로 두고, loadCatOptions()가 app_settings.cats_by_menu
+   (작업일보 ⚙️설정과 동일한 목록)로 즉시 덮어쓴다. */
+var catsByMenu = {
+  '시공': ['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
+  '품질': ['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
+  '자재': ['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
+  '안전': ['개인보호구','안전난간','소화기','전기안전','고소작업','위험물보관','비상통로','중장비안전','밀폐공간','낙하물방지','기타'],
+  '화기/유도': ['용접작업','절단작업','화재감시','가연물제거','방화포','가스누출점검','소화기배치','유도원배치','차량유도','작업구간통제','기타']
+};
+function renderRegCatOptions(){
+  var menu = document.getElementById('regMenu').value;
+  var sel = document.getElementById('regCat');
+  var cur = sel.value;
+  var list = catsByMenu[menu] || [];
+  sel.innerHTML = list.map(function(c){ return '<option>'+c+'</option>'; }).join('');
+  if(list.indexOf(cur)!==-1) sel.value = cur;
+}
+renderRegCatOptions();
+async function loadCatOptions(){
+  var hint = document.getElementById('regCatHint');
+  try{
+    var res = await sbClient.from('app_settings').select('cats_by_menu').eq('id','global').single();
+    var data = res.data && res.data.cats_by_menu;
+    if(res.error || !data){ hint.textContent='⚠️ 작업분류 목록을 불러오지 못해 기본 목록으로 표시합니다.'; return; }
+    Object.keys(catsByMenu).forEach(function(m){
+      if(Array.isArray(data[m]) && data[m].length) catsByMenu[m] = data[m];
+    });
+    renderRegCatOptions();
+    hint.textContent='';
+  }catch(e){ hint.textContent='⚠️ 작업분류 목록을 불러오지 못해 기본 목록으로 표시합니다.'; }
+}
+loadCatOptions();
 </script>
 </body>
 </html>
