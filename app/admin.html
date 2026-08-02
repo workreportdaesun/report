@@ -209,6 +209,11 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <button type="button" class="admin-tab active" id="clSubQtyBtn" onclick="showClSub('qty')">작업수량</button>
       <button type="button" class="admin-tab" id="clSubVolBtn" onclick="showClSub('vol')">작업물량</button>
     </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+      <input type="text" id="clTagFilter" oninput="renderChecklist()" placeholder="TAG 검색" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
+      <button type="button" onclick="resetClFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
+      <span id="clSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
+    </div>
     <div style="overflow-x:auto;">
       <table class="dtable" id="clTable"><tr><td style="text-align:center;color:var(--lbl);padding:20px;">불러오는 중...</td></tr></table>
     </div>
@@ -220,10 +225,10 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:14px;">
       <select id="wlMenuFilter" onchange="renderWorkLog()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
       <select id="wlCatFilter" onchange="renderWorkLog()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 작업분류</option></select>
-      <input type="text" id="wlTagFilter" oninput="renderWorkLog()" placeholder="TAG 검색" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
       <input type="date" id="wlDateFrom" onchange="renderWorkLog()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
       <span style="color:var(--lbl);font-size:12px;">~</span>
       <input type="date" id="wlDateTo" onchange="renderWorkLog()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <input type="text" id="wlTagFilter" oninput="renderWorkLog()" placeholder="TAG 검색" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
       <button type="button" onclick="resetWlFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
       <span id="wlSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
     </div>
@@ -924,13 +929,20 @@ async function loadChecklist(){
 }
 function renderChecklist(){
   var wrap=document.getElementById('clTable');
-  if(!clRows.length){ wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; return; }
+  if(!clRows.length){ wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; document.getElementById('clSummary').textContent=''; return; }
+  var tagQ=document.getElementById('clTagFilter').value.trim().toLowerCase();
   var cats=[], tags=[], byTagCat={};
   clRows.forEach(function(r){
     if(cats.indexOf(r.cat)===-1) cats.push(r.cat);
     if(tags.indexOf(r.tag)===-1) tags.push(r.tag);
     byTagCat[r.tag+'|'+r.cat]=r;
   });
+  if(tagQ) tags = tags.filter(function(t){ return t && t.toLowerCase().indexOf(tagQ)!==-1; });
+  if(!tags.length){
+    wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">조건에 맞는 TAG가 없습니다</td></tr>';
+    document.getElementById('clSummary').textContent='';
+    return;
+  }
   var thead='<tr><th>TAG NO.</th>'+cats.map(function(c){ return '<th>'+c+'</th>'; }).join('')+'</tr>';
   var body=tags.map(function(t){
     var cells=cats.map(function(c){
@@ -941,6 +953,11 @@ function renderChecklist(){
     return '<tr><td class="mono">'+t+'</td>'+cells+'</tr>';
   }).join('');
   wrap.innerHTML=thead+body;
+  document.getElementById('clSummary').textContent=tags.length+'건';
+}
+function resetClFilters(){
+  document.getElementById('clTagFilter').value='';
+  renderChecklist();
 }
 function showClSub(sub){
   clSub=sub;
