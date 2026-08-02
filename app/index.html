@@ -2751,13 +2751,18 @@ window.setInstallQty=function(obj){ installQty=obj||{}; renderPgList(); };
 /* 계획수량/설치수량은 admin.html(웹관리자, PC 전용)에서만 입력하고 여기선 항상 숫자만 보여준다.
    관리자 화면(admin.html) "공종별 공정률" 표와 같은 열 순서로 한 줄씩 보여준다(2026-08-01). */
 function pgRowHtml(name,isTotal){
-  var today = isTotal ? sumValues(PG_TODAY) : (PG_TODAY[name]||0);
-  var before = isTotal ? sumValues(PG_BEFORE) : (PG_BEFORE[name]||0);
-  var total = before+today;
   var plan = isTotal ? sumValues(planQty) : (planQty[name]||0);
   var actual = isTotal ? buildPgItems().reduce(function(s,d){ return s+actualQty(d.item); },0) : actualQty(name);
   var pct = plan>0 ? Math.min(100, Math.round(actual/plan*100)) : 0;
-  return '<tr'+(isTotal?' class="pg-total-row"':'')+'>'
+  // "전체 공정률" 행은 계획/전일누계/금일/누계 숫자를 다 빼고 %만 크게 보여준다(2026-08-01) —
+  // 개별 작업분류 행은 기존대로 전체 열을 다 보여줌.
+  if(isTotal){
+    return '<tr class="pg-total-row"><td class="lft" colspan="5">'+name+'</td><td class="pg-pct" style="font-size:17px;">'+pct+'%</td></tr>';
+  }
+  var today = PG_TODAY[name]||0;
+  var before = PG_BEFORE[name]||0;
+  var total = before+today;
+  return '<tr>'
     +'<td class="lft">'+name+'</td>'
     +'<td>'+(plan||'-')+'</td>'
     +'<td>'+(before||'-')+'</td>'
