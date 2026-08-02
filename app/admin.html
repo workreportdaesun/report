@@ -23,11 +23,15 @@
 body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-height:100vh;}
 .admin-wrap{max-width:1100px; margin:0 auto; padding:24px 20px 60px;}
 
+/* 헤더+탭 메뉴를 위로 스크롤해도 화면 위에 고정해서, 표가 길어져도 항상 어느 탭인지·관리자
+   화면 전환 버튼이 바로 보이게 함(2026-08-03) — 모든 탭(공정률/체크리스트/물량관리/작업일보/
+   출력현황/회원관리)이 이 헤더+탭 구조를 공유하므로 한 번만 고정하면 전체 화면에 동일 적용됨. */
+.admin-sticky-head{position:sticky; top:0; z-index:100; background:var(--bg); padding-top:24px; margin-top:-24px;}
 .admin-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; background:linear-gradient(135deg,var(--brand-1),var(--brand-2)); border-radius:12px; padding:12px 14px; color:#fff;}
 .admin-head h2{font-size:19px; font-weight:800; color:#fff; margin:0; display:flex; align-items:center; gap:8px;}
 .admin-head h2 img{width:36px; height:36px; border-radius:8px; flex-shrink:0;}
 .admin-head .proj{font-size:12px; color:rgba(255,255,255,0.75);}
-.admin-tabs{display:flex; gap:8px; margin-bottom:16px; border-bottom:2px solid var(--card-bd);}
+.admin-tabs{display:flex; gap:8px; margin-bottom:16px; border-bottom:2px solid var(--card-bd); background:var(--bg);}
 .admin-tab{border:none; background:none; padding:10px 6px; font-size:14px; font-weight:700; color:var(--lbl); cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; font-family:var(--font-body);}
 .admin-tab.active{color:var(--brand-2); border-bottom-color:var(--brand-2);}
 .admin-pane{display:none;}
@@ -71,6 +75,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 <body>
 <script src="../admin-gate.js"></script>
 <div class="admin-wrap">
+  <div class="admin-sticky-head">
   <div class="admin-head">
     <div>
       <h2><img src="icon-mark.png" alt="">작업일보 · 관리자</h2>
@@ -90,6 +95,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <button class="admin-tab" onclick="showAdminTab(this,'reports')">작업일보</button>
     <button class="admin-tab" onclick="showAdminTab(this,'out')">출력현황</button>
     <button class="admin-tab" onclick="showAdminTab(this,'members')">회원관리</button>
+  </div>
   </div>
 
   <!-- 공정률 -->
