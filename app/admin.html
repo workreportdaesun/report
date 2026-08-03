@@ -912,7 +912,7 @@ function renderReportsTable(){
       +'<td>'+cats+'</td>'
       +'<td>'+(r.team||'-')+'</td>'
       +'<td class="mono">'+items.length+'</td>'
-      +'<td>'+(isSub ? '<a class="pill pill-pdf" href="report-pdf.html?id='+encodeURIComponent(r.id)+'" target="_blank" onclick="event.stopPropagation()">📄 열기</a>' : '<span style="color:var(--lbl);font-size:11px;">-</span>')+'</td>'
+      +'<td><a class="pill pill-pdf" href="report-pdf.html?id='+encodeURIComponent(r.id)+'" target="_blank" onclick="event.stopPropagation()">📄 열기</a></td>'
       +'<td>'+(isSub ? '<span class="pill pill-ok">제출완료</span>' : '<span class="pill pill-draft">작성중</span>')+'</td>'
     +'</tr>';
   }).join('');
