@@ -95,8 +95,12 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    tr 엘리먼트까지 더해져 오히려 이쪽보다 우선순위가 높았음). 셀렉터를 th:first-child/
    td:first-child 형태로 바꿔서 우선순위를 동점으로 맞추고, 동점이면 이 규칙이 소스상 더
    뒤에 있어서 이겨 실제로 z-index:30이 적용되게 함 — 모서리 셀이 다른 첫 열 셀에 가려
-   테두리가 안 보이던 문제의 원인. */
-.scroll-frame .dtable-head-row th:first-child, .scroll-frame .dtable-head-row td:first-child{z-index:30;}
+   테두리가 안 보이던 문제의 원인.
+   2026-08-06: 같은 이유로 배경색도 어긋나 있었음 — 위 .dtable tr>*:first-child가
+   먼저 background:var(--card)(흰색)를 셀렉터 우선순위로 이겨버려서, 머리글행의 첫 열
+   (TAG NO.)만 나머지 머리글 칸들의 진한 --head-bg가 아니라 흰색으로 보였음
+   ("색이 동일하지 않아" 문의) — z-index와 같은 규칙에 background도 같이 재선언해서 맞춤. */
+.scroll-frame .dtable-head-row th:first-child, .scroll-frame .dtable-head-row td:first-child{z-index:30; background:var(--head-bg);}
 .pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;}
 .pill-ok{background:#EAF7EE; color:var(--ok);}
 .pill-draft{background:#FDF3E3; color:#B9770E;}
