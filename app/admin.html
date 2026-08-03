@@ -75,7 +75,9 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .pbar{flex:1; height:6px; background:var(--field-bg); border-radius:3px; overflow:hidden; min-width:36px;}
 .pbar-fill{height:100%; border-radius:3px; transition:width .4s;}
 .pct-val{font-size:11px; font-weight:700; min-width:36px; text-align:right; white-space:nowrap; font-family:var(--font-mono);}
-.factor-inp{width:56px; background:var(--field-bg); border:1px solid var(--card-bd); border-radius:6px; color:var(--ink); font-size:12px; padding:4px 6px; text-align:center; font-family:var(--font-mono);}
+/* FACTOR 입력칸이 자기 높이(패딩+줄높이)로만 작게 떠 있어서 표 행 높이(.dtable td의 38px)보다
+   작아 보였음(2026-08-03) — 입력칸이 속한 행 높이를 그대로 채우도록 높이를 100%로 맞춤. */
+.factor-inp{width:56px; height:100%; box-sizing:border-box; background:var(--field-bg); border:1px solid var(--card-bd); border-radius:6px; color:var(--ink); font-size:12px; padding:4px 6px; text-align:center; font-family:var(--font-mono);}
 .factor-inp:focus{outline:none; border-color:var(--brand-2);}
 
 .out-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px;}
