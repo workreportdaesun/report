@@ -940,6 +940,7 @@ function openReportDetail(id){
       +(r.status==='submitted' ? '<a class="pill pill-pdf" href="report-pdf.html?id='+encodeURIComponent(r.id)+'" target="_blank">📄 PDF 열기</a>' : '')
     +'</div>'
     + itemsHtml
+    + (r.tbm_photo ? '<div style="font-size:13px;margin-bottom:8px;"><b>TBM(안전 조회) 사진</b><br><img src="'+r.tbm_photo+'" alt="TBM 사진" style="max-width:220px;border-radius:10px;border:1px solid var(--card-bd);margin-top:6px;display:block;"></div>' : '')
     + '<div style="font-size:13px;margin-bottom:8px;"><b>출력 인원</b> ('+crew.length+'명): '+crewHtml+'</div>'
     + '<div style="font-size:13px;margin-bottom:8px;"><b>명일 작업계획</b>: '+(r.next_day_plan||'-')+'</div>'
     + '<div style="font-size:13px;"><b>특이사항</b>: '+(r.special_notes||'-')+'</div>';

@@ -397,6 +397,16 @@ textarea.f{resize:none; height:44px;}
     <button type="button" class="sbtn sbtn-add" id="checkinBtn" onclick="doCheckIn()" disabled>📍 출력체크</button>
   </div>
 
+  <!-- TBM(안전 조회) 사진 — 팀+날짜 단위 1장(daily_reports.tbm_photo), 출력체크와 같은 급으로 취급 -->
+  <div class="card" id="tbmCard">
+    <div class="flbl" style="margin-top:0;">TBM(안전 조회) 사진</div>
+    <div id="tbmPreview" style="margin-bottom:10px;font-size:13px;color:var(--lbl);">불러오는 중...</div>
+    <label class="sbtn sbtn-add" style="display:block;text-align:center;box-sizing:border-box;">
+      📷 TBM 사진 촬영
+      <input type="file" accept="image/*" capture="environment" onchange="handleTbmPhoto(this)" style="display:none;">
+    </label>
+  </div>
+
   <!-- 팀장 전용: 같은 팀 팀원 강제탈퇴. member_is_leader가 '1'일 때만 노출(loadTeamMembers) -->
   <div class="card" id="teamLeaderCard" style="display:none;">
     <div class="flbl" style="margin-top:0;">우리 팀원 관리</div>
@@ -731,6 +741,7 @@ function showWorkerPane(p){
   if(p==='personnel'){
     if(typeof window.loadPersonnelEquipmentData==='function') window.loadPersonnelEquipmentData();
     refreshCheckinDistance();
+    if(typeof loadTbmStatus==='function') loadTbmStatus();
   }
   if(p==='history') loadReportHistory();
 }
@@ -1371,6 +1382,43 @@ async function doCheckIn(){
 }
 window.refreshCheckinDistance=refreshCheckinDistance;
 
+/* ── TBM(안전 조회) 사진 — 팀+날짜 단위 1장만(daily_reports.tbm_photo, 2026-08-06).
+   개별 작업 항목(공종/작업분류/기기번호)과 무관한 "그날 그 팀" 단위 기록이라 crew(출력체크)와
+   같은 방식(upsertDailyReport)으로 daily_reports 행에 직접 저장한다. 워터마크/비율선택 등
+   work-shoot의 정식 촬영 파이프라인은 재사용하지 않고(하루 1장, 부가 정보 불필요) 네이티브
+   파일 입력(capture="environment")으로 바로 카메라를 띄우는 가벼운 방식을 씀. Storage
+   업로드 경로는 기존 사진 전송(work-gallery 버킷)과 동일하게 safeStorageKey로 한글을
+   제거해서 Storage 업로드 실패 버그([[work_shoot_storage_key_korean_bug]])를 피한다. */
+async function loadTbmStatus(){
+  if(!sbClient) return;
+  try{
+    var res = await sbClient.from('daily_reports').select('tbm_photo').eq('id',draftId()).single();
+    renderTbmPreview(res.data && res.data.tbm_photo);
+  }catch(e){ renderTbmPreview(null); }
+}
+function renderTbmPreview(url){
+  var el = document.getElementById('tbmPreview');
+  if(!el) return;
+  el.innerHTML = url
+    ? '<img src="'+url+'" alt="TBM 사진" style="width:100%;max-width:220px;border-radius:10px;display:block;">'
+    : '아직 촬영하지 않았습니다';
+}
+async function handleTbmPhoto(input){
+  var file = input.files && input.files[0];
+  if(!file) return;
+  if(!sbClient){ showToast('Supabase 연결 실패', 'var(--err)'); input.value=''; return; }
+  try{
+    var team = localStorage.getItem('member_team') || '미지정';
+    var ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
+    var filePath = 'tbm/'+todayStr()+'/'+safeStorageKey(team)+'_'+Date.now()+'.'+ext;
+    var uploadRes = await sbClient.storage.from('work-gallery').upload(filePath, file, {contentType:file.type||'image/jpeg', upsert:true});
+    if(uploadRes.error){ showToast('TBM 사진 업로드 실패: '+uploadRes.error.message, 'var(--err)'); return; }
+    var url = sbClient.storage.from('work-gallery').getPublicUrl(filePath).data.publicUrl;
+    var row = await upsertDailyReport({tbm_photo:url});
+    if(row){ renderTbmPreview(url); showToast('✅ TBM 사진 저장 완료', 'var(--ok)'); }
+  }catch(e){ showToast('TBM 사진 업로드 실패: '+(e.message||e), 'var(--err)'); }
+  finally{ input.value=''; }
+}
 
 /* ══════════════════════════════════════════════════════════════════
    작업사진: 진짜 shoot 웹앱(workreportdaesun/shoot)은 완전히 독립된 별도 페이지다.

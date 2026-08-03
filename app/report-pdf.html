@@ -122,6 +122,11 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
   </table>
   <div class="doc-roster-note">✓ 표시는 앱 GPS 출력체크 완료자입니다. 회원가입 시 선택한 소속팀·팀장 정보가 자동으로 연결되어, 출력체크 때 팀을 다시 고를 필요가 없습니다.</div>
 
+  <div id="docTbmSec" style="display:none;margin:8px 0;">
+    <div class="doc-photosec-head">TBM(안전 조회) 사진</div>
+    <img id="docTbmImg" src="" alt="TBM 사진" style="max-width:220px;border-radius:8px;border:1px solid var(--card-bd, #ccc);display:block;margin-top:6px;">
+  </div>
+
   <table class="doc-body">
     <thead>
       <tr><th style="width:26px;">No</th><th style="width:60px;">공종</th><th>작업내용</th><th style="width:44px;">단위</th><th style="width:44px;">수량</th><th style="width:50px;">진행상황</th><th style="width:44px;">사진</th><th>기타자재</th></tr>
@@ -217,6 +222,11 @@ async function renderReport(row){
       + crew.map(function(c){ return c.name===myName ? '<span class="me">'+c.name+'✓</span>' : c.name; }).join(', ')
       + '</td></tr>'
     : '<tr><td colspan="3" style="text-align:center;color:var(--lbl);">출력체크 기록 없음</td></tr>';
+
+  if(row.tbm_photo){
+    document.getElementById('docTbmImg').src = row.tbm_photo;
+    document.getElementById('docTbmSec').style.display = '';
+  }
 
   var items = Array.isArray(row.items) ? row.items : [];
 
