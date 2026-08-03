@@ -50,7 +50,10 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .proc-bar > div{height:100%; border-radius:3px;}
 
 .dtable{width:100%; border-collapse:collapse; font-size:13px; background:var(--card); border:1px solid var(--card-bd); border-radius:10px; overflow:hidden;}
-.dtable th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--lbl); background:var(--field-bg); padding:7px 12px; font-weight:700; border-right:1px solid var(--card-bd);}
+/* 머리글행(th)엔 높이 지정이 없어서 본문행(td, 38px 고정)보다 낮게 나왔음(2026-08-03) —
+   공정률/체크리스트/물량관리/작업일보 전부 이 .dtable을 공유하므로 여기 한 곳만 고치면
+   네 화면 모두 첫 행과 나머지 행 높이가 동일해짐. */
+.dtable th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--lbl); background:var(--field-bg); padding:7px 12px; font-weight:700; border-right:1px solid var(--card-bd); box-sizing:border-box; height:38px;}
 .dtable td{padding:7px 12px; border-top:1px solid var(--card-bd); border-right:1px solid var(--card-bd); color:var(--ink); box-sizing:border-box; height:38px;}
 .dtable th:last-child, .dtable td:last-child{border-right:none;}
 .dtable td.mono{font-family:var(--font-mono);}
