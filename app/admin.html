@@ -75,7 +75,9 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    경우가 있었음(2026-08-03) — 최소 폭을 명시해서 고정이 확실히 자리 잡게 함(nowrap이라 내용이
    더 길면 이 값보다 커지기만 하고 잘리진 않음). */
 .scroll-frame .dtable tr>*:first-child{position:sticky; left:0; z-index:10; background:var(--card); min-width:110px;}
-.scroll-frame .dtable-head-row>*:first-child{z-index:30; background:var(--field-bg);}
+/* 첫 행+첫 열이 겹치는 "모서리" 셀은 더 구체적인 이 규칙이 앞서 지정한 border-bottom을
+   덮어써서 그 셀만 아래테두리가 안 보였음(2026-08-03) — 여기서 다시 명시. */
+.scroll-frame .dtable-head-row>*:first-child{z-index:30; background:var(--field-bg); border-bottom:2px solid var(--brand-2);}
 .pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;}
 .pill-ok{background:#EAF7EE; color:var(--ok);}
 .pill-draft{background:#FDF3E3; color:#B9770E;}
