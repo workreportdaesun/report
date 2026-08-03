@@ -93,6 +93,18 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    적용하지 못하게 만드는 알려진 문제가 있음(2026-08-03 발견 — 고정이 안 먹혀서 테두리도
    안 보였던 진짜 원인). separate+border-spacing:0으로 바꿔서 고정이 실제로 동작하게 함. */
 .scroll-frame .dtable{overflow:visible; border:none; border-radius:0; width:100%; border-collapse:separate; border-spacing:0;}
+/* no-cap 표의 진짜 근본 문제: 일반 표는 부모 .scroll-frame이 overflow:auto라서 안쪽 .dtable의
+   각진 사각형 배경(.dtable{background:var(--card)}, 위 규칙에서 border-radius만 0으로 지움)이
+   부모의 둥근 경계에 자동으로 잘려 들어가 보였는데, no-cap은 overflow:visible이라 그 자동
+   클리핑이 없어서 .dtable 자체의 사각 배경 모서리가 부모의 둥근 테두리 밖으로 하얗게(--card가
+   배경보다 밝아서) 삐져나와 보였음(사용자가 "모서리 4곳에 하얀 여백" 이라고 보고, Playwright로
+   재현해 확인) — 그동안 머리글/합계행 개별 셀에
+   border-radius를 하나씩 붙여온 방식은 이 근본 원인을 못 건드려서 계속 모서리가 어긋났던 것.
+   .dtable 자체에 부모와 같은 라운드(부모 10px에서 테두리 1px만큼 뺀 9px)를 주고 overflow:hidden
+   으로 안쪽 셀 배경까지 통째로 그 모양에 맞게 잘리게 하면, 일반 표와 동일한 방식(부모 클리핑)
+   으로 4모서리가 전부 자동으로 맞춰진다 — no-cap 표는 sticky를 이미 position:static으로 꺼뒀으니
+   (위 두 줄) overflow:hidden이 sticky 동작과 충돌할 일도 없다. */
+.scroll-frame.no-cap .dtable{border-radius:9px; overflow:hidden;}
 .scroll-frame .dtable th, .scroll-frame .dtable td{white-space:nowrap;}
 /* 머리글행을 표와는 진짜 떨어진 별도 박스처럼 보이게 함(2026-08-03) — 표 구조(하나의 table)는
    그대로 두되(열 정렬이 저절로 보장됨), 머리글행에만 위/좌/우 테두리+둥근 모서리를 둘러서
