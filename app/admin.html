@@ -63,7 +63,10 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    항상 그 표 바로 아래(뷰포트 안)에 붙어있게 한다 — 페이지를 한참 내려야만 스크롤바가 보이는 문제
    방지. 입력창(검색/필터 등)은 이 틀 밖에 있어서 표 스크롤과 분리되어 있음. */
 .scroll-frame{overflow:auto; border:1px solid var(--card-bd); border-radius:10px; max-height:min(560px, calc(100vh - 260px));}
-.scroll-frame .dtable{overflow:visible; border:none; border-radius:0; width:100%;}
+/* border-collapse:collapse(.dtable 기본값)는 th/td의 position:sticky를 브라우저가 제대로
+   적용하지 못하게 만드는 알려진 문제가 있음(2026-08-03 발견 — 고정이 안 먹혀서 테두리도
+   안 보였던 진짜 원인). separate+border-spacing:0으로 바꿔서 고정이 실제로 동작하게 함. */
+.scroll-frame .dtable{overflow:visible; border:none; border-radius:0; width:100%; border-collapse:separate; border-spacing:0;}
 .scroll-frame .dtable th, .scroll-frame .dtable td{white-space:nowrap;}
 /* 첫 행(머리글)이 고정된 채 아래 내용만 스크롤되니까, 그 경계가 안 보여서 구분이 잘 안 됐음
    (2026-08-03) — 위아래/좌우 어느 방향으로 스크롤하든 첫 행 아래테두리가 항상 보이게 함. */
