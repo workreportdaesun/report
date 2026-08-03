@@ -47,8 +47,10 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    같아지게 함 — 네 표 전부 이 줄 높이만큼 아래에서 scroll-frame이 시작하므로, 높이가 다르면
    표 시작 위치·창높이가 표마다 미묘하게 달라져 보였음. */
 .proc-card{background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:4px 14px; display:flex; align-items:center; gap:10px;}
-.proc-card .m{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; margin-bottom:0;}
-.proc-card .pct{font-size:18px; font-weight:800; color:var(--ink); font-family:var(--font-mono);}
+.proc-card .m{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; margin-bottom:0; line-height:1;}
+/* pct 폰트 18px→14px + line-height:1(2026-08-06) — 체크리스트 "TAG 검색" 입력창(24px)과
+   높이를 정확히 맞추려고 줄임(패딩만으로는 큰 폰트의 기본 줄간격 때문에 안 맞았음). */
+.proc-card .pct{font-size:14px; font-weight:800; color:var(--ink); font-family:var(--font-mono); line-height:1;}
 .proc-bar{height:6px; width:100px; border-radius:3px; background:var(--field-bg); margin:0; overflow:hidden;}
 .proc-bar > div{height:100%; border-radius:3px;}
 
@@ -219,7 +221,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
          시작 위치·창높이가 미묘하게 달라져 보였음. -->
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
       <div class="proc-grid" id="procGrid"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
-      <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="margin-left:auto;flex-shrink:0;border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
+      <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="margin-left:auto;flex-shrink:0;border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
     </div>
 
     <div class="scroll-frame">
