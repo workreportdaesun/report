@@ -80,11 +80,15 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    overflow:auto라서 안쪽 표의 각진 모서리가 바깥 틀의 둥근 모서리 안에 자동으로
    가려지는데, no-cap 표는 overflow:visible이라 그 "가려주는" 효과가 없어져서 위쪽
    (머리글, 자체 radius 있음)은 둥글고 아래쪽(마지막 행)은 각진 채로 어긋나 보였음.
-   맨 아래 행의 첫/끝 칸에 직접 둥근 모서리를 줘서 위아래 4곳 모두 동일하게 맞춤
-   (로딩 중 등 tfoot이 비어있을 수 있어 tbody 마지막 행에도 같이 걸어둠 — 실제로는
-   둘 중 화면에 진짜로 마지막인 쪽만 보임). */
-.scroll-frame.no-cap tbody tr:last-child td:first-child, .scroll-frame.no-cap tfoot tr:last-child td:first-child{border-bottom-left-radius:8px;}
-.scroll-frame.no-cap tbody tr:last-child td:last-child, .scroll-frame.no-cap tfoot tr:last-child td:last-child{border-bottom-right-radius:8px;}
+   맨 아래 행의 첫/끝 칸에 직접 둥근 모서리를 줘서 위아래 4곳 모두 동일하게 맞춤.
+   2026-08-06(같은 날 수정): 처음엔 tbody 마지막 행에도 무조건 같이 걸어뒀었는데,
+   renderProcTable이 데이터가 있으면 tfoot(합계 행)을 항상 같이 채우기 때문에(로딩 중
+   같은 예외 상황이 아니라 평소 상태) tbody 마지막 행(합계 바로 위 분류 행)까지 둥글게
+   잘려서 표 중간에 원치 않는 노치가 생겼음(Playwright 스크린샷으로 재현). tfoot에 실제
+   행이 있을 때는 tbody 쪽엔 라운드를 주지 않도록 :has()로 조건을 걸어 진짜 마지막 행
+   (tfoot이 있으면 tfoot, 없거나 비어있으면 tbody)에만 적용되게 함. */
+.scroll-frame.no-cap tbody:not(:has(~ tfoot tr)) tr:last-child td:first-child, .scroll-frame.no-cap tfoot tr:last-child td:first-child{border-bottom-left-radius:8px;}
+.scroll-frame.no-cap tbody:not(:has(~ tfoot tr)) tr:last-child td:last-child, .scroll-frame.no-cap tfoot tr:last-child td:last-child{border-bottom-right-radius:8px;}
 /* border-collapse:collapse(.dtable 기본값)는 th/td의 position:sticky를 브라우저가 제대로
    적용하지 못하게 만드는 알려진 문제가 있음(2026-08-03 발견 — 고정이 안 먹혀서 테두리도
    안 보였던 진짜 원인). separate+border-spacing:0으로 바꿔서 고정이 실제로 동작하게 함. */
