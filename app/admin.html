@@ -52,9 +52,11 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .dtable{width:100%; border-collapse:collapse; font-size:13px; background:var(--card); border:1px solid var(--card-bd); border-radius:10px; overflow:hidden;}
 /* 머리글행(th)엔 높이 지정이 없어서 본문행(td, 38px 고정)보다 낮게 나왔음(2026-08-03) —
    공정률/체크리스트/물량관리/작업일보 전부 이 .dtable을 공유하므로 여기 한 곳만 고치면
-   네 화면 모두 첫 행과 나머지 행 높이가 동일해짐. */
-.dtable th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--lbl); background:var(--field-bg); padding:7px 12px; font-weight:700; border-right:1px solid var(--card-bd); box-sizing:border-box; height:38px;}
-.dtable td{padding:7px 12px; border-top:1px solid var(--card-bd); border-right:1px solid var(--card-bd); color:var(--ink); box-sizing:border-box; height:38px;}
+   네 화면 모두 첫 행과 나머지 행 높이가 동일해짐.
+   2026-08-06: "모든 행의 높이를 조금씩 줄여줘" 요청으로 38px→32px로(위아래 패딩도
+   7px→5px) 축소 — 검색창(필터바 input/select/버튼)도 같은 비율로 같이 줄임. */
+.dtable th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--lbl); background:var(--field-bg); padding:5px 12px; font-weight:700; border-right:1px solid var(--card-bd); box-sizing:border-box; height:32px;}
+.dtable td{padding:5px 12px; border-top:1px solid var(--card-bd); border-right:1px solid var(--card-bd); color:var(--ink); box-sizing:border-box; height:32px;}
 .dtable th:last-child, .dtable td:last-child{border-right:none;}
 .dtable td.mono{font-family:var(--font-mono);}
 /* 표마다 반복되는 "틀고정" 패턴(2026-08-03) — 체크리스트/물량관리/공정률(수량·물량) 전부 동일하게
@@ -63,6 +65,15 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    항상 그 표 바로 아래(뷰포트 안)에 붙어있게 한다 — 페이지를 한참 내려야만 스크롤바가 보이는 문제
    방지. 입력창(검색/필터 등)은 이 틀 밖에 있어서 표 스크롤과 분리되어 있음. */
 .scroll-frame{overflow:auto; border:1px solid var(--card-bd); border-radius:10px; max-height:min(560px, calc(100vh - 260px));}
+/* "공정률은 스크롤 안 하고 다 보이게, 스크롤 삭제해줘"(2026-08-06) — 공정률(수량·물량)은
+   행 수가 작업분류 개수로 고정돼 있어(TAG처럼 계속 느는 목록이 아님) 세로로 잘라서 내부
+   스크롤을 만들 필요가 없음. 높이 제한을 풀어 표 전체가 다 보이게 하고(overflow:visible),
+   더 이상 이 틀 안에서 세로로 스크롤되지 않으므로 위/왼쪽 고정(position:sticky)도 의미가
+   없어져 그대로 두면 페이지 자체를 스크롤할 때 상단 고정 헤더(.admin-sticky-head, 더 위
+   z-index)에 가려 사라지는 것처럼 보이는 부작용이 생김 — 고정을 꺼서 일반 셀로 되돌림. */
+.scroll-frame.no-cap{max-height:none; overflow:visible;}
+.scroll-frame.no-cap .dtable-head-row th, .scroll-frame.no-cap .dtable-head-row td{position:static;}
+.scroll-frame.no-cap .dtable tr>*:first-child{position:static; min-width:0;}
 /* border-collapse:collapse(.dtable 기본값)는 th/td의 position:sticky를 브라우저가 제대로
    적용하지 못하게 만드는 알려진 문제가 있음(2026-08-03 발견 — 고정이 안 먹혀서 테두리도
    안 보였던 진짜 원인). separate+border-spacing:0으로 바꿔서 고정이 실제로 동작하게 함. */
@@ -173,7 +184,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
          물량별(qty 실측값 합산)과 계산 기준만 다르고 나머지 로직(최초 입력일 구간 반영 등)은
          loadDashboardData의 동일한 집계 함수를 그대로 재사용. -->
     <div id="procSubQty">
-      <div class="scroll-frame">
+      <div class="scroll-frame no-cap">
       <table class="dtable">
         <tr class="dtable-head-row"><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
         <tbody id="procTableRowsQty"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
@@ -185,7 +196,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <!-- 물량별 공정률: daily_reports 수량(qty, Check List "작업물량"과 같은 개념)을 계획수량과
          비교해 공정률을 계산한다(기존 공정률 탭 내용 그대로). -->
     <div id="procSubVol" style="display:none;">
-      <div class="scroll-frame">
+      <div class="scroll-frame no-cap">
       <table class="dtable">
         <tr class="dtable-head-row"><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
         <tbody id="procTableRows"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
@@ -240,18 +251,18 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
   <!-- 작업일보 전체내용 — 검색/필터 + 클릭 시 상세보기 모달 -->
   <div class="admin-pane" id="pane-reports">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
-      <select id="rpTeamFilter" onchange="renderReportsTable()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 팀</option></select>
-      <select id="rpMenuFilter" onchange="renderReportsTable()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
-      <select id="rpStatusFilter" onchange="renderReportsTable()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <select id="rpTeamFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 팀</option></select>
+      <select id="rpMenuFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
+      <select id="rpStatusFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
         <option value="">전체 상태</option>
         <option value="submitted">제출완료</option>
         <option value="draft">작성중</option>
       </select>
-      <input type="date" id="rpDateFrom" onchange="renderReportsTable()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <input type="date" id="rpDateFrom" onchange="renderReportsTable()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
       <span style="color:var(--lbl);font-size:12px;">~</span>
-      <input type="date" id="rpDateTo" onchange="renderReportsTable()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
-      <input type="text" id="rpKeyword" oninput="renderReportsTable()" placeholder="기기번호/비고/특이사항 검색" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:180px;">
-      <button type="button" onclick="resetReportsFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
+      <input type="date" id="rpDateTo" onchange="renderReportsTable()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <input type="text" id="rpKeyword" oninput="renderReportsTable()" placeholder="기기번호/비고/특이사항 검색" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:180px;">
+      <button type="button" onclick="resetReportsFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">초기화</button>
       <span id="rpSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
     </div>
     <div class="scroll-frame">
@@ -282,8 +293,8 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <button type="button" class="admin-tab" id="clSubVolBtn" onclick="showClSub('vol')">작업물량</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
-      <input type="text" id="clTagFilter" oninput="renderChecklist()" placeholder="TAG 검색" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
-      <button type="button" onclick="resetClFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
+      <input type="text" id="clTagFilter" oninput="renderChecklist()" placeholder="TAG 검색" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
+      <button type="button" onclick="resetClFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">초기화</button>
       <span id="clSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
     </div>
     <div class="scroll-frame">
@@ -295,13 +306,13 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
        공종/작업분류/TAG/날짜로 검색·조회. work_log 테이블이 없으면(사용자가 SQL 실행 전) 안내만 뜬다. -->
   <div class="admin-pane" id="pane-wl">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
-      <select id="wlMenuFilter" onchange="renderWorkLog()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
-      <select id="wlCatFilter" onchange="renderWorkLog()" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 작업분류</option></select>
-      <input type="date" id="wlDateFrom" onchange="renderWorkLog()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <select id="wlMenuFilter" onchange="renderWorkLog()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
+      <select id="wlCatFilter" onchange="renderWorkLog()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 작업분류</option></select>
+      <input type="date" id="wlDateFrom" onchange="renderWorkLog()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
       <span style="color:var(--lbl);font-size:12px;">~</span>
-      <input type="date" id="wlDateTo" onchange="renderWorkLog()" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
-      <input type="text" id="wlTagFilter" oninput="renderWorkLog()" placeholder="TAG 검색" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
-      <button type="button" onclick="resetWlFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
+      <input type="date" id="wlDateTo" onchange="renderWorkLog()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <input type="text" id="wlTagFilter" oninput="renderWorkLog()" placeholder="TAG 검색" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
+      <button type="button" onclick="resetWlFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">초기화</button>
       <span id="wlSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
     </div>
     <div class="scroll-frame">
@@ -354,14 +365,14 @@ function showAdminTab(btn, key){
    페이지가 남아 스크롤되는 경우가 있었음(실측 결과 36px) — 1차 적용 후 실제
    페이지가 넘치는 만큼(overflow)을 다시 재서 그만큼 한 번 더 줄여 완전히 없앤다. */
 function fitScrollFrames(){
-  document.querySelectorAll('.scroll-frame').forEach(function(el){
+  document.querySelectorAll('.scroll-frame:not(.no-cap)').forEach(function(el){
     if(el.offsetParent===null) return;
     var top = el.getBoundingClientRect().top;
     el.style.maxHeight = Math.max(200, window.innerHeight - top - 24)+'px';
   });
   var overflow = document.documentElement.scrollHeight - window.innerHeight;
   if(overflow > 0){
-    document.querySelectorAll('.scroll-frame').forEach(function(el){
+    document.querySelectorAll('.scroll-frame:not(.no-cap)').forEach(function(el){
       if(el.offsetParent===null) return;
       var cur = parseFloat(el.style.maxHeight)||0;
       el.style.maxHeight = Math.max(150, cur - overflow)+'px';
