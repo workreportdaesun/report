@@ -79,7 +79,12 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    근본 한계 때문이었음. 바깥에 overflow:hidden인 래퍼를 하나 더 두면 스크롤바까지 통째로
    뭉텅 잘려서 모서리가 진짜로 이어짐. */
 .scroll-frame{border:1px solid var(--card-bd); border-radius:10px; overflow:hidden;}
-.scroll-body{overflow:auto; max-height:min(560px, calc(100vh - 260px)); overscroll-behavior:contain;}
+/* 2026-08-06: "데이터 없어도 위아래 전체 창을 만들고 스크롤바도 같이 만들어줘" — max-height(내용이
+   짧으면 박스도 같이 작아짐)를 height(내용과 상관없이 항상 이 높이로 고정)로 바꿔서 데이터가
+   하나도 없을 때도 표 박스가 항상 꽉 찬 크기로 보이게 함. overflow-y도 auto(넘칠 때만 스크롤바
+   표시)에서 scroll(넘치지 않아도 항상 스크롤바 자리 표시)로 바꿔서 스크롤바도 늘 같이 보이게 함
+   (가로 스크롤은 필요할 때만 나오면 되므로 overflow-x는 auto 유지). */
+.scroll-body{overflow-y:scroll; overflow-x:auto; height:min(560px, calc(100vh - 260px)); overscroll-behavior:contain;}
 /* "공정률은 스크롤 안 하고 다 보이게, 스크롤 삭제해줘"(2026-08-06) — 공정률(수량·물량)은
    행 수가 작업분류 개수로 고정돼 있어(TAG처럼 계속 느는 목록이 아님) 세로로 잘라서 내부
    스크롤을 만들 필요가 없음. 높이 제한을 풀어 표 전체가 다 보이게 하고(overflow:visible),
@@ -403,7 +408,7 @@ function showAdminTab(btn, key){
 }
 
 /* "바탕화면에 휠을 돌리면 작업수량/작업물량 탭이 위아래로 움직인다"(2026-08-05) — 표를
-   .scroll-body{max-height:min(560px, calc(100vh - 260px))}로 뷰포트 안에 잘랐던 260px는
+   .scroll-body{height:min(560px, calc(100vh - 260px))}로 뷰포트 안에 잘랐던 260px는
    고정 추정치였는데, 체크리스트/공정률처럼 표 위에 서브탭+필터바가 더 있는 화면은 실제
    차지하는 높이가 260px보다 커서 페이지 전체가 살짝 더 스크롤될 여지가 남았음 — 그 남는
    페이지 스크롤 때문에 표 위의 탭·필터바가 함께 밀려 올라간 것처럼 보였던 것.
@@ -419,12 +424,16 @@ function showAdminTab(btn, key){
    빼서 모든 표가 항상 같은 공식으로 같은 높이가 되게 함 — 탭 전환·창 크기 변경·표 위
    내용이 비동기로 채워져 높이가 바뀌는 경우(ResizeObserver로 감지) 모두 다시 계산한다.
    페이지 자체가 겹치는 상황이 혹시 남더라도, .scroll-body의 overscroll-behavior:contain이
-   표 스크롤이 페이지 스크롤로 새어나가는 것(스크롤 체이닝)을 별도로 막아준다. */
+   표 스크롤이 페이지 스크롤로 새어나가는 것(스크롤 체이닝)을 별도로 막아준다.
+   2026-08-06(추가): "데이터 없어도 위아래 전체 창을 만들고 스크롤바도 같이 만들어줘" —
+   maxHeight 대신 height를 직접 지정해서 내용이 짧아도(또는 아예 없어도) 박스가 항상 이
+   계산된 크기로 꽉 차게 함(CSS 쪽 height도 이미 고정값으로 바꿔뒀지만, JS가 실측한 정확한
+   값으로 다시 한번 덮어써서 최종적으로 맞춤). */
 function fitScrollFrames(){
   document.querySelectorAll('.scroll-body').forEach(function(el){
     if(el.offsetParent===null) return;
     var top = el.getBoundingClientRect().top;
-    el.style.maxHeight = Math.max(200, window.innerHeight - top - 90)+'px';
+    el.style.height = Math.max(200, window.innerHeight - top - 90)+'px';
   });
 }
 window.addEventListener('resize', fitScrollFrames);
