@@ -68,16 +68,17 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    안 보였던 진짜 원인). separate+border-spacing:0으로 바꿔서 고정이 실제로 동작하게 함. */
 .scroll-frame .dtable{overflow:visible; border:none; border-radius:0; width:100%; border-collapse:separate; border-spacing:0;}
 .scroll-frame .dtable th, .scroll-frame .dtable td{white-space:nowrap;}
-/* 첫 행(머리글)이 고정된 채 아래 내용만 스크롤되니까, 그 경계가 안 보여서 구분이 잘 안 됐음
-   (2026-08-03) — 위아래/좌우 어느 방향으로 스크롤하든 첫 행 아래테두리가 항상 보이게 함. */
-.scroll-frame .dtable-head-row th, .scroll-frame .dtable-head-row td{position:sticky; top:0; z-index:20; background:var(--field-bg); border-bottom:2px solid var(--brand-2);}
+/* 머리글행과 그 아래 데이터행을 색선 하나로 나누는 대신, 증권 시세표처럼 두 영역이 실제로
+   떨어져 있는 느낌을 주고 싶다는 요청(2026-08-03) — 색이 있는 경계선 대신 배경색과 같은
+   두꺼운 "빈 여백"(약 2mm≈8px)을 머리글행 밑에 둬서 판이 분리된 것처럼 보이게 함. */
+.scroll-frame .dtable-head-row th, .scroll-frame .dtable-head-row td{position:sticky; top:0; z-index:20; background:var(--field-bg); border-bottom:8px solid var(--bg);}
 /* 첫 열은 폭이 auto(레이아웃 이후 계산)라 브라우저가 sticky left 기준점을 안정적으로 못 잡는
    경우가 있었음(2026-08-03) — 최소 폭을 명시해서 고정이 확실히 자리 잡게 함(nowrap이라 내용이
    더 길면 이 값보다 커지기만 하고 잘리진 않음). */
 .scroll-frame .dtable tr>*:first-child{position:sticky; left:0; z-index:10; background:var(--card); min-width:110px;}
 /* 첫 행+첫 열이 겹치는 "모서리" 셀은 더 구체적인 이 규칙이 앞서 지정한 border-bottom을
-   덮어써서 그 셀만 아래테두리가 안 보였음(2026-08-03) — 여기서 다시 명시. */
-.scroll-frame .dtable-head-row>*:first-child{z-index:30; background:var(--field-bg); border-bottom:2px solid var(--brand-2);}
+   덮어써서 그 셀만 간격이 안 보였음(2026-08-03) — 여기서 다시 명시. */
+.scroll-frame .dtable-head-row>*:first-child{z-index:30; background:var(--field-bg); border-bottom:8px solid var(--bg);}
 .pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;}
 .pill-ok{background:#EAF7EE; color:var(--ok);}
 .pill-draft{background:#FDF3E3; color:#B9770E;}
