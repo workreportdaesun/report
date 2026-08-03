@@ -308,8 +308,8 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
   <!-- 작업일보 전체내용 — 검색/필터 + 클릭 시 상세보기 모달 -->
   <div class="admin-pane" id="pane-reports">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
-      <select id="rpTeamFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 팀</option></select>
       <select id="rpMenuFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
+      <select id="rpTeamFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 팀</option></select>
       <select id="rpStatusFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
         <option value="">전체 상태</option>
         <option value="submitted">제출완료</option>
