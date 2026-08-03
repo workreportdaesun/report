@@ -14,7 +14,7 @@
 :root{
   --brand-1:#1E3A5F; --brand-2:#2E5F9E;
   --bg:#F0F4F8; --card:#fff; --card-bd:#D1DCE8; --ink:#1A2332; --lbl:#5A7A9A;
-  --field-bg:#F7FAFC; --ok:#27AE60;
+  --field-bg:#F7FAFC; --ok:#27AE60; --head-bg:#DCE6F2;
   --m-시공:#2E5F9E; --m-품질:#27AE60; --m-자재:#A0703A; --m-안전:#F39C12; --m-화기:#C0392B;
   --font-body:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   --font-mono:"SFMono-Regular",Consolas,Menlo,monospace;
@@ -74,10 +74,17 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    확실히 띄운다. */
 /* "2줄로 넣아줘"(2026-08-03) — 여백 한가운데 굵은 배경색 선 하나 대신, 여백의 위/아래 끝에
    가는 실선을 하나씩 둬서 "선-여백-선" 2줄로 보이게 함(border-image에 그라디언트를 넣어
-   8px 안에서 위 12.5%/아래 12.5% 구간만 선 색, 가운데는 투명). */
-.scroll-frame .dtable-head-row th, .scroll-frame .dtable-head-row td{position:sticky; top:0; z-index:20; background:var(--card); border-top:1px solid var(--card-bd); border-bottom:8px solid var(--bg); border-image-source:linear-gradient(to bottom, var(--card-bd) 0 12.5%, transparent 12.5% 87.5%, var(--card-bd) 87.5% 100%); border-image-slice:1; border-image-width:0 0 8px 0;}
+   여백 안에서 위/아래 각 20% 구간만 선 색, 가운데는 투명).
+   2026-08-04: 여백을 8px→5px로 줄이고(간격 요청), 배경을 var(--card, 흰색)에서 진한
+   --head-bg로 바꿔 머리글행이 눈에 띄게 함. */
+.scroll-frame .dtable-head-row th, .scroll-frame .dtable-head-row td{position:sticky; top:0; z-index:20; background:var(--head-bg); border-top:1px solid var(--card-bd); border-bottom:5px solid var(--bg); border-image-source:linear-gradient(to bottom, var(--card-bd) 0 20%, transparent 20% 80%, var(--card-bd) 80% 100%); border-image-slice:1; border-image-width:0 0 5px 0;}
 .scroll-frame .dtable-head-row th:first-child, .scroll-frame .dtable-head-row td:first-child{border-left:1px solid var(--card-bd); border-top-left-radius:8px;}
 .scroll-frame .dtable-head-row th:last-child, .scroll-frame .dtable-head-row td:last-child{border-right:1px solid var(--card-bd); border-top-right-radius:8px;}
+/* 머리글행 안에서도 열(작업분류 등) 사이에 세로 구분선이 보이도록 명시적으로 다시 선언
+   (2026-08-04) — border-image가 border-right 쪽 렌더링에 영향을 주는 경우가 있어 기본
+   .dtable th의 border-right만으론 안 보일 수 있었음. 마지막 열은 오른쪽 테두리(위 규칙)와
+   겹치지 않게 제외. */
+.scroll-frame .dtable-head-row th:not(:last-child), .scroll-frame .dtable-head-row td:not(:last-child){border-right:1px solid var(--card-bd);}
 /* 첫 열은 폭이 auto(레이아웃 이후 계산)라 브라우저가 sticky left 기준점을 안정적으로 못 잡는
    경우가 있었음(2026-08-03) — 최소 폭을 명시해서 고정이 확실히 자리 잡게 함(nowrap이라 내용이
    더 길면 이 값보다 커지기만 하고 잘리진 않음). */
