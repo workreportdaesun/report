@@ -82,9 +82,14 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    경우가 있었음(2026-08-03) — 최소 폭을 명시해서 고정이 확실히 자리 잡게 함(nowrap이라 내용이
    더 길면 이 값보다 커지기만 하고 잘리진 않음). */
 .scroll-frame .dtable tr>*:first-child{position:sticky; left:0; z-index:10; background:var(--card); min-width:110px;}
-/* 첫 행+첫 열이 겹치는 "모서리" 셀은 더 구체적인 이 규칙들이 위에서 지정한 배경/테두리를
-   덮어쓸 수 있어서(2026-08-03) — z-index만 다시 올려서 sticky-left 셀들 위로 확실히 오게 함. */
-.scroll-frame .dtable-head-row>*:first-child{z-index:30;}
+/* 첫 행+첫 열이 겹치는 "모서리" 셀의 z-index:30이 실제로는 적용되지 않고 있었음(2026-08-04
+   발견) — 바로 위 규칙(.dtable tr>*:first-child)의 선택자가 셀렉터 우선순위 계산상 더 높아서
+   이 규칙의 z-index:30을 항상 이겨버렸음(가상클래스 :first-child가 클래스 취급되는데
+   tr 엘리먼트까지 더해져 오히려 이쪽보다 우선순위가 높았음). 셀렉터를 th:first-child/
+   td:first-child 형태로 바꿔서 우선순위를 동점으로 맞추고, 동점이면 이 규칙이 소스상 더
+   뒤에 있어서 이겨 실제로 z-index:30이 적용되게 함 — 모서리 셀이 다른 첫 열 셀에 가려
+   테두리가 안 보이던 문제의 원인. */
+.scroll-frame .dtable-head-row th:first-child, .scroll-frame .dtable-head-row td:first-child{z-index:30;}
 .pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;}
 .pill-ok{background:#EAF7EE; color:var(--ok);}
 .pill-draft{background:#FDF3E3; color:#B9770E;}
