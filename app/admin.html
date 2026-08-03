@@ -54,9 +54,11 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    공정률/체크리스트/물량관리/작업일보 전부 이 .dtable을 공유하므로 여기 한 곳만 고치면
    네 화면 모두 첫 행과 나머지 행 높이가 동일해짐.
    2026-08-06: "모든 행의 높이를 조금씩 줄여줘" 요청으로 38px→32px로(위아래 패딩도
-   7px→5px) 축소 — 검색창(필터바 input/select/버튼)도 같은 비율로 같이 줄임. */
-.dtable th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--lbl); background:var(--field-bg); padding:5px 12px; font-weight:700; border-right:1px solid var(--card-bd); box-sizing:border-box; height:32px;}
-.dtable td{padding:5px 12px; border-top:1px solid var(--card-bd); border-right:1px solid var(--card-bd); color:var(--ink); box-sizing:border-box; height:32px;}
+   7px→5px) 축소 — 검색창(필터바 input/select/버튼)도 같은 비율로 같이 줄임.
+   같은 날 "데이터 입력하는 셀의 높이를 좀더 줄여줘" 요청으로 한 단계 더 축소(32px→28px,
+   패딩 5px→4px) — FACTOR 입력칸(.factor-inp)은 height:100%라 자동으로 같이 줄어듦. */
+.dtable th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--lbl); background:var(--field-bg); padding:4px 12px; font-weight:700; border-right:1px solid var(--card-bd); box-sizing:border-box; height:28px;}
+.dtable td{padding:4px 12px; border-top:1px solid var(--card-bd); border-right:1px solid var(--card-bd); color:var(--ink); box-sizing:border-box; height:28px;}
 .dtable th:last-child, .dtable td:last-child{border-right:none;}
 .dtable td.mono{font-family:var(--font-mono);}
 /* 표마다 반복되는 "틀고정" 패턴(2026-08-03) — 체크리스트/물량관리/공정률(수량·물량) 전부 동일하게
@@ -74,6 +76,15 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .scroll-frame.no-cap{max-height:none; overflow:visible;}
 .scroll-frame.no-cap .dtable-head-row th, .scroll-frame.no-cap .dtable-head-row td{position:static;}
 .scroll-frame.no-cap .dtable tr>*:first-child{position:static; min-width:0;}
+/* "4군데 모서리 처리가 조금씩 달라"(2026-08-06) — 다른 표들은 .scroll-frame이
+   overflow:auto라서 안쪽 표의 각진 모서리가 바깥 틀의 둥근 모서리 안에 자동으로
+   가려지는데, no-cap 표는 overflow:visible이라 그 "가려주는" 효과가 없어져서 위쪽
+   (머리글, 자체 radius 있음)은 둥글고 아래쪽(마지막 행)은 각진 채로 어긋나 보였음.
+   맨 아래 행의 첫/끝 칸에 직접 둥근 모서리를 줘서 위아래 4곳 모두 동일하게 맞춤
+   (로딩 중 등 tfoot이 비어있을 수 있어 tbody 마지막 행에도 같이 걸어둠 — 실제로는
+   둘 중 화면에 진짜로 마지막인 쪽만 보임). */
+.scroll-frame.no-cap tbody tr:last-child td:first-child, .scroll-frame.no-cap tfoot tr:last-child td:first-child{border-bottom-left-radius:8px;}
+.scroll-frame.no-cap tbody tr:last-child td:last-child, .scroll-frame.no-cap tfoot tr:last-child td:last-child{border-bottom-right-radius:8px;}
 /* border-collapse:collapse(.dtable 기본값)는 th/td의 position:sticky를 브라우저가 제대로
    적용하지 못하게 만드는 알려진 문제가 있음(2026-08-03 발견 — 고정이 안 먹혀서 테두리도
    안 보였던 진짜 원인). separate+border-spacing:0으로 바꿔서 고정이 실제로 동작하게 함. */
