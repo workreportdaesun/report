@@ -46,7 +46,9 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 /* 2026-08-06: 패딩을 4px로 줄여서 체크리스트/물량관리/작업일보 필터바의 input/button과 높이가
    같아지게 함 — 네 표 전부 이 줄 높이만큼 아래에서 scroll-frame이 시작하므로, 높이가 다르면
    표 시작 위치·창높이가 표마다 미묘하게 달라져 보였음. */
-.proc-card{background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:4px 14px; display:flex; align-items:center; gap:10px;}
+/* border-radius 10px→6px(2026-08-06) — 체크리스트 "TAG 검색" 입력창과 같은 모서리 둥글기로
+   맞춤(형태 통일 요청). */
+.proc-card{background:var(--card); border:1px solid var(--card-bd); border-radius:6px; padding:4px 14px; display:flex; align-items:center; gap:10px;}
 .proc-card .m{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; margin-bottom:0; line-height:1;}
 /* pct 폰트 18px→14px + line-height:1(2026-08-06) — 체크리스트 "TAG 검색" 입력창(24px)과
    높이를 정확히 맞추려고 줄임(패딩만으로는 큰 폰트의 기본 줄간격 때문에 안 맞았음). */
@@ -161,6 +163,23 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
    (TAG NO.)만 나머지 머리글 칸들의 진한 --head-bg가 아니라 흰색으로 보였음
    ("색이 동일하지 않아" 문의) — z-index와 같은 규칙에 background도 같이 재선언해서 맞춤. */
 .scroll-frame .dtable-head-row th:first-child, .scroll-frame .dtable-head-row td:first-child{z-index:30; background:var(--head-bg);}
+/* 합계(tfoot) 행을 하단에 고정(2026-08-06, 사용자 요청 — "합계행을 고정해서 항상 보이게").
+   헤더의 sticky 패턴과 완전히 동일: .dtable-foot-row 클래스로 선택자 특이도를 첫 열 sticky
+   규칙(.dtable tr>*:first-child, 위 151행)과 동점으로 맞춰야 z-index/background가 실제로
+   적용됨(헤더 쪽에서 이미 한번 겪은 문제, 163행 참고) — 그래서 tfoot 대신 클래스를 씀.
+   corner radius도 헤더와 같은 이유로 명시적으로 다시 줌(부모 overflow:auto 클리핑만으론
+   sticky 고정된 요소의 모서리가 깔끔하게 안 잘렸음). */
+.scroll-frame .dtable-foot-row td{position:sticky; bottom:0; z-index:15; background:var(--field-bg); border-top:1px solid var(--card-bd);}
+.scroll-frame .dtable-foot-row td:first-child{border-bottom-left-radius:8px; z-index:15; background:var(--field-bg);}
+.scroll-frame .dtable-foot-row td:last-child{border-bottom-right-radius:8px;}
+/* .scroll-frame 자체 스크롤바를 얇고 둥글게(2026-08-06, "모서리 위아래가 확실하게 안 됐다") —
+   기본 OS 스크롤바(각진 트랙+화살표 버튼)가 표 오른쪽 끝에 그대로 얹혀서, 스크롤이 생기는
+   순간 위/아래 오른쪽 모서리의 둥근 테두리를 가로질러 각지게 잘라먹었음. 얇은 커스텀 thumb만
+   보이게 하면 모서리 라운드를 가리지 않는다. */
+.scroll-frame::-webkit-scrollbar{width:8px; height:8px;}
+.scroll-frame::-webkit-scrollbar-track{background:transparent;}
+.scroll-frame::-webkit-scrollbar-thumb{background:var(--card-bd); border-radius:6px;}
+.scroll-frame::-webkit-scrollbar-thumb:hover{background:var(--lbl);}
 .pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;}
 .pill-ok{background:#EAF7EE; color:var(--ok);}
 .pill-draft{background:#FDF3E3; color:#B9770E;}
@@ -665,7 +684,7 @@ function renderProcTable(catToday,catBefore,planQty,installQty,rowsId,footId,exc
     var wsum = valid.reduce(function(s,d){ return s+d.factor; },0);
     var adj = wsum>0 ? +(valid.reduce(function(s,d){ return s+d.pct*d.factor; },0)/wsum).toFixed(1) : 0;
     var fc = pctColor(adj);
-    foot.innerHTML = '<tr style="font-weight:800;background:var(--field-bg);">'
+    foot.innerHTML = '<tr class="dtable-foot-row" style="font-weight:800;">'
       +'<td colspan="7">합계</td>'
       +'<td class="mono" style="text-align:center;">'+tfactor+'</td>'
       +'<td style="color:'+fc+';">'+(valid.length?adj+'%':'-')+'</td>'
