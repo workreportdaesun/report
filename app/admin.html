@@ -205,44 +205,22 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 
   <!-- 공정률 -->
   <div class="admin-pane active" id="pane-proc">
-    <!-- Check List 탭(작업수량/작업물량 버튼行→바로 표)과 같은 위치를 맞추려고, 탭 버튼/시공%
-         카드/계획수량 설정 버튼을 전부 한 행에 둔다. 시공% 카드는 수량별/물량별 실적 계산 기준이
-         달라 두 개(procGridQty/procGrid)를 그대로 유지하되 활성 탭인 쪽만 보이도록 토글한다
-         (showProcSub 참고). 계획수량 설정 모달은 수량별/물량별 둘 다 같은 모달(openPlanSettings)을
-         공유하므로 버튼은 하나만 둔다. -->
+    <!-- 2026-08-06: 예전엔 수량공정(기기번호 개수 기반)/물량공정(daily_reports qty 합산) 두 가지를
+         탭으로 나눠서 보여줬는데, 수량공정을 완전히 없애고 물량공정 하나로 통합했다(사용자 요청 —
+         work-progress-daesun의 "작업수량" 탭 연동도 물량 방식을 그대로 복제해 쓰고 있어서 수량공정
+         쪽엔 아무 의존성이 없었음, index.html:402 참고). 물량관리 탭과 같은 위치(필터/카드 한 줄 →
+         표)가 되도록 탭 버튼 행을 없앴다. -->
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-      <button type="button" class="admin-tab active" id="procSubQtyBtn" onclick="showProcSub('qty')">수량공정</button>
-      <button type="button" class="admin-tab" id="procSubVolBtn" onclick="showProcSub('vol')">물량공정</button>
-      <div class="proc-grid" id="procGridQty"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
-      <div class="proc-grid" id="procGrid" style="display:none;"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
+      <div class="proc-grid" id="procGrid"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
       <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="margin-left:auto;flex-shrink:0;border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
     </div>
 
-    <!-- 수량별 공정률: 물량별과 완전히 같은 화면 구조(표). 계획/설치/FACTOR 설정은 물량별과 공유하고,
-         "실적"만 다르게 계산한다 — 기기번호가 있는 항목은 입력된 날짜 하나당 수량(qty) 대신 1로 계산
-         (며칠에 걸쳐 입력됐으면 그 날짜 수만큼), 기기번호가 없는 항목은 등장할 때마다 1로 계산.
-         물량별(qty 실측값 합산)과 계산 기준만 다르고 나머지 로직(최초 입력일 구간 반영 등)은
-         loadDashboardData의 동일한 집계 함수를 그대로 재사용. -->
-    <div id="procSubQty">
-      <div class="scroll-frame">
-      <table class="dtable">
-        <tr class="dtable-head-row"><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
-        <tbody id="procTableRowsQty"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
-        <tfoot id="procTableFootQty"></tfoot>
-      </table>
-      </div>
-    </div>
-
-    <!-- 물량별 공정률: daily_reports 수량(qty, Check List "작업물량"과 같은 개념)을 계획수량과
-         비교해 공정률을 계산한다(기존 공정률 탭 내용 그대로). -->
-    <div id="procSubVol" style="display:none;">
-      <div class="scroll-frame">
+    <div class="scroll-frame">
       <table class="dtable">
         <tr class="dtable-head-row"><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
         <tbody id="procTableRows"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
         <tfoot id="procTableFoot"></tfoot>
       </table>
-      </div>
     </div>
   </div>
 
@@ -326,12 +304,11 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
   </div>
 
   <!-- Check List: TAG NO.×작업분류 그리드. progress_checklist(daily_reports에서 자동 집계됨, report/app/index.html의
-       syncProgressChecklist 참고)를 읽기 전용으로 조회만 함 -->
+       syncProgressChecklist 참고)를 읽기 전용으로 조회만 함. 2026-08-06: 작업수량(완료일자 표시)/
+       작업물량(수량 표시) 두 탭이 있었는데 작업물량을 없애고 작업수량으로 통합(사용자 요청) —
+       데이터(progress_checklist)는 두 필드 다 그대로 쌓이므로 화면 표시만 단순화한 것. 물량관리
+       탭과 같은 위치(필터바 한 줄 → 표)가 되도록 탭 버튼 행을 없앴다. -->
   <div class="admin-pane" id="pane-cl">
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button type="button" class="admin-tab active" id="clSubQtyBtn" onclick="showClSub('qty')">작업수량</button>
-      <button type="button" class="admin-tab" id="clSubVolBtn" onclick="showClSub('vol')">작업물량</button>
-    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
       <input type="text" id="clTagFilter" oninput="renderChecklist()" placeholder="TAG 검색" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
       <button type="button" onclick="resetClFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">초기화</button>
@@ -472,10 +449,6 @@ async function upsertAppSettingsResilient(payload){
    있었음, 여기서 같이 고침(2026-08-01). */
 var dashCatToday={}, dashCatBefore={}, dashCatMenu={}, dashPlanQty={}, dashInstallQty={}, dashFactor={};
 var dashCatTodaySikong={}, dashCatBeforeSikong={};
-/* 수량별 공정률(같은 계획/설치/FACTOR 설정을 공유하되 "실적"만 카운트 기준으로 계산) — 물량별과
-   같은 방식으로 재렌더 시점(FACTOR 수정, 계획수량 저장)에 참조하려고 별도 보관. */
-var dashCatTodayQty={}, dashCatBeforeQty={}, dashCatMenuQty={};
-var dashCatTodaySikongQty={}, dashCatBeforeSikongQty={};
 /* 공정률 % 색상 구간 — work-progress-daesun(PC 공정관리 앱)과 동일한 기준(100/70/40) */
 function pctColor(p){ return p>=100?'var(--ok)':p>=70?'var(--brand-2)':p>=40?'#B9770E':'#E74C3C'; }
 /* 공정률 %의 실적 기준 — report/app/index.html의 actualQty()와 동일한 규칙(엑셀로 올라온
@@ -582,36 +555,6 @@ function aggregateProcVol(rows, today){
   });
   return {catToday:catToday, catBefore:catBefore, catMenu:catMenu, catTodaySikong:catTodaySikong, catBeforeSikong:catBeforeSikong};
 }
-/* 수량별: 상태가 "완료"인 기기번호만 대상으로, 기기번호별 최초 완료일 하나에 1개씩만 카운트한다
-   (같은 기기가 여러 날 완료로 재입력돼도 최초 완료일로만 잡힘). 기기번호가 없는 항목은 개별
-   완료를 셀 수 없으므로 집계 대상에서 제외한다. */
-function aggregateProcCount(rows, today){
-  var catToday={}, catBefore={}, catMenu={};
-  var catTodaySikong={}, catBeforeSikong={};
-  var byKey = {};
-  rows.forEach(function(row){
-    (row.items||[]).forEach(function(it){
-      if(!it || !it.cat || !it.tag || it.status!=='완료') return;
-      var key = (it.menu||'')+'|'+it.cat+'|'+it.tag;
-      if(!byKey[key] || row.date<byKey[key].firstDate){
-        byKey[key] = {menu:it.menu, cat:it.cat, firstDate:row.date};
-      }
-    });
-  });
-  Object.keys(byKey).forEach(function(key){
-    var g = byKey[key];
-    var isToday = g.firstDate===today, isBefore = g.firstDate<today;
-    if(!isToday && !isBefore) return;
-    var target = isToday ? catToday : catBefore;
-    target[g.cat] = (target[g.cat]||0) + 1;
-    if(g.menu) catMenu[g.cat]=g.menu;
-    if(g.menu==='시공'){
-      var targetSikong = isToday ? catTodaySikong : catBeforeSikong;
-      targetSikong[g.cat] = (targetSikong[g.cat]||0) + 1;
-    }
-  });
-  return {catToday:catToday, catBefore:catBefore, catMenu:catMenu, catTodaySikong:catTodaySikong, catBeforeSikong:catBeforeSikong};
-}
 async function loadDashboardData(){
   if(!sbClient) return;
   try{
@@ -626,7 +569,6 @@ async function loadDashboardData(){
     var today = todayStr();
 
     var vol = aggregateProcVol(rows, today);
-    var cnt = aggregateProcCount(rows, today);
 
     var todayCrewByTeam={}, todayNamesByTeam={};
     rows.forEach(function(row){
@@ -641,13 +583,9 @@ async function loadDashboardData(){
 
     dashCatToday=vol.catToday; dashCatBefore=vol.catBefore; dashCatMenu=vol.catMenu; dashPlanQty=planQty; dashInstallQty=installQty;
     dashCatTodaySikong=vol.catTodaySikong; dashCatBeforeSikong=vol.catBeforeSikong;
-    dashCatTodayQty=cnt.catToday; dashCatBeforeQty=cnt.catBefore; dashCatMenuQty=cnt.catMenu;
-    dashCatTodaySikongQty=cnt.catTodaySikong; dashCatBeforeSikongQty=cnt.catBeforeSikong;
 
     renderProcGrid(vol.catToday,vol.catBefore,vol.catMenu,planQty,installQty,'procGrid');
     renderProcTable(vol.catTodaySikong,vol.catBeforeSikong,planQty,installQty,'procTableRows','procTableFoot');
-    renderProcGrid(cnt.catToday,cnt.catBefore,cnt.catMenu,planQty,installQty,'procGridQty');
-    renderProcTable(cnt.catTodaySikong,cnt.catBeforeSikong,planQty,installQty,'procTableRowsQty','procTableFootQty',NO_TAG_CATS);
     renderOutGrid(todayCrewByTeam,registeredTeams);
     renderOutTable(todayCrewByTeam,todayNamesByTeam);
   }catch(e){ console.error('대시보드 데이터 불러오기 실패', e); }
@@ -666,11 +604,6 @@ function renderProcGrid(catToday,catBefore,catMenu,planQty,installQty,gridId){
     return '<div class="proc-card"><div class="m" style="color:'+m.color+';">'+m.key+'</div><div class="pct">'+pct+'%</div><div class="proc-bar"><div style="width:'+pct+'%;background:'+m.color+';"></div></div></div>';
   }).join('');
 }
-/* Cable Duct/Cable Tray/Support/Scaffolding/Others는 개별 기기번호를 입력하지 않는 분류라
-   "수량공정"(기기번호 기준 완료 개수 집계, aggregateProcCount)에는 애초에 값이 안 잡힌다 —
-   그런데도 작업분류 목록엔 있으니 0/"-"인 채로 행만 차지해서 표를 어수선하게 만들었음.
-   수량공정 표에서는 이 분류들을 행 자체에서 뺀다(2026-08-03) — 물량공정 표에는 그대로 나옴. */
-var NO_TAG_CATS = ['Cable Duct','Cable Tray','Support','Scaffolding','Others'];
 /* 여기(표/카드)는 항상 보여주기 전용 — 계획/설치수량 수정은 아래 "⚙️ 계획수량 설정" 모달에서만 가능 */
 function getCatList(excludeCats){
   var cats={}, list=[];
@@ -734,9 +667,7 @@ async function updateFactor(inp){
   var cat = inp.getAttribute('data-cat');
   var v = parseFloat(inp.value);
   dashFactor[cat] = isNaN(v) ? 1 : v;
-  // FACTOR는 물량별/수량별이 공유하는 설정이라 둘 다 다시 그린다
   renderProcTable(dashCatTodaySikong, dashCatBeforeSikong, dashPlanQty, dashInstallQty, 'procTableRows', 'procTableFoot');
-  renderProcTable(dashCatTodaySikongQty, dashCatBeforeSikongQty, dashPlanQty, dashInstallQty, 'procTableRowsQty', 'procTableFootQty', NO_TAG_CATS);
   if(!sbClient) return;
   await upsertAppSettingsResilient({id:'global', cat_factor:dashFactor, updated_at:new Date().toISOString()});
 }
@@ -830,11 +761,8 @@ async function savePlanSettings(){
     var v = Number(inp.value)||0;
     if(v<=0) delete dashInstallQty[cat]; else dashInstallQty[cat]=v;
   });
-  // 계획/설치수량은 물량별/수량별이 공유하는 설정이라 둘 다 다시 그린다
   renderProcGrid(dashCatToday,dashCatBefore,dashCatMenu,dashPlanQty,dashInstallQty,'procGrid');
   renderProcTable(dashCatTodaySikong,dashCatBeforeSikong,dashPlanQty,dashInstallQty,'procTableRows','procTableFoot');
-  renderProcGrid(dashCatTodayQty,dashCatBeforeQty,dashCatMenuQty,dashPlanQty,dashInstallQty,'procGridQty');
-  renderProcTable(dashCatTodaySikongQty,dashCatBeforeSikongQty,dashPlanQty,dashInstallQty,'procTableRowsQty','procTableFootQty',NO_TAG_CATS);
   closePlanSettings();
   if(!sbClient) return;
   await upsertAppSettingsResilient({id:'global', plan_qty:dashPlanQty, install_qty:dashInstallQty, updated_at:new Date().toISOString()});
@@ -1097,8 +1025,10 @@ document.getElementById('membersList').addEventListener('click', async function(
 });
 
 /* ── Check List: TAG NO.×작업분류 그리드, 읽기 전용 — progress_checklist를 그대로 보여줌.
-   가로축(작업분류)은 별도 동기화 없이 실제 존재하는 cat 값에서 뽑아서 항상 일보와 일치함. */
-var clSub='qty', clRows=[];
+   가로축(작업분류)은 별도 동기화 없이 실제 존재하는 cat 값에서 뽑아서 항상 일보와 일치함.
+   셀 값은 완료일자(complete_date)만 표시(2026-08-06, 예전엔 수량(qty_total) 표시로 전환하는
+   "작업물량" 탭도 있었는데 통합하며 제거). */
+var clRows=[];
 async function loadChecklist(){
   var wrap=document.getElementById('clTable');
   if(!sbClient){ wrap.innerHTML='<tr><td style="text-align:center;color:var(--lbl);padding:20px;">연결 실패</td></tr>'; return; }
@@ -1134,7 +1064,7 @@ function renderChecklist(){
   var body=tags.map(function(t){
     var cells=cats.map(function(c){
       var r=byTagCat[t+'|'+c];
-      var val = r ? (clSub==='qty' ? (r.complete_date||'') : (r.qty_total||'')) : '';
+      var val = r ? (r.complete_date||'') : '';
       return '<td>'+(val ? '<span class="pill pill-ok">'+val+'</span>' : '<span style="color:var(--card-bd);">-</span>')+'</td>';
     }).join('');
     return '<tr><td class="mono">'+t+'</td>'+cells+'</tr>';
@@ -1145,23 +1075,6 @@ function renderChecklist(){
 function resetClFilters(){
   document.getElementById('clTagFilter').value='';
   renderChecklist();
-}
-function showClSub(sub){
-  clSub=sub;
-  document.getElementById('clSubQtyBtn').classList.toggle('active',sub==='qty');
-  document.getElementById('clSubVolBtn').classList.toggle('active',sub==='vol');
-  renderChecklist();
-  fitScrollFrames();
-}
-
-function showProcSub(sub){
-  document.getElementById('procSubQtyBtn').classList.toggle('active',sub==='qty');
-  document.getElementById('procSubVolBtn').classList.toggle('active',sub==='vol');
-  document.getElementById('procSubQty').style.display=sub==='qty'?'':'none';
-  document.getElementById('procSubVol').style.display=sub==='vol'?'':'none';
-  document.getElementById('procGridQty').style.display=sub==='qty'?'':'none';
-  document.getElementById('procGrid').style.display=sub==='vol'?'':'none';
-  fitScrollFrames();
 }
 
 /* ── 물량관리: work_log(report/app/index.html의 syncWorkLog가 daily_reports에서 매번
