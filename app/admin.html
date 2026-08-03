@@ -224,7 +224,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
          물량별(qty 실측값 합산)과 계산 기준만 다르고 나머지 로직(최초 입력일 구간 반영 등)은
          loadDashboardData의 동일한 집계 함수를 그대로 재사용. -->
     <div id="procSubQty">
-      <div class="scroll-frame no-cap">
+      <div class="scroll-frame">
       <table class="dtable">
         <tr class="dtable-head-row"><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
         <tbody id="procTableRowsQty"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
@@ -236,7 +236,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <!-- 물량별 공정률: daily_reports 수량(qty, Check List "작업물량"과 같은 개념)을 계획수량과
          비교해 공정률을 계산한다(기존 공정률 탭 내용 그대로). -->
     <div id="procSubVol" style="display:none;">
-      <div class="scroll-frame no-cap">
+      <div class="scroll-frame">
       <table class="dtable">
         <tr class="dtable-head-row"><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
         <tbody id="procTableRows"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
