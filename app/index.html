@@ -1300,21 +1300,49 @@ function draftId(){
   var team = localStorage.getItem('member_team') || '미지정';
   return team+'_'+todayStr();
 }
+/* 예전엔 행 전체를 읽어서(select *) 합친 뒤 통째로 다시 upsert했다. 그런데 TBM 사진
+   저장(handleTbmPhoto)처럼 시간이 좀 걸리는 저장과, 항목 저장(previewReport 등)처럼
+   빠른 저장이 거의 동시에 일어나면 경쟁 상태가 생겼다 — 나중에 시작했지만 먼저 select를
+   마친 쪽이 상대방의 변경 전 상태를 읽어서 그대로 덮어써버려, 방금 저장한 TBM 사진이
+   items 저장에 밀려 이전 값으로 되돌아가는 문제가 있었다(2026-08-04, "2회 사진촬영하고
+   일보작성 후 미리보기하면 1회 때 사진으로 보임"으로 보고됨). 이제 patch에 담긴 필드만
+   update()로 갱신한다 — 다른 필드는 건드리지 않으므로 서로 다른 필드를 patch하는
+   호출끼리 더 이상 서로를 덮어쓰지 않는다. 오늘 이 팀의 첫 저장(행이 아직 없음)일
+   때만 기본값과 함께 새로 insert한다. */
 async function upsertDailyReport(patch){
   if(!sbClient) return null;
   try{
     var id = draftId();
-    var res = await sbClient.from('daily_reports').select('*').eq('id',id).single();
-    var row = res.data || {id:id, team:localStorage.getItem('member_team')||'', date:todayStr(), status:'draft', items:[], crew:[]};
-    Object.assign(row, patch);
-    row.updated_at = new Date().toISOString();
-    var up = await sbClient.from('daily_reports').upsert(row);
-    if(up.error){
-      console.error('daily_reports 동기화 실패', up.error.message);
-      showToast('⚠️ 일보 저장 실패: '+up.error.message, 'var(--err)');
+    var patchWithTime = Object.assign({updated_at:new Date().toISOString()}, patch);
+    var upd = await sbClient.from('daily_reports').update(patchWithTime).eq('id',id).select('id');
+    if(upd.error){
+      console.error('daily_reports 동기화 실패', upd.error.message);
+      showToast('⚠️ 일보 저장 실패: '+upd.error.message, 'var(--err)');
       return null;
     }
-    localStorage.setItem('draft_'+id, JSON.stringify(row));
+    if(upd.data && upd.data.length) return Object.assign({id:id}, patchWithTime);
+
+    var row = Object.assign({
+      id:id, team:localStorage.getItem('member_team')||'', date:todayStr(),
+      status:'draft', items:[], crew:[]
+    }, patchWithTime);
+    var ins = await sbClient.from('daily_reports').insert(row);
+    if(ins.error && ins.error.code==='23505'){
+      // 오늘 첫 저장을 두 곳에서 거의 동시에 시도해 이미 다른 쪽이 먼저 insert했을 때
+      // (예: TBM 사진과 항목을 거의 동시에 처음 저장) — update로 재시도한다.
+      var retry = await sbClient.from('daily_reports').update(patchWithTime).eq('id',id);
+      if(retry.error){
+        console.error('daily_reports 동기화 실패', retry.error.message);
+        showToast('⚠️ 일보 저장 실패: '+retry.error.message, 'var(--err)');
+        return null;
+      }
+      return Object.assign({id:id}, patchWithTime);
+    }
+    if(ins.error){
+      console.error('daily_reports 동기화 실패', ins.error.message);
+      showToast('⚠️ 일보 저장 실패: '+ins.error.message, 'var(--err)');
+      return null;
+    }
     return row;
   }catch(e){
     console.error('daily_reports 동기화 실패', e);
