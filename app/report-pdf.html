@@ -312,6 +312,9 @@ async function doSubmitReport(){
   var up = await sbClient.from('daily_reports').update({items:curItems, status:'submitted', submitted_at:new Date().toISOString()}).eq('id', id);
   if(up.error){ showToast('❌ 전송 실패: '+up.error.message, 'var(--brand-2)'); return; }
   try{ sessionStorage.removeItem('wr_pending_entry'); }catch(e){} // 전송 완료됐으니 입력화면 복원용 임시상태는 정리
+  // index.html이 돌아왔을 때 TBM 사진 미리보기·사진 자동 불러오기를 "화면만" 초기화하도록
+  // 표시(DB는 그대로 — 관리자·PDF 기록 보존). index.html이 한 번 읽으면 즉시 지운다.
+  try{ localStorage.setItem('wr_reset_screen_'+todayStr(), '1'); }catch(e){}
   showToast('✅ 전송 완료 — 관리자·팀원 전체 일보 목록에 표시됩니다', 'var(--brand-2)');
   document.getElementById('submitBtn').style.display='none';
   var pill=document.createElement('span');
