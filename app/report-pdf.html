@@ -64,14 +64,22 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 .doc-photosec-head{background:var(--brand-2); color:#fff; font-size:12px; font-weight:800; padding:7px 12px; border-radius:4px 4px 0 0;}
 .doc-photosec-head span{font-weight:600; opacity:.85; font-family:var(--font-mono); float:right;}
 
-/* 1페이지에는 사진을 넣지 않고, 다음 페이지부터 4장씩(2x2) 이어붙인다. work-log "사진4장" 비율(0.813:1). */
+/* 1페이지에는 사진을 넣지 않고, 다음 페이지부터 work-log(사진대지생성기)의 "사진2장" 서식과
+   동일한 형식으로 2장씩(상/하) 이어붙인다 — 사진마다 기기번호/작업구역/작업내용/날짜 캡션 2행
+   (excel_builder.py FIELD_CELLS/build_template.py add_caption_rows와 동일한 4개 항목·순서).
+   비율 1.626은 사진4장(반폭, 0.813:1)의 2배 폭 버전. TBM 사진은 사진 목록의 첫 장으로
+   들어가되, 이 2장 규격에서 한 장만 채우고 나머지 한 칸은 비워둔다(2026-08-04, 사용자 요청). */
 .doc-photonote{border:1px solid #DCE3EC; border-top:none; padding:14px; font-size:12px; color:var(--lbl); text-align:center; margin-bottom:16px;}
 
-.doc-photogrid4{display:grid; grid-template-columns:repeat(2,1fr); gap:2px; background:#DCE3EC; border:1px solid #DCE3EC; border-top:none;}
-.doc-photo4{background:#fff;}
-.doc-photo4 img{width:100%; aspect-ratio:0.813; object-fit:contain; background:#F7FAFC; display:block;}
-.doc-photo4 .cap{font-size:10px; padding:6px 7px; color:#3C4A5C; line-height:1.45; text-align:center;}
-.doc-photo4 .cap b{display:block; color:#1A2332; font-size:10.5px; margin-bottom:1px;}
+.doc-photo2{border:1px solid #DCE3EC; border-top:none; background:#fff;}
+.doc-photo2 .ph{width:100%; aspect-ratio:1.626; object-fit:contain; background:#F7FAFC; display:block;}
+.doc-photo2 .ph-empty{width:100%; aspect-ratio:1.626; background:#F7FAFC;}
+.doc-cap2{display:grid; grid-template-columns:1fr 1fr; border-top:1px solid #DCE3EC;}
+.doc-cap2 div{padding:6px 10px; border-right:1px solid #DCE3EC; border-top:1px solid #DCE3EC; font-size:11px;}
+.doc-cap2 div:nth-child(1),.doc-cap2 div:nth-child(2){border-top:none;}
+.doc-cap2 div:nth-child(2n){border-right:none;}
+.doc-cap2 .lbl{color:#8494A6; font-size:9.5px; font-weight:700; margin-right:5px;}
+.doc-cap2 .val{color:#1A2332; font-weight:700;}
 
 .doc-note{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:18px;}
 .doc-note th{background:#F2F5F9; border:1px solid #C8D2DE; padding:8px 10px; width:104px; text-align:left; font-weight:700; color:#3C4A5C; vertical-align:top;}
@@ -122,11 +130,6 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
   </table>
   <div class="doc-roster-note">✓ 표시는 앱 GPS 출력체크 완료자입니다. 회원가입 시 선택한 소속팀·팀장 정보가 자동으로 연결되어, 출력체크 때 팀을 다시 고를 필요가 없습니다.</div>
 
-  <div id="docTbmSec" style="display:none;margin:8px 0;">
-    <div class="doc-photosec-head">TBM(안전 조회) 사진</div>
-    <img id="docTbmImg" src="" alt="TBM 사진" style="max-width:220px;border-radius:8px;border:1px solid var(--card-bd, #ccc);display:block;margin-top:6px;">
-  </div>
-
   <table class="doc-body">
     <thead>
       <tr><th style="width:26px;">No</th><th style="width:60px;">공종</th><th>작업내용</th><th style="width:44px;">단위</th><th style="width:44px;">수량</th><th style="width:50px;">진행상황</th><th style="width:44px;">사진</th><th>기타자재</th></tr>
@@ -150,7 +153,7 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 </div>
 </div>
 </div>
-<div class="pdf-page-hint">📄 사진은 1페이지에는 표시되지 않고, 다음 페이지부터 4장씩 이어서 표시됩니다.</div>
+<div class="pdf-page-hint">📄 사진은 1페이지에는 표시되지 않고, 다음 페이지부터 TBM 사진을 시작으로 2장씩 이어서 표시됩니다.</div>
 
 <div class="pdf-actions" id="pdfActions">
   <button class="ghost" id="backBtn" onclick="history.length>1?history.back():location.href='index.html';">← 입력화면으로</button>
@@ -187,26 +190,37 @@ function myDraftId(){
 
 var viewingOtherReport = false; // ?id=로 남의(또는 이미 제출된) 일보를 조회 전용으로 보는 중인지
 
-/* 모든 사진을 1페이지 다음부터 4장씩(2x2) 별도 페이지로 이어붙인다. work-log(사진대지생성기)의 사진4장 레이아웃과 동일한 비율 사용. */
-function buildContinuationPages(photos){
+/* 1페이지 다음부터 work-log(사진대지생성기) "사진2장" 서식과 동일하게 2장씩(상/하) 별도
+   페이지로 이어붙인다 — 사진마다 기기번호/작업구역/작업내용/날짜 캡션 2행(excel_builder.py
+   FIELD_CELLS와 동일한 항목·순서). TBM 사진이 있으면 항상 맨 첫 페이지에 단독으로 넣고
+   (2장 규격이지만 한 장만 채움, 나머지 칸은 비움), 이후 페이지부터 나머지 사진을 2장씩 채운다. */
+function photoSlotHtml(p){
+  if(!p) return '<div class="doc-photo2"><div class="ph-empty"></div><div class="doc-cap2"><div></div><div></div><div></div><div></div></div></div>';
+  return '<div class="doc-photo2"><img class="ph" src="'+p.url+'">'
+    + '<div class="doc-cap2">'
+      + '<div><span class="lbl">기기번호</span><span class="val">'+(p.tag||'-')+'</span></div>'
+      + '<div><span class="lbl">작업구역</span><span class="val">'+(p.loc||'-')+'</span></div>'
+      + '<div><span class="lbl">작업내용</span><span class="val">'+(p.cat||'-')+'</span></div>'
+      + '<div><span class="lbl">날짜</span><span class="val">'+(p.date||'-')+'</span></div>'
+    + '</div></div>';
+}
+function buildContinuationPages(photos, tbmPhoto){
   var root = document.getElementById('pdfPagesRoot');
   root.querySelectorAll('.pdf-page-continuation').forEach(function(el){ el.remove(); });
-  var perPage = 4;
-  for(var i=0; i<photos.length; i+=perPage){
-    var chunk = photos.slice(i, i+perPage);
+  var pages = [];
+  if(tbmPhoto) pages.push([tbmPhoto, null]);
+  var perPage = 2;
+  for(var i=0; i<photos.length; i+=perPage) pages.push(photos.slice(i, i+perPage));
+  pages.forEach(function(chunk, idx){
     var pageEl = document.createElement('div');
     pageEl.className = 'pdf-page pdf-page-continuation';
     pageEl.innerHTML =
       '<div class="pdf-sheet">'
-      + '<div class="doc-photosec-head">사진 첨부 (계속) <span>' + (Math.floor(i/perPage)+2) + '페이지</span></div>'
-      + '<div class="doc-photogrid4">'
-        + chunk.map(function(p){
-            return '<div class="doc-photo4"><img src="'+p.url+'"><div class="cap"><b>'+p.tag+'</b>'+p.cat+'</div></div>';
-          }).join('')
-      + '</div>'
+      + '<div class="doc-photosec-head">사진 첨부 (계속) <span>' + (idx+2) + '페이지</span></div>'
+      + chunk.map(photoSlotHtml).join('')
       + '</div>';
     root.appendChild(pageEl);
-  }
+  });
 }
 
 async function renderReport(row){
@@ -223,10 +237,9 @@ async function renderReport(row){
       + '</td></tr>'
     : '<tr><td colspan="3" style="text-align:center;color:var(--lbl);">출력체크 기록 없음</td></tr>';
 
-  if(row.tbm_photo){
-    document.getElementById('docTbmImg').src = row.tbm_photo;
-    document.getElementById('docTbmSec').style.display = '';
-  }
+  // TBM 사진은 더 이상 별도 섹션이 아니라 "사진 첨부"의 첫 장으로 들어간다(2026-08-04, 사용자
+  // 요청) — buildContinuationPages에서 항상 첫 페이지에 단독으로(2장 규격에서 한 장만) 배치.
+  var tbmPhoto = row.tbm_photo ? { url:row.tbm_photo, tag:'', loc:'', cat:'TBM(안전 조회)', date:row.date||'' } : null;
 
   var items = Array.isArray(row.items) ? row.items : [];
 
@@ -268,16 +281,17 @@ async function renderReport(row){
       var pid = p.id!=null ? p.id : p.photo_url;
       if(seenPhotoIds[pid]) return;
       seenPhotoIds[pid] = true;
-      allPhotos.push({ url:p.photo_url, tag:it.tag||'-', cat:it.cat||'' });
+      allPhotos.push({ url:p.photo_url, tag:it.tag||'-', loc:it.loc||p.loc||'', cat:it.cat||'', date:p.date||row.date||'' });
     });
   });
-  document.getElementById('docPhotoCount').textContent = allPhotos.length + '건 · 갤러리 연동';
+  var totalPhotoCount = allPhotos.length + (tbmPhoto?1:0);
+  document.getElementById('docPhotoCount').textContent = totalPhotoCount + '건 · 갤러리 연동';
 
-  document.getElementById('docPhotoNote').textContent = allPhotos.length
-    ? '총 ' + allPhotos.length + '장 — 다음 페이지부터 확인'
+  document.getElementById('docPhotoNote').textContent = totalPhotoCount
+    ? '총 ' + totalPhotoCount + '장 — 다음 페이지부터 확인'
     : '첨부된 사진 없음';
 
-  buildContinuationPages(allPhotos);
+  buildContinuationPages(allPhotos, tbmPhoto);
 
   document.getElementById('docNextDayCell').textContent = row.next_day_plan || '-';
   document.getElementById('docNoteCell').textContent = row.special_notes || '특이사항 없음';
