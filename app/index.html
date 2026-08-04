@@ -1388,13 +1388,15 @@ window.refreshCheckinDistance=refreshCheckinDistance;
 function tbmSafeKey(s){
   return String(s).replace(/[^\x00-\x7F]/g,'').replace(/_+/g,'_').replace(/_+(?=\.)/g,'').replace(/^_+/,'');
 }
-async function loadTbmStatus(){
-  if(wrScreenReset){ renderTbmPreview(null); return; } // 방금 전송 직후 — DB엔 있어도 화면은 초기화 상태 유지
-  if(!sbClient) return;
-  try{
-    var res = await sbClient.from('daily_reports').select('tbm_photo').eq('id',draftId()).single();
-    renderTbmPreview(res.data && res.data.tbm_photo);
-  }catch(e){ renderTbmPreview(null); }
+// TBM 미리보기는 DB에서 자동으로 불러오지 않는다 — "방금 전송 직후 1회만" 초기화되던
+// wrScreenReset 방식은 전송 없이 시간이 지나 다시 열면 DB의 예전 사진을 그대로 다시
+// 보여줘서, 작업자가 이미 지난 사진을 오늘 것으로 착각하는 문제가 반복됐다(2026-08-04).
+// 이제 이 화면을 여는(페이지 로드/카드 전환) 시점엔 항상 "아직 촬영하지 않았습니다"로
+// 시작하고, 이번 세션에서 실제로 찍어 저장한 사진만(tbmPhotoUrl) 보여준다. DB의
+// daily_reports.tbm_photo 값 자체는 그대로 남아있어 관리자·PDF에서는 정상적으로 보인다.
+var tbmPhotoUrl = null;
+function loadTbmStatus(){
+  renderTbmPreview(tbmPhotoUrl);
 }
 function renderTbmPreview(url){
   var el = document.getElementById('tbmPreview');
@@ -1449,6 +1451,7 @@ async function handleTbmPhoto(input){
     if(row){
       wrScreenReset=false;
       try{ localStorage.removeItem('wr_reset_screen_'+todayStr()); }catch(e){}
+      tbmPhotoUrl = url;
       renderTbmPreview(url); showToast('✅ TBM 사진 저장 완료', 'var(--ok)');
     }
   }catch(e){ showToast('TBM 사진 업로드 실패: '+(e.message||e), 'var(--err)'); }
