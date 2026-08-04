@@ -1446,7 +1446,11 @@ async function handleTbmPhoto(input){
     if(uploadRes.error){ showToast('TBM 사진 업로드 실패: '+uploadRes.error.message, 'var(--err)'); return; }
     var url = sbClient.storage.from('work-gallery').getPublicUrl(filePath).data.publicUrl;
     var row = await upsertDailyReport({tbm_photo:url});
-    if(row){ wrScreenReset=false; renderTbmPreview(url); showToast('✅ TBM 사진 저장 완료', 'var(--ok)'); }
+    if(row){
+      wrScreenReset=false;
+      try{ localStorage.removeItem('wr_reset_screen_'+todayStr()); }catch(e){}
+      renderTbmPreview(url); showToast('✅ TBM 사진 저장 완료', 'var(--ok)');
+    }
   }catch(e){ showToast('TBM 사진 업로드 실패: '+(e.message||e), 'var(--err)'); }
   finally{ input.value=''; }
 }
@@ -1624,14 +1628,20 @@ async function refreshPhotoLinkage(manual){
 
 function renderItemList(){
   var wrap=document.getElementById('itemList');
-  document.getElementById('itemCount').textContent=items.length;
-  if(!items.length){ wrap.innerHTML='<div class="empty-msg">아직 입력한 항목이 없습니다</div>'; return; }
-  wrap.innerHTML=items.map(function(it, idx){
+  // "오늘 입력한 항목"은 아직 전송 전인 draft만 화면에 보여준다 — 이미 제출된 항목은
+  // 전송이 끝난 순간 화면에서는 빠지는 게 자연스럽다(2026-08-04, "전송 완료되면 초기화
+  // 되어야 하는데 계속 남아있다"로 보고됨). 단, items[] 자체(제출된 항목 포함)는 그대로
+  // 둔다 — 같은 기기번호 중복 저장 방지(saveEntryRows)가 여전히 이 데이터로 판단하기 때문.
+  var visible = items.map(function(it,i){return {it:it,idx:i};}).filter(function(x){ return !x.it.submitted; });
+  document.getElementById('itemCount').textContent=visible.length;
+  if(!visible.length){ wrap.innerHTML='<div class="empty-msg">아직 입력한 항목이 없습니다</div>'; return; }
+  wrap.innerHTML=visible.map(function(x){
+    var it=x.it, idx=x.idx;
     return '<div class="item-card">'
       +'<div class="item-bar" style="background:'+MENU_COLOR[it.menu]+';"></div>'
       +'<div class="item-thumb">'+(it.photo?'🖼️':'—')+'</div>'
-      +'<div class="item-body"><div class="item-title">'+it.cat+' · '+it.tag+(it.autoImported?' <span style="font-size:11px;font-weight:800;color:var(--brand-2);background:var(--field-bg);padding:1px 5px;border-radius:8px;">📷 자동입력</span>':'')+(it.submitted?' <span style="font-size:11px;font-weight:800;color:var(--ok);background:var(--field-bg);padding:1px 5px;border-radius:8px;">✅ 제출됨</span>':'')+'</div><div class="item-sub">'+it.menu+(it.spec?' · '+it.spec:'')+' · '+it.qty+' '+UNIT_LABEL[it.unit]+' · '+(it.status||'-')+'</div></div>'
-      +(it.submitted ? '<span class="item-edit" aria-label="제출완료" style="opacity:.5;">🔒</span>' : '<button type="button" class="item-edit" onclick="editItem('+idx+')" aria-label="수정">✏️</button>')
+      +'<div class="item-body"><div class="item-title">'+it.cat+' · '+it.tag+(it.autoImported?' <span style="font-size:11px;font-weight:800;color:var(--brand-2);background:var(--field-bg);padding:1px 5px;border-radius:8px;">📷 자동입력</span>':'')+'</div><div class="item-sub">'+it.menu+(it.spec?' · '+it.spec:'')+' · '+it.qty+' '+UNIT_LABEL[it.unit]+' · '+(it.status||'-')+'</div></div>'
+      +'<button type="button" class="item-edit" onclick="editItem('+idx+')" aria-label="수정">✏️</button>'
       +'</div>';
   }).join('');
 }
@@ -1746,13 +1756,15 @@ async function loadReportHistory(){
 /* 일보 전송 직후 이 화면으로 돌아오면(report-pdf.html의 doSubmitReport가 localStorage에
    남겨둠) TBM 사진 미리보기·사진 자동 불러오기를 "화면만" 초기화한다(2026-08-04, 사용자 요청)
    — DB의 tbm_photo/daily_reports는 그대로 두고(관리자·PDF는 그대로 보임), 이 기기 화면만
-   "아직 안 찍음"으로 보이게 해서 다음 작업 전에 다시 찍도록 유도. 한 번 읽으면 즉시 지워서
-   같은 날 다시 새로고침해도 계속 초기화 상태로 남지 않게 한다. */
+   "아직 안 찍음"으로 보이게 해서 다음 작업 전에 다시 찍도록 유도.
+   플래그는 여기서 바로 지우지 않고 새 TBM 사진을 실제로 저장할 때(tbmUpload 성공 시)
+   지운다 — 리로드 시점에 바로 지워버리면 전송 직후 딱 한 번만 초기화되고, 그 뒤 앱을
+   다시 열 때마다(같은 날이어도) DB의 예전 사진이 계속 다시 보이는 문제가 있었다
+   (2026-08-04, "제출된 사진이 화면에 계속 남아있다"로 재보고됨). */
 var wrScreenReset = false;
 (function(){
   try{
-    var k = 'wr_reset_screen_'+todayStr();
-    if(localStorage.getItem(k)){ wrScreenReset = true; localStorage.removeItem(k); }
+    if(localStorage.getItem('wr_reset_screen_'+todayStr())) wrScreenReset = true;
   }catch(e){}
 })();
 
