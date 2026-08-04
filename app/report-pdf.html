@@ -66,11 +66,11 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 
 /* 1페이지에는 사진을 넣지 않고, 다음 페이지부터 work-log(사진대지생성기)와 동일한 두 서식을
    섞어 쓴다 — TBM 사진은 항상 첫 페이지에 "사진2장" 서식(상/하 2칸, 한 장만 채우고 나머지
-   칸은 비움)으로 단독 배치하고, 그 다음 페이지부터 작업사진은 "사진4장" 서식(2x2, 4장씩)으로
-   이어붙인다(2026-08-04, 사용자 요청). 캡션은 두 서식 모두 기기번호/작업구역/작업내용/날짜
-   2행으로 동일(excel_builder.py FIELD_CELLS/build_template.py add_caption_rows와 같은 4개
-   항목·순서) — 사진4장은 박스가 좁아 캡션 글자만 더 작게 줄인다. 비율 1.626(사진2장, 전체폭)/
-   0.813(사진4장, 반폭)은 두 서식의 실제 박스 가로세로 비율. */
+   칸은 비움)으로 단독 배치하고 기기번호/작업구역/작업내용/날짜 캡션 2행을 붙인다
+   (excel_builder.py FIELD_CELLS/build_template.py add_caption_rows와 같은 4개 항목·순서).
+   그 다음 페이지부터 작업사진은 "사진4장" 서식(2x2, 4장씩)으로 이어붙이는데, 박스가 좁아
+   캡션을 넣으면 너무 작아 안 보여서 캡션 없이 사진만 보여준다(2026-08-04, 사용자 요청).
+   비율 1.626(사진2장, 전체폭)/0.813(사진4장, 반폭)은 두 서식의 실제 박스 가로세로 비율. */
 .doc-photonote{border:1px solid #DCE3EC; border-top:none; padding:14px; font-size:12px; color:var(--lbl); text-align:center; margin-bottom:16px;}
 
 .doc-photo2{border:1px solid #DCE3EC; border-top:none; background:#fff;}
@@ -88,8 +88,6 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 .doc-cap2 div:nth-child(2n){border-right:none;}
 .doc-cap2 .lbl{color:#8494A6; font-size:9.5px; font-weight:700; margin-right:5px;}
 .doc-cap2 .val{color:#1A2332; font-weight:700;}
-.doc-photo4 .doc-cap2 div{padding:4px 5px; font-size:9px;}
-.doc-photo4 .doc-cap2 .lbl{font-size:7.5px; margin-right:2px;}
 
 .doc-note{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:18px;}
 .doc-note th{background:#F2F5F9; border:1px solid #C8D2DE; padding:8px 10px; width:104px; text-align:left; font-weight:700; color:#3C4A5C; vertical-align:top;}
@@ -213,8 +211,15 @@ function captionHtml(p){
     + '<div><span class="lbl">날짜</span><span class="val">'+(p.date||'-')+'</span></div>'
     + '</div>';
 }
+/* 작업사진(사진4장, layout='4')은 박스가 좁아 캡션(기기번호/작업구역/작업내용/날짜)을
+   넣으면 글자가 너무 작아져 읽기 어려웠다 — 사진만 보여주고 캡션은 생략한다(2026-08-04,
+   사용자 요청). TBM 사진(사진2장, layout='2')은 캡션을 그대로 유지. */
 function photoSlotHtml(p, layout){
   var boxClass = layout==='4' ? 'doc-photo4' : 'doc-photo2';
+  if(layout==='4'){
+    if(!p) return '<div class="'+boxClass+'"><div class="ph-empty"></div></div>';
+    return '<div class="'+boxClass+'"><img class="ph" src="'+p.url+'"></div>';
+  }
   if(!p) return '<div class="'+boxClass+'"><div class="ph-empty"></div><div class="doc-cap2"><div></div><div></div><div></div><div></div></div></div>';
   return '<div class="'+boxClass+'"><img class="ph" src="'+p.url+'">' + captionHtml(p) + '</div>';
 }
