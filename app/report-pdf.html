@@ -45,10 +45,10 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 .doc-rostersec-head span{font-weight:600; opacity:.85; font-family:var(--font-mono); float:right;}
 .doc-roster{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:4px;}
 .doc-roster th{background:#3C5A7C; color:#fff; padding:6px 8px; font-size:10.5px; font-weight:700; text-align:center; border:1px solid #DCE3EC;}
-.doc-roster td{border:1px solid #DCE3EC; padding:6px 8px; color:#1A2332; vertical-align:top;}
-.doc-roster td.team{font-weight:700; background:#F7FAFC;}
-.doc-roster td.cnt{text-align:center; font-family:var(--font-mono);}
-.doc-roster td.names{text-align:left; line-height:1.75;}
+.doc-roster td{border:1px solid #DCE3EC; padding:7px 8px; color:#1A2332; vertical-align:middle; height:26px;}
+.doc-roster td.role{text-align:center; color:var(--lbl);}
+.doc-roster td.name{text-align:left; font-weight:700;}
+.doc-roster td.sign{text-align:center;}
 .doc-roster .me{font-weight:800; color:var(--brand-2);}
 .doc-roster-note{font-size:10px; color:var(--lbl); margin:6px 0 16px;}
 
@@ -126,15 +126,15 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
   </div>
 
   <table class="doc-info">
-    <tr><th>공사명</th><td colspan="3">S-OIL SHAHEEN Project 계장공사 3공구(PKG-1)</td></tr>
+    <tr><th>공사명</th><td>S-OIL SHAHEEN Project 계장공사 3공구(PKG-1)</td><th>작업구역</th><td id="docArea">-</td></tr>
     <tr><th>작성일자</th><td id="docDate">-</td><th>날씨</th><td>맑음 · 32℃ <span style="font-size:9.5px;color:var(--lbl);">(임시값 — 날씨 데이터 미연동)</span></td></tr>
     <tr><th>작성자</th><td id="docWriter">-</td><th>총 출력인원</th><td id="docCrewCount">-</td></tr>
   </table>
 
   <div class="doc-rostersec-head">출력 인원 명단 <span id="docRosterCount">-</span></div>
   <table class="doc-roster">
-    <thead><tr><th style="width:98px;">팀명</th><th style="width:38px;">인원</th><th>성명</th></tr></thead>
-    <tbody id="docRosterBody"><tr><td colspan="3" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+    <thead><tr><th style="width:56px;">직무</th><th>성명</th><th style="width:70px;">서명</th><th style="width:56px;">직무</th><th>성명</th><th style="width:70px;">서명</th></tr></thead>
+    <tbody id="docRosterBody"><tr><td colspan="6" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
   </table>
   <div class="doc-roster-note">✓ 표시는 앱 GPS 출력체크 완료자입니다. 회원가입 시 선택한 소속팀·팀장 정보가 자동으로 연결되어, 출력체크 때 팀을 다시 고를 필요가 없습니다.</div>
 
@@ -249,21 +249,37 @@ async function renderReport(row){
   document.getElementById('docDate').textContent = row.date || '-';
   document.getElementById('docWriter').textContent = (localStorage.getItem('member_name')||'-') + ' (' + (row.team||'-') + ')';
 
+  // 공사명 옆 작업구역 — 보고서 자체엔 단일 작업구역 필드가 없어(작업구역은 항목별 값),
+  // 오늘 입력된 항목들의 작업구역을 중복 없이 모아서 보여준다(admin.html 물량관리 탭의
+  // areasStr과 동일한 방식, 2026-08-04 사용자 요청).
+  var reportItems = Array.isArray(row.items) ? row.items : [];
+  var areaList = reportItems.map(function(it){ return it.loc; }).filter(function(v,i,a){ return v && a.indexOf(v)===i; });
+  document.getElementById('docArea').textContent = areaList.length ? areaList.join(', ') : '-';
+
   var crew = Array.isArray(row.crew) ? row.crew : [];
   document.getElementById('docCrewCount').textContent = crew.length + '명';
   document.getElementById('docRosterCount').textContent = crew.length + '명 · ' + (row.team||'-');
   var myName = localStorage.getItem('member_name')||'';
-  document.getElementById('docRosterBody').innerHTML = crew.length
-    ? '<tr><td class="team">'+(row.team||'-')+'</td><td class="cnt">'+crew.length+'명</td><td class="names">'
-      + crew.map(function(c){ return c.name===myName ? '<span class="me">'+c.name+'✓</span>' : c.name; }).join(', ')
-      + '</td></tr>'
-    : '<tr><td colspan="3" style="text-align:center;color:var(--lbl);">출력체크 기록 없음</td></tr>';
+  // 출력 인원 명단 — 직무/성명/서명 열을 2열로 나란히 배치해서(2026-08-04, 사용자 요청) 한
+  // 줄에 2명씩 보이게 한다. 직무·서명은 현장에서 손으로 채우는 칸이라 항상 비워둔다.
+  function personCells(c){
+    if(!c) return '<td class="role"></td><td class="name"></td><td class="sign"></td>';
+    var name = c.member_name===myName ? '<span class="me">'+c.member_name+'✓</span>' : c.member_name;
+    return '<td class="role"></td><td class="name">'+name+'</td><td class="sign"></td>';
+  }
+  if(crew.length){
+    var rows = [];
+    for(var i=0;i<crew.length;i+=2) rows.push(personCells(crew[i]) + personCells(crew[i+1]));
+    document.getElementById('docRosterBody').innerHTML = rows.map(function(r){ return '<tr>'+r+'</tr>'; }).join('');
+  } else {
+    document.getElementById('docRosterBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--lbl);">출력체크 기록 없음</td></tr>';
+  }
 
   // TBM 사진은 더 이상 별도 섹션이 아니라 "사진 첨부"의 첫 장으로 들어간다(2026-08-04, 사용자
   // 요청) — buildContinuationPages에서 항상 첫 페이지에 단독으로(2장 규격에서 한 장만) 배치.
   var tbmPhoto = row.tbm_photo ? { url:row.tbm_photo, tag:'', loc:'', cat:'TBM(안전 조회)', date:row.date||'' } : null;
 
-  var items = Array.isArray(row.items) ? row.items : [];
+  var items = reportItems;
 
   var workPhotos = [];
   if(sbClient && row.date){
