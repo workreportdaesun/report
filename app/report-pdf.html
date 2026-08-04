@@ -205,10 +205,10 @@ var viewingOtherReport = false; // ?id=로 남의(또는 이미 제출된) 일�
    (excel_builder.py FIELD_CELLS와 동일한 항목·순서). */
 function captionHtml(p){
   return '<div class="doc-cap2">'
-    + '<div><span class="lbl">기기번호</span><span class="val">'+(p.tag||'-')+'</span></div>'
-    + '<div><span class="lbl">작업구역</span><span class="val">'+(p.loc||'-')+'</span></div>'
-    + '<div><span class="lbl">작업내용</span><span class="val">'+(p.cat||'-')+'</span></div>'
-    + '<div><span class="lbl">날짜</span><span class="val">'+(p.date||'-')+'</span></div>'
+    + '<div><span class="lbl">기기번호 :</span><span class="val">'+(p.tag||'-')+'</span></div>'
+    + '<div><span class="lbl">작업구역 :</span><span class="val">'+(p.loc||'-')+'</span></div>'
+    + '<div><span class="lbl">작업내용 :</span><span class="val">'+(p.cat||'-')+'</span></div>'
+    + '<div><span class="lbl">날짜 :</span><span class="val">'+(p.date||'-')+'</span></div>'
     + '</div>';
 }
 /* 작업사진(사진4장, layout='4')은 박스가 좁아 캡션(기기번호/작업구역/작업내용/날짜)을
