@@ -155,6 +155,7 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 <div class="pdf-actions" id="pdfActions">
   <button class="ghost" id="backBtn" onclick="history.length>1?history.back():location.href='index.html';">← 입력화면으로</button>
   <button class="primary" id="submitBtn" style="display:none;" onclick="doSubmitReport()">📤 일보 전송</button>
+  <button class="ghost" onclick="window.print()">🖨️ 인쇄</button>
   <button class="primary" onclick="showToast('📄 PDF 다운로드 (목업 — 실제 파일 생성은 다음 단계)','var(--brand-2)');">📄 PDF 다운로드</button>
 </div>
 
