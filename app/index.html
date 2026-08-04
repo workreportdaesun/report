@@ -2864,15 +2864,28 @@ async function loadPersonnelEquipmentData(){
     renderPnList();
   }catch(e){ console.error('인원현황 데이터 불러오기 실패', e); }
 }
-function pnItemHtml(name,unit,isTotal){
+/* 공정률 탭(pg-table)과 같은 표 형식으로 통일(2026-08-05, 사용자 요청) — 계획/공정률 개념이
+   없으므로 구분/전일누계/금일/누계 4열만 쓴다. */
+function pnRowHtml(name,isTotal){
   var today = isTotal ? sumValues(PN_PEOPLE_TODAY) : (PN_PEOPLE_TODAY[name]||0);
   var before = isTotal ? sumValues(PN_PEOPLE_BEFORE) : (PN_PEOPLE_BEFORE[name]||0);
-  return '<div class="pg-item'+(isTotal?' pg-item-total':'')+'"><div class="pg-item-top"><span class="pg-item-name">'+name+'</span><span class="pg-item-unit">'+unit+'</span></div>'
-    +'<div class="pg-item-nums"><span>전일누계 <b>'+before+'</b></span><span>금일 <b>'+today+'</b></span><span>누계 <b>'+(before+today)+'</b></span></div></div>';
+  var total = before+today;
+  return '<tr'+(isTotal?' class="pg-total-row"':'')+'>'
+    +'<td class="lft">'+name+'</td>'
+    +'<td>'+(before||'-')+'</td>'
+    +'<td>'+(today||'-')+'</td>'
+    +'<td'+(isTotal?' class="pg-pct"':'')+'>'+(total||'-')+'</td>'
+    +'</tr>';
 }
 function renderPnList(){
-  var html = pnItemHtml('전체인원','명',true) + customPersonnel.map(function(name){ return pnItemHtml(name,'명',false); }).join('');
-  document.getElementById('pnList').innerHTML='<div class="card" style="padding:0;">'+html+'</div>';
+  document.getElementById('pnList').innerHTML='<div class="card" style="padding:0;">'
+    +'<div class="pg-table-wrap"><table class="pg-table">'
+    +'<thead><tr><th class="lft">구분</th><th>전일누계</th><th>금일</th><th>누계</th></tr></thead>'
+    +'<tbody>'
+    +pnRowHtml('전체인원',true)
+    +customPersonnel.map(function(name){ return pnRowHtml(name,false); }).join('')
+    +'</tbody></table></div>'
+    +'</div>';
 }
 window.renderPnList=renderPnList;
 window.loadPersonnelEquipmentData=loadPersonnelEquipmentData;
