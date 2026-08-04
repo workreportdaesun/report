@@ -1387,8 +1387,15 @@ window.refreshCheckinDistance=refreshCheckinDistance;
    같은 방식(upsertDailyReport)으로 daily_reports 행에 직접 저장한다. 워터마크/비율선택 등
    work-shoot의 정식 촬영 파이프라인은 재사용하지 않고(하루 1장, 부가 정보 불필요) 네이티브
    파일 입력(capture="environment")으로 바로 카메라를 띄우는 가벼운 방식을 씀. Storage
-   업로드 경로는 기존 사진 전송(work-gallery 버킷)과 동일하게 safeStorageKey로 한글을
-   제거해서 Storage 업로드 실패 버그([[work_shoot_storage_key_korean_bug]])를 피한다. */
+   업로드 경로는 기존 사진 전송(work-gallery 버킷)과 동일하게 한글을 제거해서 Storage 업로드
+   실패 버그([[work_shoot_storage_key_korean_bug]])를 피한다.
+   ⚠️ 2026-08-06 버그 수정: 아래쪽 "작업사진" 탭의 safeStorageKey()는 그 탭 전용 IIFE
+   안에 격리돼 있어서(다른 스크립트와 이름 충돌 방지용) 이 스크립트(report 본체)에서는
+   호출할 수 없다(ReferenceError로 저장이 조용히 실패하던 원인 — "전송이 안됨" 문의로 발견,
+   Playwright로 재현·확인함). 같은 로직을 여기 별도 이름(tbmSafeKey)으로 다시 선언해서 씀. */
+function tbmSafeKey(s){
+  return String(s).replace(/[^\x00-\x7F]/g,'').replace(/_+/g,'_').replace(/_+(?=\.)/g,'').replace(/^_+/,'');
+}
 async function loadTbmStatus(){
   if(!sbClient) return;
   try{
@@ -1410,7 +1417,7 @@ async function handleTbmPhoto(input){
   try{
     var team = localStorage.getItem('member_team') || '미지정';
     var ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
-    var filePath = 'tbm/'+todayStr()+'/'+safeStorageKey(team)+'_'+Date.now()+'.'+ext;
+    var filePath = 'tbm/'+todayStr()+'/'+tbmSafeKey(team)+'_'+Date.now()+'.'+ext;
     var uploadRes = await sbClient.storage.from('work-gallery').upload(filePath, file, {contentType:file.type||'image/jpeg', upsert:true});
     if(uploadRes.error){ showToast('TBM 사진 업로드 실패: '+uploadRes.error.message, 'var(--err)'); return; }
     var url = sbClient.storage.from('work-gallery').getPublicUrl(filePath).data.publicUrl;
