@@ -1496,14 +1496,15 @@ async function getTeamMemberNames(){
   return names;
 }
 
-/* workreportdaesun-gallery(사진)에서 (공종,기기번호) 조합이 아직 items[]에 없으면 임시 항목으로
-   자동 추가한다 — 작업자는 수량·특이사항만 확인/수정하면 됨. 같은 공종 안에서
-   기기번호가 중복되면(분류가 다르더라도) 최초 1건만 항목으로 반영한다. 진행상황은
-   해당 공종의 유효 옵션(statusOptionsFor, MENU_CONFIG[menu].statusOptions)과 정확히
-   일치할 때만 매핑하고, 그 외에는 비워둔다. 오늘 찍은 사진 중 우리 팀(getTeamMemberNames)이
+/* workreportdaesun-gallery(사진)에서 지금 열려 있는 작업분류(activeMenu/activeCat)의
+   기기번호만 조회해서 items[]/입력칸에 반영한다 — 예전엔 오늘 팀 전체가 찍은 모든
+   작업분류의 사진을 다 끌어와서, 지금 보고 있는 분류와 무관한 항목까지 자동 추가되거나
+   심지어 화면이 다른 분류로 저절로 전환되는 문제가 있었다(2026-08-04, "작업분류에
+   해당되는 사진만 불러오도록 해줘"로 보고됨). 오늘 찍은 사진 중 우리 팀(getTeamMemberNames)이
    찍은 것만 조회한다(2026-08-02 이전엔 팀 구분 없이 전부 조회해서 다른 팀 사진까지 끌어왔음). */
 async function refreshPhotoLinkage(manual){
   if(!sbClient) return;
+  if(!activeCat){ if(manual) showToast('먼저 작업분류를 선택해주세요', 'var(--err)'); return; }
   try{
     // 하루에 여러 번 전송할 수 있다(같은 팀이 오전엔 시공, 오후엔 품질처럼 작업분류를 나눠서
     // 각각 전송하는 것도 허용, 2026-08-01) — 그래서 "오늘 이미 전송했다"고 이 함수 전체를
@@ -1512,22 +1513,18 @@ async function refreshPhotoLinkage(manual){
     // (공종,분류,기기번호)를 "새 항목"으로 다시 끌어오지 않게 막아준다.
     var teamNames = await getTeamMemberNames();
     if(!teamNames.length) return; // 내 이름조차 알 수 없으면(로그인 이상) 다른 팀과 섞이지 않게 아무것도 안 가져옴
-    var res = await sbClient.from('workreportdaesun-gallery').select('menu,tag,cat,note,work_type').eq('date', todayStr()).in('sender', teamNames);
+    var res = await sbClient.from('workreportdaesun-gallery').select('menu,tag,note,work_type').eq('date', todayStr()).eq('cat', activeCat).in('sender', teamNames);
     if(res.error || !res.data) return;
 
-    var catsWithPhoto = {};
-    // "menu|cat|tag" -> {menu, cat, tag, note, status} (공종+작업분류+기기번호가 모두 같아야
-    // 중복으로 본다 — 같은 기기번호라도 작업분류가 다르면 별개 항목이다. 진행상황은 매칭 키에
-    // 넣지 않는다 — 같은 날 같은 기기번호를 진행과 완료로 동시에 올리는 경우는 없기 때문에
-    // 굳이 구분할 필요가 없다(2026-08-01, 사용자 확인).)
+    // "기기번호" -> {menu, tag, note, status} — 지금 분류(activeCat) 안에서 기기번호가
+    // 중복되면 최초 1건만 반영한다. 진행상황은 해당 공종의 유효 옵션과 정확히 일치할
+    // 때만 매핑하고, 그 외에는 비워둔다.
     var photoByKey = {};
     res.data.forEach(function(r){
-      if(!r.menu || !r.cat) return;
-      catsWithPhoto[r.cat] = true;
-      if(!r.tag) return;
+      if(!r.menu || !r.tag) return;
       var status = statusOptionsFor(r.menu).indexOf(r.work_type)!==-1 ? r.work_type : '';
-      var key = r.menu + '|' + r.cat + '|' + r.tag;
-      if(!photoByKey[key]) photoByKey[key] = {menu:r.menu, cat:r.cat, tag:r.tag, note:r.note||'', status:status};
+      var key = r.menu + '|' + activeCat + '|' + r.tag;
+      if(!photoByKey[key]) photoByKey[key] = {menu:r.menu, tag:r.tag, note:r.note||'', status:status};
     });
 
     // 항목별 photo 표시는 "이 항목의 정확한 (공종,분류,기기번호) 키에 실제로 사진이
@@ -1544,88 +1541,49 @@ async function refreshPhotoLinkage(manual){
       if(it.photo!==has){ it.photo=has; changed=true; if(has) linked++; }
     });
 
-    // "🔄 오늘 작업사진 불러오기"를 직접 눌렀고 지금 입력칸에 아직 저장 안 한 값이 없다면
-    // (= 다른 분류로 넘어가도 잃어버릴 게 없다면), 지금 열린 분류와 다른 분류의 새 사진이
-    // 있을 때 그 분류로 자동 전환해서 기기번호가 곧장 입력칸(표)에 보이게 한다 — 그 분류
-    // 카드를 따로 열어야만 보이던 불편을 줄이기 위함(2026-08-01). 카드 하나만 열 수 있는
-    // 구조라 여러 분류가 동시에 새로 도착하면 그중 하나로만 전환되고, 나머지는 기존처럼
-    // "오늘 입력한 항목"에 자동 저장되며(해당 분류 카드를 열면 표로 이어짐).
-    if(manual){
-      var hasUnsavedTyped = false;
-      document.querySelectorAll('#entryRows .entry-row [data-f="tag"]').forEach(function(inp){
-        if(inp.value.trim()) hasUnsavedTyped = true;
-      });
-      if(!hasUnsavedTyped){
-        var switchTarget = null;
-        Object.keys(photoByKey).some(function(key){
-          if(existingKeys[key]) return false;
-          var p = photoByKey[key];
-          if(p.menu!==activeMenu || p.cat!==activeCat){ switchTarget = p; return true; }
-          return false;
-        });
-        if(switchTarget && catsByMenu[switchTarget.menu] && catsByMenu[switchTarget.menu].indexOf(switchTarget.cat)!==-1){
-          openCardForCat(switchTarget.menu, switchTarget.cat);
-        }
-      }
-    }
-
     // 지금 이 (공종,분류)의 입력 카드가 열려 있으면, 저장된 항목이 아니라 입력칸에
     // 바로 채운다 — 이미 입력칸에 있는 기기번호는 다시 채우지 않도록 먼저 파악해둔다.
-    var cardOpen = document.getElementById('inputCard').style.display !== 'none';
     var filledKeys = {};
-    if(cardOpen){
-      document.getElementById('entryRows').querySelectorAll('.entry-row').forEach(function(row){
-        var t = row.querySelector('[data-f="tag"]').value.trim();
-        if(t) filledKeys[activeMenu+'|'+activeCat+'|'+t] = true;
-      });
-    }
-
-    var added = 0, filled = 0;
-    Object.keys(photoByKey).forEach(function(key){
-      if(existingKeys[key]) return; // 위에서 이미 photo:true로 연동됨 — 새로 추가할 필요 없음
-      var p = photoByKey[key];
-      var status = p.status;
-
-      if(cardOpen && p.menu===activeMenu && p.cat===activeCat){
-        if(filledKeys[key]) return; // 이미 입력칸에 채워져 있음 — 다시 채우거나 저장목록에 넣지 않음
-        var emptyInput = null;
-        document.getElementById('entryRows').querySelectorAll('[data-f="tag"]').forEach(function(inp){
-          if(!emptyInput && !inp.value.trim()) emptyInput = inp;
-        });
-        if(emptyInput){
-          emptyInput.value = p.tag;
-          emptyInput.closest('.entry-row').dataset.photo = '1';
-          if(status) emptyInput.closest('.entry-row').querySelector('[data-f="status"]').value = status;
-        } else {
-          addEntryRow({tag:p.tag, qty:1, status:status, photo:true});
-        }
-        if(p.note && !document.getElementById('noteInput').value.trim()) document.getElementById('noteInput').value = p.note;
-        filledKeys[key] = true;
-        setCamBoxState(true);
-        filled++;
-        return;
-      }
-
-      items.push({menu:p.menu, cat:p.cat, tag:p.tag, qty:1, unit:unitOf(p.cat), status:status, note:p.note, photo:true, autoImported:true});
-      added++;
+    document.getElementById('entryRows').querySelectorAll('.entry-row').forEach(function(row){
+      var t = row.querySelector('[data-f="tag"]').value.trim();
+      if(t) filledKeys[activeMenu+'|'+activeCat+'|'+t] = true;
     });
 
-    if(added || changed){
+    var filled = 0;
+    Object.keys(photoByKey).forEach(function(key){
+      if(existingKeys[key] || filledKeys[key]) return; // 이미 연동됐거나 입력칸에 채워져 있음
+      var p = photoByKey[key];
+      var status = p.status;
+      var emptyInput = null;
+      document.getElementById('entryRows').querySelectorAll('[data-f="tag"]').forEach(function(inp){
+        if(!emptyInput && !inp.value.trim()) emptyInput = inp;
+      });
+      if(emptyInput){
+        emptyInput.value = p.tag;
+        emptyInput.closest('.entry-row').dataset.photo = '1';
+        if(status) emptyInput.closest('.entry-row').querySelector('[data-f="status"]').value = status;
+      } else {
+        addEntryRow({tag:p.tag, qty:1, status:status, photo:true});
+      }
+      if(p.note && !document.getElementById('noteInput').value.trim()) document.getElementById('noteInput').value = p.note;
+      filledKeys[key] = true;
+      setCamBoxState(true);
+      filled++;
+    });
+
+    if(changed){
       renderItemList();
       document.getElementById('sendBtn').disabled = items.length===0;
     }
-    if(added || linked){
-      upsertDailyReport({items:items, status:computeReportStatus(items)});
-      var msg = [];
-      if(added) msg.push('새 항목 '+added+'건 추가');
-      if(linked) msg.push('기존 항목 '+linked+'건에 사진 연동');
-      showToast('📷 '+msg.join(', ')+' — 수량·특이사항을 확인해주세요', 'var(--brand-2)');
-    } else if(filled){
+    if(linked) upsertDailyReport({items:items, status:computeReportStatus(items)});
+    if(filled){
       showToast('📷 촬영된 기기번호가 입력칸에 채워졌습니다 — 수량을 확인하고 저장하세요', 'var(--brand-2)');
+    } else if(linked){
+      showToast('📷 기존 항목 '+linked+'건에 사진 연동 — 수량·특이사항을 확인해주세요', 'var(--brand-2)');
     } else if(manual){
       showToast('✅ 새로 반영할 사진이 없습니다 — 이미 최신 상태입니다', 'var(--ok)');
     }
-    if(activeCat && !filled) setCamBoxState(!!catsWithPhoto[activeCat]);
+    if(!filled) setCamBoxState(res.data.length>0);
   }catch(e){ console.error('사진 연동 확인 실패', e); }
 }
 
