@@ -64,22 +64,32 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 .doc-photosec-head{background:var(--brand-2); color:#fff; font-size:12px; font-weight:800; padding:7px 12px; border-radius:4px 4px 0 0;}
 .doc-photosec-head span{font-weight:600; opacity:.85; font-family:var(--font-mono); float:right;}
 
-/* 1페이지에는 사진을 넣지 않고, 다음 페이지부터 work-log(사진대지생성기)의 "사진2장" 서식과
-   동일한 형식으로 2장씩(상/하) 이어붙인다 — 사진마다 기기번호/작업구역/작업내용/날짜 캡션 2행
-   (excel_builder.py FIELD_CELLS/build_template.py add_caption_rows와 동일한 4개 항목·순서).
-   비율 1.626은 사진4장(반폭, 0.813:1)의 2배 폭 버전. TBM 사진은 사진 목록의 첫 장으로
-   들어가되, 이 2장 규격에서 한 장만 채우고 나머지 한 칸은 비워둔다(2026-08-04, 사용자 요청). */
+/* 1페이지에는 사진을 넣지 않고, 다음 페이지부터 work-log(사진대지생성기)와 동일한 두 서식을
+   섞어 쓴다 — TBM 사진은 항상 첫 페이지에 "사진2장" 서식(상/하 2칸, 한 장만 채우고 나머지
+   칸은 비움)으로 단독 배치하고, 그 다음 페이지부터 작업사진은 "사진4장" 서식(2x2, 4장씩)으로
+   이어붙인다(2026-08-04, 사용자 요청). 캡션은 두 서식 모두 기기번호/작업구역/작업내용/날짜
+   2행으로 동일(excel_builder.py FIELD_CELLS/build_template.py add_caption_rows와 같은 4개
+   항목·순서) — 사진4장은 박스가 좁아 캡션 글자만 더 작게 줄인다. 비율 1.626(사진2장, 전체폭)/
+   0.813(사진4장, 반폭)은 두 서식의 실제 박스 가로세로 비율. */
 .doc-photonote{border:1px solid #DCE3EC; border-top:none; padding:14px; font-size:12px; color:var(--lbl); text-align:center; margin-bottom:16px;}
 
 .doc-photo2{border:1px solid #DCE3EC; border-top:none; background:#fff;}
 .doc-photo2 .ph{width:100%; aspect-ratio:1.626; object-fit:contain; background:#F7FAFC; display:block;}
 .doc-photo2 .ph-empty{width:100%; aspect-ratio:1.626; background:#F7FAFC;}
+
+.doc-photogrid4{display:grid; grid-template-columns:repeat(2,1fr); gap:2px; background:#DCE3EC; border:1px solid #DCE3EC; border-top:none;}
+.doc-photo4{background:#fff;}
+.doc-photo4 .ph{width:100%; aspect-ratio:0.813; object-fit:contain; background:#F7FAFC; display:block;}
+.doc-photo4 .ph-empty{width:100%; aspect-ratio:0.813; background:#F7FAFC;}
+
 .doc-cap2{display:grid; grid-template-columns:1fr 1fr; border-top:1px solid #DCE3EC;}
 .doc-cap2 div{padding:6px 10px; border-right:1px solid #DCE3EC; border-top:1px solid #DCE3EC; font-size:11px;}
 .doc-cap2 div:nth-child(1),.doc-cap2 div:nth-child(2){border-top:none;}
 .doc-cap2 div:nth-child(2n){border-right:none;}
 .doc-cap2 .lbl{color:#8494A6; font-size:9.5px; font-weight:700; margin-right:5px;}
 .doc-cap2 .val{color:#1A2332; font-weight:700;}
+.doc-photo4 .doc-cap2 div{padding:4px 5px; font-size:9px;}
+.doc-photo4 .doc-cap2 .lbl{font-size:7.5px; margin-right:2px;}
 
 .doc-note{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:18px;}
 .doc-note th{background:#F2F5F9; border:1px solid #C8D2DE; padding:8px 10px; width:104px; text-align:left; font-weight:700; color:#3C4A5C; vertical-align:top;}
@@ -153,7 +163,7 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 </div>
 </div>
 </div>
-<div class="pdf-page-hint">📄 사진은 1페이지에는 표시되지 않고, 다음 페이지부터 TBM 사진을 시작으로 2장씩 이어서 표시됩니다.</div>
+<div class="pdf-page-hint">📄 사진은 1페이지에는 표시되지 않고, TBM 사진이 있으면 그 다음 페이지에 단독으로, 이어서 작업사진이 4장씩 표시됩니다.</div>
 
 <div class="pdf-actions" id="pdfActions">
   <button class="ghost" id="backBtn" onclick="history.length>1?history.back():location.href='index.html';">← 입력화면으로</button>
@@ -190,34 +200,41 @@ function myDraftId(){
 
 var viewingOtherReport = false; // ?id=로 남의(또는 이미 제출된) 일보를 조회 전용으로 보는 중인지
 
-/* 1페이지 다음부터 work-log(사진대지생성기) "사진2장" 서식과 동일하게 2장씩(상/하) 별도
-   페이지로 이어붙인다 — 사진마다 기기번호/작업구역/작업내용/날짜 캡션 2행(excel_builder.py
-   FIELD_CELLS와 동일한 항목·순서). TBM 사진이 있으면 항상 맨 첫 페이지에 단독으로 넣고
-   (2장 규격이지만 한 장만 채움, 나머지 칸은 비움), 이후 페이지부터 나머지 사진을 2장씩 채운다. */
-function photoSlotHtml(p){
-  if(!p) return '<div class="doc-photo2"><div class="ph-empty"></div><div class="doc-cap2"><div></div><div></div><div></div><div></div></div></div>';
-  return '<div class="doc-photo2"><img class="ph" src="'+p.url+'">'
-    + '<div class="doc-cap2">'
-      + '<div><span class="lbl">기기번호</span><span class="val">'+(p.tag||'-')+'</span></div>'
-      + '<div><span class="lbl">작업구역</span><span class="val">'+(p.loc||'-')+'</span></div>'
-      + '<div><span class="lbl">작업내용</span><span class="val">'+(p.cat||'-')+'</span></div>'
-      + '<div><span class="lbl">날짜</span><span class="val">'+(p.date||'-')+'</span></div>'
-    + '</div></div>';
+/* 1페이지 다음부터 work-log(사진대지생성기)와 동일한 두 서식을 섞어 이어붙인다 — TBM 사진은
+   항상 맨 첫 페이지에 "사진2장" 서식(상/하 2칸)으로 단독 배치하고(한 장만 채우고 나머지 칸은
+   비움), 그 다음 페이지부터 작업사진은 "사진4장" 서식(2x2)으로 4장씩 채운다(2026-08-04,
+   사용자 요청). 캡션은 두 서식 모두 기기번호/작업구역/작업내용/날짜 2행으로 동일
+   (excel_builder.py FIELD_CELLS와 동일한 항목·순서). */
+function captionHtml(p){
+  return '<div class="doc-cap2">'
+    + '<div><span class="lbl">기기번호</span><span class="val">'+(p.tag||'-')+'</span></div>'
+    + '<div><span class="lbl">작업구역</span><span class="val">'+(p.loc||'-')+'</span></div>'
+    + '<div><span class="lbl">작업내용</span><span class="val">'+(p.cat||'-')+'</span></div>'
+    + '<div><span class="lbl">날짜</span><span class="val">'+(p.date||'-')+'</span></div>'
+    + '</div>';
+}
+function photoSlotHtml(p, layout){
+  var boxClass = layout==='4' ? 'doc-photo4' : 'doc-photo2';
+  if(!p) return '<div class="'+boxClass+'"><div class="ph-empty"></div><div class="doc-cap2"><div></div><div></div><div></div><div></div></div></div>';
+  return '<div class="'+boxClass+'"><img class="ph" src="'+p.url+'">' + captionHtml(p) + '</div>';
 }
 function buildContinuationPages(photos, tbmPhoto){
   var root = document.getElementById('pdfPagesRoot');
   root.querySelectorAll('.pdf-page-continuation').forEach(function(el){ el.remove(); });
   var pages = [];
-  if(tbmPhoto) pages.push([tbmPhoto, null]);
-  var perPage = 2;
-  for(var i=0; i<photos.length; i+=perPage) pages.push(photos.slice(i, i+perPage));
-  pages.forEach(function(chunk, idx){
+  if(tbmPhoto) pages.push({ layout:'2', chunk:[tbmPhoto, null] });
+  var perPage = 4;
+  for(var i=0; i<photos.length; i+=perPage) pages.push({ layout:'4', chunk:photos.slice(i, i+perPage) });
+  pages.forEach(function(pg, idx){
     var pageEl = document.createElement('div');
     pageEl.className = 'pdf-page pdf-page-continuation';
+    var body = pg.layout==='4'
+      ? '<div class="doc-photogrid4">' + pg.chunk.map(function(p){ return photoSlotHtml(p,'4'); }).join('') + '</div>'
+      : pg.chunk.map(function(p){ return photoSlotHtml(p,'2'); }).join('');
     pageEl.innerHTML =
       '<div class="pdf-sheet">'
       + '<div class="doc-photosec-head">사진 첨부 (계속) <span>' + (idx+2) + '페이지</span></div>'
-      + chunk.map(photoSlotHtml).join('')
+      + body
       + '</div>';
     root.appendChild(pageEl);
   });
