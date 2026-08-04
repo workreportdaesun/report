@@ -42,7 +42,6 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 .doc-info td{border:1px solid #C8D2DE; padding:7px 10px; color:#1A2332; font-family:var(--font-mono);}
 
 .doc-rostersec-head{background:var(--brand-1); color:#fff; font-size:12px; font-weight:800; padding:7px 12px; border-radius:4px 4px 0 0;}
-.doc-rostersec-head span{font-weight:600; opacity:.85; font-family:var(--font-mono); float:right;}
 .doc-roster{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:4px;}
 .doc-roster th{background:#3C5A7C; color:#fff; padding:6px 8px; font-size:10.5px; font-weight:700; text-align:center; border:1px solid #DCE3EC;}
 .doc-roster td{border:1px solid #DCE3EC; padding:7px 8px; color:#1A2332; vertical-align:middle; height:26px;}
@@ -126,7 +125,7 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
     <tr><th>작성자</th><td id="docWriter">-</td><th>총 출력인원</th><td id="docCrewCount">-</td></tr>
   </table>
 
-  <div class="doc-rostersec-head">출력 인원 명단 <span id="docRosterCount">-</span></div>
+  <div class="doc-rostersec-head">출력 인원 명단</div>
   <table class="doc-roster">
     <thead><tr><th style="width:56px;">직무</th><th>성명</th><th style="width:70px;">서명</th><th style="width:56px;">직무</th><th>성명</th><th style="width:70px;">서명</th></tr></thead>
     <tbody id="docRosterBody"><tr><td colspan="6" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
@@ -245,7 +244,6 @@ async function renderReport(row){
 
   var crew = Array.isArray(row.crew) ? row.crew : [];
   document.getElementById('docCrewCount').textContent = crew.length + '명';
-  document.getElementById('docRosterCount').textContent = crew.length + '명 · ' + (row.team||'-');
   var myName = localStorage.getItem('member_name')||'';
   // 출력 인원 명단 — 직무/성명/서명 열을 2열로 나란히 배치해서(2026-08-04, 사용자 요청) 한
   // 줄에 2명씩 보이게 한다. 직무·서명은 현장에서 손으로 채우는 칸이라 항상 비워둔다.
