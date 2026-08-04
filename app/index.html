@@ -215,9 +215,6 @@ textarea.f{resize:none; height:44px;}
   <div class="card" id="inputCard" style="display:none;">
     <div class="step-label"><span id="cardTitle"></span></div>
 
-    <div class="flbl">작업구역</div>
-    <select id="reportInLoc" class="f"></select>
-
     <div class="entry-tablewrap">
       <div class="entry-header">
         <span class="ec-tag" id="entryTagTh">기기번호</span>
@@ -1117,7 +1114,7 @@ function openCardForCat(menu, cat){
       var photoRows = rowsData.filter(function(r){ return r.photo; });
       if(photoRows.length){
         var noteVal = document.getElementById('noteInput').value.trim();
-        var locVal = document.getElementById('reportInLoc').value || '';
+        var locVal = document.getElementById('shootInLoc').value || '';
         photoRows.forEach(function(r){
           items.push({menu:activeMenu, cat:activeCat, tag:r.tag, qty:Number(r.qty)||0, unit:unitOf(activeCat), status:r.status||'', spec:r.spec||'', note:noteVal, photo:true, loc:locVal, autoImported:true});
         });
@@ -1225,7 +1222,7 @@ async function saveEntryRows(){
   var rows = document.getElementById('entryRows').querySelectorAll('.entry-row');
   var unit = unitOf(activeCat);
   var note = document.getElementById('noteInput').value.trim();
-  var loc = document.getElementById('reportInLoc').value || '';
+  var loc = document.getElementById('shootInLoc').value || '';
   var saved = 0;
   var dupTags = [];
   rows.forEach(function(row){
@@ -1280,7 +1277,7 @@ function editItem(idx){
     if(!row.querySelector('[data-f="tag"]').value.trim()) row.remove();
   });
   document.getElementById('noteInput').value = it.note || '';
-  if(it.loc) document.getElementById('reportInLoc').value = it.loc;
+  if(it.loc) document.getElementById('shootInLoc').value = it.loc;
   setCamBoxState(!!it.photo || hasPhoto);
   showToast('✏️ 수정 모드 — 값을 고친 뒤 저장하세요', 'var(--brand-2)');
 }
@@ -2076,25 +2073,16 @@ function populateCatSelect(){
   if(activeCat&&opts.indexOf(activeCat)!==-1) el.value=activeCat;
   updCat();
 }
-/* 작업사진(shootInLoc)/일보입력(reportInLoc) 작업구역 select 2개가 서로 다른 화면에
-   따로 있지만 "지금 작업 중인 구역"은 하나여야 하므로(2026-08-04, 사용자 요청) 항상 같은
-   값을 갖도록 동기화한다 — 둘 중 하나가 이미 값을 갖고 있으면(preserve) 그 값을 두 select
-   모두에 적용하고, syncAreaSelect가 이후 변경도 서로 반영한다. */
+/* 작업구역 select는 작업사진 탭(shootInLoc) 하나만 쓴다 — 일보입력 탭에 따로 있던
+   reportInLoc은 "사진 앱(작업사진 탭)에 이미 다 있다"며 중복이라 제거했고(2026-08-04,
+   사용자 요청), 일보입력 쪽 저장 로직(saveEntryRows 등)은 이제 shootInLoc 값을 그대로
+   읽어 쓴다. */
 function populateAreaSelect(preserve){
   var el=document.getElementById("shootInLoc");
-  var el2=document.getElementById("reportInLoc");
-  var prev = preserve ? (el.value || el2.value) : null;
+  var prev = preserve ? el.value : null;
   el.innerHTML=customAreas.map(optionHtml).join('');
-  el2.innerHTML=customAreas.map(optionHtml).join('');
-  if(prev&&customAreas.indexOf(prev)!==-1){ el.value=prev; el2.value=prev; }
+  if(prev&&customAreas.indexOf(prev)!==-1) el.value=prev;
 }
-function syncAreaSelect(sourceEl){
-  var val = sourceEl.value;
-  var other = sourceEl===document.getElementById('shootInLoc') ? document.getElementById('reportInLoc') : document.getElementById('shootInLoc');
-  if(other && other.value!==val) other.value = val;
-}
-document.getElementById('shootInLoc').addEventListener('change', function(){ syncAreaSelect(this); });
-document.getElementById('reportInLoc').addEventListener('change', function(){ syncAreaSelect(this); });
 
 /* 분류/구역 추가·삭제(⚙️)는 이제 헤더 ⚙️작업분류 모달(openCatModal 쪽)에 통합됨 —
    openSettings/closeSettings/addCategory/removeCategory/addArea/removeArea/
