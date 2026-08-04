@@ -32,19 +32,22 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 .doc-topline{display:flex; gap:14px; margin-bottom:16px;}
 .doc-titlebox{flex:1; display:flex; align-items:center; justify-content:center; border:3px solid #1A2332; font-size:25px; font-weight:800; color:#1A2332;}
 .doc-titlebox span{letter-spacing:14px; text-indent:14px;}
+/* 테이블마다 반복되는 패딩 값이 제각각이라(7~8px 세로) 표마다 줄 높이가 미묘하게 달라
+   보였다 — 아래 모든 표의 세로 패딩을 5px로 통일해서 줄 높이를 낮추고 맞췄다(2026-08-04,
+   사용자 요청). 가로 패딩은 표마다 칸 너비가 달라(doc-body는 좁은 칸이 많음) 그대로 둔다. */
 .doc-approval{border-collapse:collapse; font-size:11px; text-align:center; flex-shrink:0;}
 .doc-approval td{border:1px solid #1A2332; width:56px; padding:0; color:var(--lbl);}
-.doc-approval tr:first-child td{background:#F2F5F9; font-weight:700; color:#1A2332; height:22px; font-size:11px;}
-.doc-approval tr:last-child td{height:46px;}
+.doc-approval tr:first-child td{background:#F2F5F9; font-weight:700; color:#1A2332; height:18px; font-size:11px;}
+.doc-approval tr:last-child td{height:34px;}
 
 .doc-info{width:100%; border-collapse:collapse; font-size:12px; margin-bottom:14px; table-layout:fixed;}
-.doc-info th{background:#F2F5F9; border:1px solid #C8D2DE; padding:7px 10px; text-align:left; font-weight:700; color:#3C4A5C; width:96px; font-size:11.5px;}
-.doc-info td{border:1px solid #C8D2DE; padding:7px 10px; color:#1A2332; font-family:var(--font-mono);}
+.doc-info th{background:#F2F5F9; border:1px solid #C8D2DE; padding:5px 10px; text-align:left; font-weight:700; color:#3C4A5C; width:96px; font-size:11.5px;}
+.doc-info td{border:1px solid #C8D2DE; padding:5px 10px; color:#1A2332; font-family:var(--font-mono);}
 
-.doc-rostersec-head{background:var(--brand-1); color:#fff; font-size:12px; font-weight:800; padding:7px 12px; border-radius:4px 4px 0 0;}
+.doc-rostersec-head{background:var(--brand-1); color:#fff; font-size:12px; font-weight:800; padding:5px 12px; border-radius:4px 4px 0 0;}
 .doc-roster{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:4px;}
-.doc-roster th{background:#3C5A7C; color:#fff; padding:6px 8px; font-size:10.5px; font-weight:700; text-align:center; border:1px solid #DCE3EC;}
-.doc-roster td{border:1px solid #DCE3EC; padding:7px 8px; color:#1A2332; vertical-align:middle; height:26px;}
+.doc-roster th{background:#3C5A7C; color:#fff; padding:5px 8px; font-size:10.5px; font-weight:700; text-align:center; border:1px solid #DCE3EC;}
+.doc-roster td{border:1px solid #DCE3EC; padding:5px 8px; color:#1A2332; vertical-align:middle;}
 .doc-roster td.role{text-align:center; color:var(--lbl);}
 .doc-roster td.name{text-align:left; font-weight:700;}
 .doc-roster td.sign{text-align:center;}
@@ -52,15 +55,15 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 .doc-roster-note{font-size:10px; color:var(--lbl); margin:6px 0 16px;}
 
 .doc-body{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:18px;}
-.doc-body th{background:var(--brand-1); color:#fff; padding:8px 5px; font-size:10.5px; font-weight:700; text-align:center;}
-.doc-body td{border:1px solid #DCE3EC; padding:6px 5px; text-align:center; color:#1A2332; font-family:var(--font-mono);}
+.doc-body th{background:var(--brand-1); color:#fff; padding:5px 5px; font-size:10.5px; font-weight:700; text-align:center;}
+.doc-body td{border:1px solid #DCE3EC; padding:5px 5px; text-align:center; color:#1A2332; font-family:var(--font-mono);}
 .doc-body td.al{text-align:left; font-family:var(--font-body);}
 .doc-body td.note{text-align:left; font-family:var(--font-body); color:#6B7D93; font-size:11px;}
 .doc-body tbody tr:nth-child(even){background:#FAFBFD;}
 .doc-tag{display:inline-block; font-size:10px; font-weight:700; color:#fff; padding:2px 7px; border-radius:3px; font-family:var(--font-body);}
 .doc-thumb{width:36px; height:36px; margin:0 auto; border-radius:4px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px;}
 
-.doc-photosec-head{background:var(--brand-2); color:#fff; font-size:12px; font-weight:800; padding:7px 12px; border-radius:4px 4px 0 0;}
+.doc-photosec-head{background:var(--brand-2); color:#fff; font-size:12px; font-weight:800; padding:5px 12px; border-radius:4px 4px 0 0;}
 .doc-photosec-head span{font-weight:600; opacity:.85; font-family:var(--font-mono); float:right;}
 
 /* 1페이지에는 사진을 넣지 않고, 다음 페이지부터 work-log(사진대지생성기)와 동일한 두 서식을
@@ -87,8 +90,8 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 .doc-cap2 .val{color:#1A2332; font-weight:700;}
 
 .doc-note{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:18px;}
-.doc-note th{background:#F2F5F9; border:1px solid #C8D2DE; padding:8px 10px; width:104px; text-align:left; font-weight:700; color:#3C4A5C; vertical-align:top;}
-.doc-note td{border:1px solid #C8D2DE; padding:8px 10px; color:#1A2332; line-height:1.65;}
+.doc-note th{background:#F2F5F9; border:1px solid #C8D2DE; padding:5px 10px; width:104px; text-align:left; font-weight:700; color:#3C4A5C; vertical-align:top;}
+.doc-note td{border:1px solid #C8D2DE; padding:5px 10px; color:#1A2332; line-height:1.65;}
 
 .pdf-actions{max-width:900px; margin:16px auto 0; display:flex; gap:8px; justify-content:flex-end; align-items:center;}
 .pdf-actions button{border:none; border-radius:8px; padding:10px 16px; font-size:13px; font-weight:700; cursor:pointer; font-family:var(--font-body);}
