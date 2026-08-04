@@ -71,8 +71,6 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
    그 다음 페이지부터 작업사진은 "사진4장" 서식(2x2, 4장씩)으로 이어붙이는데, 박스가 좁아
    캡션을 넣으면 너무 작아 안 보여서 캡션 없이 사진만 보여준다(2026-08-04, 사용자 요청).
    비율 1.626(사진2장, 전체폭)/0.813(사진4장, 반폭)은 두 서식의 실제 박스 가로세로 비율. */
-.doc-photonote{border:1px solid #DCE3EC; border-top:none; padding:14px; font-size:12px; color:var(--lbl); text-align:center; margin-bottom:16px;}
-
 .doc-photo2{border:1px solid #DCE3EC; border-top:none; background:#fff;}
 .doc-photo2 .ph{width:100%; aspect-ratio:1.626; object-fit:contain; background:#F7FAFC; display:block;}
 .doc-photo2 .ph-empty{width:100%; aspect-ratio:1.626; background:#F7FAFC;}
@@ -92,9 +90,6 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 .doc-note{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:18px;}
 .doc-note th{background:#F2F5F9; border:1px solid #C8D2DE; padding:8px 10px; width:104px; text-align:left; font-weight:700; color:#3C4A5C; vertical-align:top;}
 .doc-note td{border:1px solid #C8D2DE; padding:8px 10px; color:#1A2332; line-height:1.65;}
-
-.doc-sign{display:flex; justify-content:flex-end; align-items:center; gap:20px; font-size:11.5px; color:#3C4A5C;}
-.doc-sign .stampbox{display:inline-block; width:32px; height:32px; border:1px solid #C8D2DE; border-radius:50%; vertical-align:middle; margin-left:6px;}
 
 .pdf-actions{max-width:900px; margin:16px auto 0; display:flex; gap:8px; justify-content:flex-end; align-items:center;}
 .pdf-actions button{border:none; border-radius:8px; padding:10px 16px; font-size:13px; font-weight:700; cursor:pointer; font-family:var(--font-body);}
@@ -149,14 +144,6 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
     <tr><th>명일 작업내용<br>및 자재요청</th><td id="docNextDayCell">-</td></tr>
     <tr><th>특이사항</th><td id="docNoteCell">-</td></tr>
   </table>
-
-  <div class="doc-photosec-head">사진 첨부 <span id="docPhotoCount">-</span></div>
-  <div class="doc-photonote" id="docPhotoNote"></div>
-
-  <div class="doc-sign">
-    <div>작성자 <span class="stampbox"></span></div>
-    <div>확인자 <span class="stampbox"></span></div>
-  </div>
 
 </div>
 </div>
@@ -322,13 +309,6 @@ async function renderReport(row){
       allPhotos.push({ url:p.photo_url, tag:it.tag||'-', loc:it.loc||p.loc||'', cat:it.cat||'', date:p.date||row.date||'' });
     });
   });
-  var totalPhotoCount = allPhotos.length + (tbmPhoto?1:0);
-  document.getElementById('docPhotoCount').textContent = totalPhotoCount + '건 · 갤러리 연동';
-
-  document.getElementById('docPhotoNote').textContent = totalPhotoCount
-    ? '총 ' + totalPhotoCount + '장 — 다음 페이지부터 확인'
-    : '첨부된 사진 없음';
-
   buildContinuationPages(allPhotos, tbmPhoto);
 
   document.getElementById('docNextDayCell').textContent = row.next_day_plan || '-';
