@@ -232,6 +232,9 @@ textarea.f{resize:none; height:44px;}
   <div class="card" id="inputCard" style="display:none;">
     <div class="step-label"><span id="cardTitle"></span></div>
 
+    <div class="flbl">작업구역</div>
+    <select id="reportInLoc" class="f"></select>
+
     <div class="entry-tablewrap">
       <div class="entry-header">
         <span class="ec-tag" id="entryTagTh">기기번호</span>
@@ -1235,6 +1238,7 @@ async function saveEntryRows(){
   var rows = document.getElementById('entryRows').querySelectorAll('.entry-row');
   var unit = unitOf(activeCat);
   var note = document.getElementById('noteInput').value.trim();
+  var loc = document.getElementById('reportInLoc').value || '';
   var saved = 0;
   var dupTags = [];
   rows.forEach(function(row){
@@ -1251,7 +1255,7 @@ async function saveEntryRows(){
     var status = row.querySelector('[data-f="status"]').value || statusOptionsFor(activeMenu)[0];
     var spec = row.querySelector('[data-f="spec"]').value || '';
     var photo = row.dataset.photo === '1' || hasPhoto;
-    items.push({menu:activeMenu, cat:activeCat, tag:tag, qty:qty, unit:unit, status:status, spec:spec, note:note, photo:photo});
+    items.push({menu:activeMenu, cat:activeCat, tag:tag, qty:qty, unit:unit, status:status, spec:spec, note:note, photo:photo, loc:loc});
     saved++;
   });
   if(dupTags.length) showToast('⚠️ 이미 제출한 기기번호입니다: '+dupTags.join(', '), 'var(--err)');
@@ -1289,6 +1293,7 @@ function editItem(idx){
     if(!row.querySelector('[data-f="tag"]').value.trim()) row.remove();
   });
   document.getElementById('noteInput').value = it.note || '';
+  if(it.loc) document.getElementById('reportInLoc').value = it.loc;
   setCamBoxState(!!it.photo || hasPhoto);
   showToast('✏️ 수정 모드 — 값을 고친 뒤 저장하세요', 'var(--brand-2)');
 }
@@ -2035,6 +2040,10 @@ function populateAreaSelect(preserve){
   var prev=preserve?el.value:null;
   el.innerHTML=customAreas.map(optionHtml).join('');
   if(prev&&customAreas.indexOf(prev)!==-1) el.value=prev;
+  var el2=document.getElementById("reportInLoc");
+  var prev2=preserve?el2.value:null;
+  el2.innerHTML=customAreas.map(optionHtml).join('');
+  if(prev2&&customAreas.indexOf(prev2)!==-1) el2.value=prev2;
 }
 
 /* 분류/구역 추가·삭제(⚙️)는 이제 헤더 ⚙️작업분류 모달(openCatModal 쪽)에 통합됨 —
@@ -2923,7 +2932,7 @@ async function syncWorkLog(){
         if(!it.tag){
           rows.push({
             report_date: row.date, team: row.team||null, menu: it.menu||null, cat: it.cat,
-            tag: null, spec: it.spec||null, qty: Number(it.qty)||0, status: it.status||null, seq: idx
+            tag: null, spec: it.spec||null, qty: Number(it.qty)||0, status: it.status||null, seq: idx, loc: it.loc||null
           });
           return;
         }
@@ -2931,13 +2940,13 @@ async function syncWorkLog(){
         if(!byKey[key]){
           byKey[key] = {
             report_date: row.date, team: row.team||null, menu: it.menu||null, cat: it.cat,
-            tag: it.tag, spec: it.spec||null, qty: 0, status: it.status||null, seq: idx
+            tag: it.tag, spec: it.spec||null, qty: 0, status: it.status||null, seq: idx, loc: it.loc||null
           };
         }
         var g = byKey[key];
         var w = (typeof connectionQtyWeight==='function') ? connectionQtyWeight(it.cat, it.spec) : 1;
         g.qty += (Number(it.qty)||0)*w;
-        g.team = row.team||null; g.spec = it.spec||null; g.status = it.status||null;
+        g.team = row.team||null; g.spec = it.spec||null; g.status = it.status||null; g.loc = it.loc||g.loc;
       });
     });
     Object.keys(byKey).forEach(function(k){ rows.push(byKey[k]); });
