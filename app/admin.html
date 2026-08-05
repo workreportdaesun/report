@@ -375,8 +375,8 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     </div>
     <div class="scroll-frame"><div class="scroll-body">
       <table class="dtable">
-        <tr class="dtable-head-row"><th style="width:110px;">날짜</th><th>공종</th><th>작업분류</th><th>구역</th><th>TAG</th><th>규격</th><th>수량</th><th>상태</th><th>팀</th></tr>
-        <tbody id="wlRows"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+        <tr class="dtable-head-row"><th style="width:110px;">날짜</th><th>공종</th><th>작업분류</th><th>구역</th><th>TAG</th><th>규격</th><th>수량</th><th>상태</th><th style="width:74px;">신규/수정</th><th>팀</th></tr>
+        <tbody id="wlRows"><tr><td colspan="10" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
       </table>
     </div></div>
   </div>
@@ -932,9 +932,9 @@ function openReportDetail(id){
   var crew = Array.isArray(r.crew) ? r.crew : [];
   document.getElementById('rdTitle').textContent = (r.date||'-')+' · '+(r.team||'-')+' 작업일보';
   var itemsHtml = items.length
-    ? '<table class="dtable" style="margin-bottom:14px;"><tr><th>공종</th><th>작업분류</th><th>구역</th><th>기기번호</th><th>규격</th><th>수량</th><th>단위</th><th>진행상황</th><th>비고</th></tr>'
+    ? '<table class="dtable" style="margin-bottom:14px;"><tr><th>공종</th><th>작업분류</th><th>구역</th><th>기기번호</th><th>규격</th><th>수량</th><th>단위</th><th>진행상황</th><th style="width:70px;">신규/수정</th><th>비고</th></tr>'
       + items.map(function(it){
-          return '<tr><td>'+(it.menu||'-')+'</td><td>'+(it.cat||'-')+'</td><td>'+(it.loc||'-')+'</td><td class="mono">'+(it.tag||'-')+'</td><td>'+(it.spec||'-')+'</td><td class="mono">'+(it.qty!=null?it.qty:'-')+'</td><td>'+(it.unit||'-')+'</td><td>'+(it.status||'-')+'</td><td>'+(it.note||'-')+'</td></tr>';
+          return '<tr><td>'+(it.menu||'-')+'</td><td>'+(it.cat||'-')+'</td><td>'+(it.loc||'-')+'</td><td class="mono">'+(it.tag||'-')+'</td><td>'+(it.spec||'-')+'</td><td class="mono">'+(it.qty!=null?it.qty:'-')+'</td><td>'+(it.unit||'-')+'</td><td>'+(it.status||'-')+'</td><td>'+trackHtml(it.status)+'</td><td>'+(it.note||'-')+'</td></tr>';
         }).join('')
       + '</table>'
     : '<div style="color:var(--lbl);font-size:13px;margin-bottom:14px;">입력된 항목이 없습니다.</div>';
@@ -1129,6 +1129,25 @@ function resetClFilters(){
   renderChecklist();
 }
 
+/* ── 신규/수정 트랙 판정 — index.html의 LABELS_BY_MENU wtNew/wtMod·workTypeFolderName과 같은
+   기준(2026-08-06). admin.html은 index.html과 별도 페이지라 그 함수를 그대로 가져올 수 없어서
+   여기 status 값 목록으로 다시 판정한다: 공종마다 상태값 어휘가 다르지만(시공=진행/완료,
+   품질=신규, 자재=도급/사급, 안전=현장안전점검/안전용품, 화기/유도=화기감시자/유도원, 변경전/변경후는
+   시공·품질 공통) 신규 트랙·수정 트랙 값끼리 서로 겹치지 않아 공종 구분 없이 값만으로 판정 가능하다.
+   물량관리(work_log)·일보 상세 조회 모두 이 함수를 공유한다. */
+var TRACK_NEW=['진행','완료','신규','도급','현장안전점검','화기감시자'];
+var TRACK_MOD=['변경전','변경후','사급','안전용품','유도원'];
+function trackOf(status){
+  if(TRACK_NEW.indexOf(status)!==-1) return '신규';
+  if(TRACK_MOD.indexOf(status)!==-1) return '수정';
+  return '-';
+}
+function trackHtml(status){
+  var t=trackOf(status);
+  if(t==='-') return '<span style="color:var(--card-bd);">-</span>';
+  return '<span style="color:'+(t==='신규'?'#2E5F9E':'#E67E22')+';font-weight:700;">'+t+'</span>';
+}
+
 /* ── 물량관리: work_log(report/app/index.html의 syncWorkLog가 daily_reports에서 매번
    재계산해서 채우는 정규화 로그)를 공종/작업분류/TAG/날짜로 검색·조회. 필터 select 옵션은
    불러온 데이터 안의 실제 값으로 채워서 항상 실제 일보 내용과 일치한다. */
@@ -1136,10 +1155,10 @@ var wlLoaded=false, wlRows=[];
 async function loadWorkLog(){
   if(wlLoaded) return;
   var wrap=document.getElementById('wlRows');
-  if(!sbClient){ wrap.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--lbl);">연결 실패</td></tr>'; return; }
+  if(!sbClient){ wrap.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--lbl);">연결 실패</td></tr>'; return; }
   try{
     var res = await sbClient.from('work_log').select('*').order('report_date',{ascending:false});
-    if(res.error||!res.data){ wrap.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오기 실패(work_log 테이블이 아직 없을 수 있음)</td></tr>'; return; }
+    if(res.error||!res.data){ wrap.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--lbl);">불러오기 실패(work_log 테이블이 아직 없을 수 있음)</td></tr>'; return; }
     wlRows = res.data;
     wlLoaded = true;
     var menus={}, cats={}, areas={};
@@ -1149,7 +1168,7 @@ async function loadWorkLog(){
     Object.keys(cats).sort().forEach(function(c){ catSel.insertAdjacentHTML('beforeend','<option value="'+c+'">'+c+'</option>'); });
     Object.keys(areas).sort().forEach(function(a){ areaSel.insertAdjacentHTML('beforeend','<option value="'+a+'">'+a+'</option>'); });
     renderWorkLog();
-  }catch(e){ wrap.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; }
+  }catch(e){ wrap.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; }
 }
 function resetWlFilters(){
   document.getElementById('wlMenuFilter').value='';
@@ -1162,7 +1181,7 @@ function resetWlFilters(){
 }
 function renderWorkLog(){
   var wrap=document.getElementById('wlRows');
-  if(!wlRows.length){ wrap.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--lbl);">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; document.getElementById('wlSummary').textContent=''; return; }
+  if(!wlRows.length){ wrap.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--lbl);">아직 데이터가 없습니다(일보에 입력하면 자동으로 채워집니다)</td></tr>'; document.getElementById('wlSummary').textContent=''; return; }
   var menu=document.getElementById('wlMenuFilter').value;
   var cat=document.getElementById('wlCatFilter').value;
   var area=document.getElementById('wlAreaFilter').value;
@@ -1179,14 +1198,14 @@ function renderWorkLog(){
     return true;
   });
   if(!filtered.length){
-    wrap.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--lbl);">조건에 맞는 항목이 없습니다</td></tr>';
+    wrap.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--lbl);">조건에 맞는 항목이 없습니다</td></tr>';
     document.getElementById('wlSummary').textContent='';
     return;
   }
   var qtySum=0;
   wrap.innerHTML = filtered.map(function(r){
     qtySum += Number(r.qty)||0;
-    return '<tr><td class="mono">'+r.report_date+'</td><td>'+(r.menu||'-')+'</td><td>'+(r.cat||'-')+'</td><td>'+(r.loc||'-')+'</td><td class="mono">'+(r.tag||'-')+'</td><td>'+(r.spec||'-')+'</td><td class="mono">'+r.qty+'</td><td>'+(r.status||'-')+'</td><td>'+(r.team||'-')+'</td></tr>';
+    return '<tr><td class="mono">'+r.report_date+'</td><td>'+(r.menu||'-')+'</td><td>'+(r.cat||'-')+'</td><td>'+(r.loc||'-')+'</td><td class="mono">'+(r.tag||'-')+'</td><td>'+(r.spec||'-')+'</td><td class="mono">'+r.qty+'</td><td>'+(r.status||'-')+'</td><td>'+trackHtml(r.status)+'</td><td>'+(r.team||'-')+'</td></tr>';
   }).join('');
   document.getElementById('wlSummary').textContent = filtered.length+'건 · 수량 합계 '+qtySum;
 }
