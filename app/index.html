@@ -1335,7 +1335,7 @@ async function upsertDailyReport(patch){
     if(upd.data && upd.data.length) return Object.assign({id:id}, patchWithTime);
 
     var row = Object.assign({
-      id:id, team:localStorage.getItem('member_team')||'', date:todayStr(),
+      id:id, team:localStorage.getItem('member_team')||'미지정', date:todayStr(),
       status:'draft', items:[], crew:[]
     }, patchWithTime);
     var ins = await sbClient.from('daily_reports').insert(row);
@@ -1809,8 +1809,12 @@ async function loadReportHistory(){
   if(!sbClient){ wrap.innerHTML='<div class="empty-msg">연결 실패</div>'; return; }
   wrap.innerHTML='<div class="empty-msg">불러오는 중...</div>';
   var team = localStorage.getItem('member_team') || '미지정';
+  // upsertDailyReport가 예전엔 소속팀이 없을 때 team 컬럼을 ''(빈 문자열)로 저장했다가
+  // 지금은 '미지정'으로 통일했다(2026-08-06) — 이미 team=''로 저장된 예전 일보도 계속
+  // 조회되도록, 소속팀이 없는 사용자는 '미지정'과 ''를 둘 다 검색한다.
+  var teamMatches = team==='미지정' ? [team,''] : [team];
   try{
-    var res = await sbClient.from('daily_reports').select('id,date,status,items').eq('team',team).order('date',{ascending:false}).limit(60);
+    var res = await sbClient.from('daily_reports').select('id,date,status,items').in('team',teamMatches).order('date',{ascending:false}).limit(60);
     if(res.error || !res.data){ wrap.innerHTML='<div class="empty-msg">불러오기 실패</div>'; return; }
     if(!res.data.length){ wrap.innerHTML='<div class="empty-msg">아직 저장된 일보가 없습니다</div>'; return; }
     wrap.innerHTML = res.data.map(function(r){
