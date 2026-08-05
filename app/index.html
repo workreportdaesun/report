@@ -2842,15 +2842,29 @@ syncWorkLog();
      ══════════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
-var PN_PEOPLE_TODAY={}, PN_PEOPLE_BEFORE={};
+var PN_PEOPLE_TODAY={}, PN_PEOPLE_BEFORE={}; // 팀 단위 실제 출력인원(전체인원 합계용, 중복 없음)
+var PN_CAT_TODAY={}, PN_CAT_BEFORE={}; // 작업분류 단위 인원(그 분류를 입력한 팀의 인원을 합산 — 한 팀이 여러 분류를 입력하면 중복 반영됨)
 function sumValues(obj){ return Object.keys(obj).reduce(function(s,k){ return s+obj[k]; },0); }
+/* 공정률 탭과 같은 작업분류 목록(catsByMenu['시공'])을 행으로 쓴다(2026-08-05, 사용자 요청).
+   출력체크(crew)는 팀+날짜 단위로만 기록되고 사람별로 어느 분류를 했는지는 남지 않으므로,
+   "그 날 그 분류를 입력한 팀"의 인원 전체를 그 분류에 반영한다 — 한 팀이 여러 분류를 입력한
+   날은 그 팀 인원이 각 분류에 중복으로 잡힌다(전체인원 행은 이 중복 없이 팀별 실제 인원 합계). */
+function buildPnCatList(){
+  var seen={}, list=[];
+  (catsByMenu['시공']||[]).forEach(function(cat){
+    if(seen[cat]) return;
+    seen[cat]=true;
+    list.push(cat);
+  });
+  return list;
+}
 async function loadPersonnelEquipmentData(){
   if(!sbClient) return;
   try{
-    var res = await sbClient.from('daily_reports').select('team,date,crew');
+    var res = await sbClient.from('daily_reports').select('team,date,crew,items');
     if(res.error || !res.data) return;
     var today = todayStr();
-    var pT={}, pB={};
+    var pT={}, pB={}, cT={}, cB={};
     res.data.forEach(function(row){
       var isToday = row.date===today, isBefore = row.date<today;
       if(!isToday && !isBefore) return;
@@ -2859,16 +2873,25 @@ async function loadPersonnelEquipmentData(){
         var pTarget = isToday ? pT : pB;
         pTarget[row.team] = (pTarget[row.team]||0) + crew.length;
       }
+      var catsInRow = {};
+      (Array.isArray(row.items)?row.items:[]).forEach(function(it){
+        if(it && it.cat && it.menu==='시공') catsInRow[it.cat]=true;
+      });
+      var cTarget = isToday ? cT : cB;
+      Object.keys(catsInRow).forEach(function(cat){
+        cTarget[cat] = (cTarget[cat]||0) + crew.length;
+      });
     });
     PN_PEOPLE_TODAY=pT; PN_PEOPLE_BEFORE=pB;
+    PN_CAT_TODAY=cT; PN_CAT_BEFORE=cB;
     renderPnList();
   }catch(e){ console.error('인원현황 데이터 불러오기 실패', e); }
 }
 /* 공정률 탭(pg-table)과 같은 표 형식으로 통일(2026-08-05, 사용자 요청) — 계획/공정률 개념이
    없으므로 구분/전일누계/금일/누계 4열만 쓴다. */
 function pnRowHtml(name,isTotal){
-  var today = isTotal ? sumValues(PN_PEOPLE_TODAY) : (PN_PEOPLE_TODAY[name]||0);
-  var before = isTotal ? sumValues(PN_PEOPLE_BEFORE) : (PN_PEOPLE_BEFORE[name]||0);
+  var today = isTotal ? sumValues(PN_PEOPLE_TODAY) : (PN_CAT_TODAY[name]||0);
+  var before = isTotal ? sumValues(PN_PEOPLE_BEFORE) : (PN_CAT_BEFORE[name]||0);
   var total = before+today;
   return '<tr'+(isTotal?' class="pg-total-row"':'')+'>'
     +'<td class="lft">'+name+'</td>'
@@ -2883,7 +2906,7 @@ function renderPnList(){
     +'<thead><tr><th class="lft">구분</th><th>전일누계</th><th>금일</th><th>누계</th></tr></thead>'
     +'<tbody>'
     +pnRowHtml('전체인원',true)
-    +customPersonnel.map(function(name){ return pnRowHtml(name,false); }).join('')
+    +buildPnCatList().map(function(cat){ return pnRowHtml(cat,false); }).join('')
     +'</tbody></table></div>'
     +'</div>';
 }
