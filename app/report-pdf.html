@@ -273,15 +273,23 @@ async function renderReport(row){
   var workPhotos = [];
   if(sbClient && row.date){
     try{
-      var photoRes = await sbClient.from('workreportdaesun-gallery').select('*').eq('date', row.date);
+      var photoRes = await sbClient.from('workreportdaesun-gallery').select('*').eq('date', row.date).order('id');
       if(!photoRes.error && photoRes.data) workPhotos = photoRes.data;
     }catch(e){ /* 조회 실패 시 빈 목록으로 진행 */ }
   }
-  // 공종+작업분류만으로 매칭하면 같은 분류 안의 다른 기기번호 사진까지 전부 걸려서,
-  // 그 분류의 항목 수만큼 같은 사진이 중복 집계되는 문제가 있었다(예: 사진 3장인데
-  // 같은 분류 항목이 4개면 3×4=12장으로 보임). 기기번호(tag)까지 정확히 일치할 때만
-  // 그 항목의 사진으로 인정한다.
+  // 공종+작업분류+기기번호만으로 매칭하면, 같은 기기번호로 오늘 여러 번 찍은 사진(진행
+  // 상태를 며칠에 걸쳐 여러 번 입력·전송할 수 있게 되면서 — 2026-08-05) 전부가 걸려서
+  // "이전에 보낸 사진이 계속 쌓여 보인다"는 문제와, 항목이 여러 개일 때 어느 항목에 어느
+  // 사진이 매칭될지가 조회 순서에 좌우돼 미리보기마다 기기번호가 다르게 보이는 문제가
+  // 있었다(index.html의 사진 자동 불러오기는 이미 사진 id(linkedPhotoId) 기준으로 정확히
+  // 연동하도록 고쳐뒀는데, 여기 PDF 쪽은 그 정보를 안 쓰고 있었음). 이제 항목에
+  // linkedPhotoId가 있으면 그 사진 하나만 정확히 매칭한다. linkedPhotoId가 없는 예전 항목
+  // (이 기능 이전에 저장된 것)만 예전처럼 공종+분류+기기번호로 느슨하게 매칭한다.
+  var photoById = {};
+  workPhotos.forEach(function(p){ photoById[p.id] = p; });
   var itemPhotos = items.map(function(it){
+    if(!it.photo) return [];
+    if(it.linkedPhotoId!=null) return photoById[it.linkedPhotoId] ? [photoById[it.linkedPhotoId]] : [];
     return workPhotos.filter(function(p){ return p.menu===it.menu && p.cat===it.cat && p.tag===it.tag; });
   });
 
