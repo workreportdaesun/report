@@ -3074,5 +3074,46 @@ async function withdrawMember(){
   }
 })();
 </script>
+<script>
+/* work-shoot-daesun과 동일한 서비스워커 자동 업데이트 패턴(2026-08-05, 사용자 요청) — 이
+   프로젝트엔 캐시 갱신 장치가 아예 없어서, 코드를 고쳐 배포해도 브라우저가 예전 페이지를
+   계속 쓰는 문제("사진 자동 불러오기가 새 버전으로 안 바뀜"으로 보고됨)가 있었다. sw.js가
+   app/ 디렉터리 전체(index/admin/report-pdf)를 관리한다. */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').then(function(reg){
+    function promptUpdate(){
+      if(document.getElementById('updateBanner'))return;
+      var b=document.createElement('div');
+      b.id='updateBanner';
+      b.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1A2332;color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;font-weight:700;z-index:99999;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,0.35);white-space:nowrap;';
+      b.innerHTML='새 버전이 있습니다 <button id="updateBtn" style="background:#FEE500;color:#1A2332;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:800;cursor:pointer;">업데이트</button>';
+      document.body.appendChild(b);
+      document.getElementById('updateBtn').onclick=function(){
+        if(reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+      };
+    }
+    // 앱을 "새로 여는" 시점에 이미 새 버전이 대기 중이면, 배너를 누를 필요 없이 바로 최신화한다.
+    // 앱을 이미 켜서 쓰던 도중에 새 버전이 발견되면(아래 updatefound), 작업 방해 없이 배너로만 알린다.
+    if(reg.waiting && navigator.serviceWorker.controller) reg.waiting.postMessage('SKIP_WAITING');
+    reg.addEventListener('updatefound',function(){
+      var nw=reg.installing;
+      if(!nw)return;
+      nw.addEventListener('statechange',function(){
+        if(nw.state==='installed' && navigator.serviceWorker.controller) promptUpdate();
+      });
+    });
+    document.addEventListener('visibilitychange',function(){
+      if(document.visibilityState==='visible') reg.update();
+    });
+    reg.update();
+  });
+  var wrReloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(wrReloading)return;
+    wrReloading=true;
+    location.reload();
+  });
+}
+</script>
 </body>
 </html>

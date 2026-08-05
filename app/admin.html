@@ -1191,5 +1191,42 @@ function renderWorkLog(){
   document.getElementById('wlSummary').textContent = filtered.length+'건 · 수량 합계 '+qtySum;
 }
 </script>
+<script>
+/* index.html과 같은 서비스워커 자동 업데이트 패턴(2026-08-05) — app/ 디렉터리를 공유하는
+   sw.js 하나가 index/admin/report-pdf 전부를 관리한다. */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').then(function(reg){
+    function promptUpdate(){
+      if(document.getElementById('updateBanner'))return;
+      var b=document.createElement('div');
+      b.id='updateBanner';
+      b.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1A2332;color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;font-weight:700;z-index:99999;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,0.35);white-space:nowrap;';
+      b.innerHTML='새 버전이 있습니다 <button id="updateBtn" style="background:#FEE500;color:#1A2332;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:800;cursor:pointer;">업데이트</button>';
+      document.body.appendChild(b);
+      document.getElementById('updateBtn').onclick=function(){
+        if(reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+      };
+    }
+    if(reg.waiting && navigator.serviceWorker.controller) reg.waiting.postMessage('SKIP_WAITING');
+    reg.addEventListener('updatefound',function(){
+      var nw=reg.installing;
+      if(!nw)return;
+      nw.addEventListener('statechange',function(){
+        if(nw.state==='installed' && navigator.serviceWorker.controller) promptUpdate();
+      });
+    });
+    document.addEventListener('visibilitychange',function(){
+      if(document.visibilityState==='visible') reg.update();
+    });
+    reg.update();
+  });
+  var wrReloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(wrReloading)return;
+    wrReloading=true;
+    location.reload();
+  });
+}
+</script>
 </body>
 </html>
