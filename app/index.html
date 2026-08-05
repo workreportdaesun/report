@@ -1197,16 +1197,17 @@ function addEntryRow(prefill){
   return row;
 }
 /* 사진 불러오기로 자동 채워지거나 직접 입력한 기기번호가, 같은 분류(activeCat)로 이미
-   "완료" 처리된 항목이나 지금 입력칸의 다른 행과 겹치는지 확인한다(shoot 탭의
-   checkTagDuplicate와 같은 방식 — 진행 상태는 하루에도 여러 번, 며칠에 걸쳐 계속
-   입력·전송되는 게 정상 흐름이라 경고하지 않는다, 2026-08-05 사용자 요청). 완료된
-   항목만 다시 손대려 하면 실수일 가능성이 높아 경고한다. */
+   완료(신규 트랙)나 변경후(수정 트랙)로 잠긴 항목이나 지금 입력칸의 다른 행과 겹치는지
+   확인한다(shoot 탭의 checkTagDuplicate와 같은 방식 — 진행/변경전 상태는 하루에도 여러
+   번, 며칠에 걸쳐 계속 입력·전송되는 게 정상 흐름이라 경고하지 않는다, 2026-08-05/06
+   사용자 요청). 아직 상태를 안 골랐을 수 있는 시점이라 신규/수정 트랙 구분 없이 둘 다
+   확인해 넓게 경고만 하고, 실제 저장 시점엔 saveEntryRows가 트랙별로 정확히 막는다. */
 function checkReportTagDuplicate(tagEl){
   var tag=(tagEl.value||"").trim();
   if(!tag)return;
   var cat=activeCat;
-  var dup = items.some(function(it){ return it.cat===cat && it.tag===tag && it.status==='완료'; })
-    || !!completedTagKeysNoMenu[cat+'|'+tag];
+  var dup = items.some(function(it){ return it.cat===cat && it.tag===tag && (it.status==='완료'||it.status==='변경후'); })
+    || !!terminalTagKeys[cat+'|'+tag+'|완료'] || !!terminalTagKeys[cat+'|'+tag+'|변경후'];
   if(!dup){
     document.getElementById('entryRows').querySelectorAll('[data-f="tag"]').forEach(function(inp){
       if(inp!==tagEl && inp.value.trim()===tag) dup=true;
@@ -1232,19 +1233,23 @@ async function saveEntryRows(){
   rows.forEach(function(row){
     var tag = row.querySelector('[data-f="tag"]').value.trim();
     if(!tag) return;
-    // 완료 처리된 기기번호만 다시 저장하지 못하게 막는다 — 진행 상태는 하루에 여러 번,
-    // 며칠에 걸쳐 계속 입력·전송돼도 되고(공정률/work_log가 어차피 (분류,기기번호) 기준으로
-    // 전부 합산함) 전송 여부와는 무관하다. 전송 여부(it.submitted)로 막던 예전 방식은
-    // 진행 상태로 한 번만 전송해도 그 기기번호가 그날부터 영구히 잠겨버리는 문제가 있었다
-    // (2026-08-05, "완료는 1회만, 진행은 며칠이든 계속 가능해야 한다"로 재정의됨).
-    // items[]는 오늘(우리 팀) 것만 담고 있어 다른 날 완료된 건은 못 잡으므로,
-    // completedTagKeys(전체 팀·전체 날짜 캐시, loadCompletedTagKeys)도 같이 확인한다.
-    var alreadyCompleted = items.some(function(it){
-      return it.status==='완료' && it.menu===activeMenu && it.cat===activeCat && it.tag===tag;
-    }) || !!completedTagKeys[activeMenu+'|'+activeCat+'|'+tag];
-    if(alreadyCompleted){ dupTags.push(tag); return; }
-    var qty = Number(row.querySelector('[data-f="qty"]').value) || 0;
     var status = row.querySelector('[data-f="status"]').value || statusOptionsFor(activeMenu)[0];
+    // 완료(신규 트랙)나 변경후(수정 트랙)로 잠긴 기기번호만 다시 저장하지 못하게 막는다 —
+    // 진행/변경전은 하루에 여러 번, 며칠에 걸쳐 계속 입력·전송돼도 되고(공정률/work_log가
+    // 어차피 (분류,기기번호) 기준으로 전부 합산함) 전송 여부와는 무관하다. 판단 키는
+    // 공종을 빼고 "작업분류+기기번호"만 쓴다(2026-08-06, 사용자 스펙) — 같은 분류명을
+    // 다른 공종이 공유해도 그 분류+기기번호는 하나로 취급한다. 신규가 완료돼도 수정
+    // 트랙(변경전/변경후)은 독립이라 이 지금 행의 상태가 어느 트랙인지(terminalStatusOf)
+    // 보고 그 트랙의 최종 상태만 확인한다. items[]는 오늘(우리 팀) 것만 담고 있어 다른
+    // 날 잠긴 건 못 잡으므로, terminalTagKeys(전체 팀·전체 날짜 캐시, loadCompletedTagKeys)도
+    // 같이 확인한다.
+    var terminal = terminalStatusOf(status);
+    var alreadyLocked = terminal && (
+      items.some(function(it){ return it.status===terminal && it.cat===activeCat && it.tag===tag; })
+      || !!terminalTagKeys[activeCat+'|'+tag+'|'+terminal]
+    );
+    if(alreadyLocked){ dupTags.push(tag+'('+terminal+')'); return; }
+    var qty = Number(row.querySelector('[data-f="qty"]').value) || 0;
     var spec = row.querySelector('[data-f="spec"]').value || '';
     var photo = row.dataset.photo === '1' || hasPhoto;
     var linkedPhotoId = row.dataset.photoId!=null ? row.dataset.photoId : null;
@@ -1582,7 +1587,8 @@ async function refreshPhotoLinkage(manual){
       var key = it.menu+'|'+it.cat+'|'+it.tag;
       var rec = photoByKey[key];
       var unlinkedId = rec ? rec.ids.filter(function(id){ return !linkedIds[id]; })[0] : undefined;
-      if(unlinkedId!=null && it.status!=='완료' && !it.photo){
+      var locked = it.status==='완료' || it.status==='변경후';
+      if(unlinkedId!=null && !locked && !it.photo){
         it.photo=true; it.linkedPhotoId=unlinkedId; linkedIds[unlinkedId]=true; changed=true; linked++;
       }
     });
@@ -1590,7 +1596,7 @@ async function refreshPhotoLinkage(manual){
       var key = it.menu+'|'+it.cat+'|'+it.tag;
       var rec = photoByKey[key];
       var stillUnlinked = rec ? rec.ids.some(function(id){ return !linkedIds[id]; }) : false;
-      if(it.status==='완료' || !stillUnlinked) existingKeys[key] = true;
+      if(it.status==='완료' || it.status==='변경후' || !stillUnlinked) existingKeys[key] = true;
     });
 
     // 지금 이 (공종,분류)의 입력 카드가 열려 있으면, 저장된 항목이 아니라 입력칸에
@@ -1755,29 +1761,42 @@ async function loadTodayItems(){
   }catch(e){ console.error('오늘 항목 불러오기 실패', e); }
 }
 
-/* 완료(status==='완료') 처리된 기기번호는 날짜·팀에 상관없이 영구히 재입력을 막아야 한다
-   (2026-08-05, 사용자 요청 — "완료 전송이 끝난 시점부터는 전송이 불가"). 그런데 saveEntryRows/
+/* 완료 상태로 잠기는 항목을 판단하는 공통 규칙(2026-08-06, 사용자 스펙 재정의).
+   - 판단 키는 "작업분류+기기번호"만 쓴다(공종은 안 봄) — 같은 분류명을 시공/품질 등
+     서로 다른 공종이 공유하면(ITEM_UNIT/specsByCat와 같은 관례) 그 분류+기기번호는
+     공종에 상관없이 하나로 취급한다.
+   - "신규" 트랙(진행/완료)과 "수정" 트랙(변경전/변경후)은 서로 독립이다 — 신규가
+     완료돼도 수정 쪽은 처음부터 다시 신규와 동일한 규칙(진행 격인 변경전은 계속 가능,
+     최종 상태인 변경후에서 1회 잠김)을 적용받는다. terminalStatusOf()가 지금 선택된
+     상태가 어느 트랙인지 보고 그 트랙의 최종 상태(완료 또는 변경후)를 돌려준다 — 그
+     외 공종(자재/안전/화기유도 등은 이 어휘 자체가 없음)은 null을 돌려줘서 잠금 대상이
+     아님을 나타낸다. */
+function terminalStatusOf(status){
+  if(status==='진행' || status==='완료') return '완료';
+  if(status==='변경전' || status==='변경후') return '변경후';
+  return null;
+}
+/* 완료/변경후로 잠긴 항목은 날짜·팀에 상관없이 영구히 재입력을 막아야 한다(2026-08-05,
+   "완료 전송이 끝난 시점부터는 전송이 불가"로 요청됨). 그런데 saveEntryRows/
    checkReportTagDuplicate가 보던 items[]는 loadTodayItems()로 오늘(우리 팀) 것만 담고 있어서,
-   며칠 전 다른 날 완료된 기기번호는 걸러내지 못했다 — 전체 팀·전체 날짜의 daily_reports를
-   훑어서 완료 이력을 따로 캐싱해둔다(loadProgressData/syncProgressChecklist와 같은 방식으로
-   date 필터 없이 전체 조회). completedTagKeys는 saveEntryRows(menu+cat+tag 기준)용, 메뉴 구분이
-   없는 checkReportTagDuplicate(cat+tag 기준)용으로 completedTagKeysNoMenu도 같이 만든다. */
-var completedTagKeys = {}, completedTagKeysNoMenu = {};
+   며칠 전 다른 날 잠긴 기기번호는 걸러내지 못했다 — 전체 팀·전체 날짜의 daily_reports를
+   훑어서 잠금 이력을 "작업분류|기기번호|완료상태" 키로 따로 캐싱해둔다(loadProgressData/
+   syncProgressChecklist와 같은 방식으로 date 필터 없이 전체 조회). */
+var terminalTagKeys = {};
 async function loadCompletedTagKeys(){
   if(!sbClient) return;
   try{
     var res = await sbClient.from('daily_reports').select('items');
     if(res.error || !res.data) return;
-    var keys = {}, keysNoMenu = {};
+    var keys = {};
     res.data.forEach(function(row){
       (Array.isArray(row.items)?row.items:[]).forEach(function(it){
-        if(it && it.tag && it.cat && it.status==='완료'){
-          keys[it.menu+'|'+it.cat+'|'+it.tag] = true;
-          keysNoMenu[it.cat+'|'+it.tag] = true;
-        }
+        if(!it || !it.tag || !it.cat) return;
+        var terminal = terminalStatusOf(it.status);
+        if(terminal && it.status===terminal) keys[it.cat+'|'+it.tag+'|'+terminal] = true;
       });
     });
-    completedTagKeys = keys; completedTagKeysNoMenu = keysNoMenu;
+    terminalTagKeys = keys;
   }catch(e){ console.error('완료 이력 불러오기 실패', e); }
 }
 
@@ -1894,6 +1913,20 @@ async function sendToSupabase(){
     var p=savedPhotos[i];
     btn.textContent='⏳ 전송 중... ('+(i+1)+'/'+total+'장)';
     try{
+      // 사진전송 규칙(2026-08-06, 사용자 스펙): 진행/변경전은 계속 전송 가능하지만, 완료
+      // (신규 트랙)나 변경후(수정 트랙)로 이미 등록된 기기번호는 전송 자체를 막는다. 판단
+      // 키는 작업분류+기기번호만 쓰고(공종은 안 봄), 신규/수정은 서로 독립이라 terminalStatusOf가
+      // 지금 이 사진의 상태(p.info.wt)가 어느 트랙인지 보고 그 트랙의 최종 상태만 확인한다.
+      // 기존 checkTagDuplicate(태그 입력칸 blur)는 확인창만 띄우고 "예"를 누르면 그냥
+      // 전송돼버리는 물렁한 경고였는데, 여기서 실제 전송 직전에 한 번 더 확실히 막는다.
+      var terminal = (typeof terminalStatusOf==='function') ? terminalStatusOf(p.info.wt) : null;
+      if(terminal){
+        var lockRes = await sbClient.from('workreportdaesun-gallery').select('id').eq('cat',p.info.cat).eq('tag',p.info.tag).eq('work_type',terminal).limit(1);
+        if(!lockRes.error && lockRes.data && lockRes.data.length){
+          failed.push({p:p, err:'['+(p.info.cat||'-')+'] '+(p.info.tag||'-')+'는 이미 '+terminal+' 상태입니다 — 전송할 수 없습니다.'});
+          continue;
+        }
+      }
       var filePath=(p.info.date||'nodate')+'/'+safeStorageKey(p.filename);
       var uploadType=(p.blob&&p.blob.type)||'image/jpeg';
       var storageRes=await sbClient.storage.from('work-gallery').upload(filePath,p.blob,{contentType:uploadType,upsert:true});
