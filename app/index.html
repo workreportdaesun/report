@@ -1203,7 +1203,8 @@ function checkReportTagDuplicate(tagEl){
   var tag=(tagEl.value||"").trim();
   if(!tag)return;
   var cat=activeCat;
-  var dup = items.some(function(it){ return it.cat===cat && it.tag===tag && it.status==='완료'; });
+  var dup = items.some(function(it){ return it.cat===cat && it.tag===tag && it.status==='완료'; })
+    || !!completedTagKeysNoMenu[cat+'|'+tag];
   if(!dup){
     document.getElementById('entryRows').querySelectorAll('[data-f="tag"]').forEach(function(inp){
       if(inp!==tagEl && inp.value.trim()===tag) dup=true;
@@ -1234,10 +1235,11 @@ async function saveEntryRows(){
     // 전부 합산함) 전송 여부와는 무관하다. 전송 여부(it.submitted)로 막던 예전 방식은
     // 진행 상태로 한 번만 전송해도 그 기기번호가 그날부터 영구히 잠겨버리는 문제가 있었다
     // (2026-08-05, "완료는 1회만, 진행은 며칠이든 계속 가능해야 한다"로 재정의됨).
-    // items[]는 loadTodayItems()로 오늘자 서버 상태를 반영하고 있으므로 여기서 바로 확인 가능.
+    // items[]는 오늘(우리 팀) 것만 담고 있어 다른 날 완료된 건은 못 잡으므로,
+    // completedTagKeys(전체 팀·전체 날짜 캐시, loadCompletedTagKeys)도 같이 확인한다.
     var alreadyCompleted = items.some(function(it){
       return it.status==='완료' && it.menu===activeMenu && it.cat===activeCat && it.tag===tag;
-    });
+    }) || !!completedTagKeys[activeMenu+'|'+activeCat+'|'+tag];
     if(alreadyCompleted){ dupTags.push(tag); return; }
     var qty = Number(row.querySelector('[data-f="qty"]').value) || 0;
     var status = row.querySelector('[data-f="status"]').value || statusOptionsFor(activeMenu)[0];
@@ -1259,6 +1261,7 @@ async function saveEntryRows(){
   if(typeof window.loadProgressData==='function') window.loadProgressData();
   if(typeof window.syncProgressChecklist==='function') window.syncProgressChecklist();
   if(typeof window.syncWorkLog==='function') window.syncWorkLog();
+  loadCompletedTagKeys(); // 방금 완료 처리한 기기번호가 곧바로 재입력 차단에 반영되도록 갱신
   showToast('💾 '+saved+'건 저장됨', 'var(--ok)');
   document.getElementById('entryRows').innerHTML = '';
   addEntryRow();
@@ -1727,6 +1730,32 @@ async function loadTodayItems(){
   }catch(e){ console.error('오늘 항목 불러오기 실패', e); }
 }
 
+/* 완료(status==='완료') 처리된 기기번호는 날짜·팀에 상관없이 영구히 재입력을 막아야 한다
+   (2026-08-05, 사용자 요청 — "완료 전송이 끝난 시점부터는 전송이 불가"). 그런데 saveEntryRows/
+   checkReportTagDuplicate가 보던 items[]는 loadTodayItems()로 오늘(우리 팀) 것만 담고 있어서,
+   며칠 전 다른 날 완료된 기기번호는 걸러내지 못했다 — 전체 팀·전체 날짜의 daily_reports를
+   훑어서 완료 이력을 따로 캐싱해둔다(loadProgressData/syncProgressChecklist와 같은 방식으로
+   date 필터 없이 전체 조회). completedTagKeys는 saveEntryRows(menu+cat+tag 기준)용, 메뉴 구분이
+   없는 checkReportTagDuplicate(cat+tag 기준)용으로 completedTagKeysNoMenu도 같이 만든다. */
+var completedTagKeys = {}, completedTagKeysNoMenu = {};
+async function loadCompletedTagKeys(){
+  if(!sbClient) return;
+  try{
+    var res = await sbClient.from('daily_reports').select('items');
+    if(res.error || !res.data) return;
+    var keys = {}, keysNoMenu = {};
+    res.data.forEach(function(row){
+      (Array.isArray(row.items)?row.items:[]).forEach(function(it){
+        if(it && it.tag && it.cat && it.status==='완료'){
+          keys[it.menu+'|'+it.cat+'|'+it.tag] = true;
+          keysNoMenu[it.cat+'|'+it.tag] = true;
+        }
+      });
+    });
+    completedTagKeys = keys; completedTagKeysNoMenu = keysNoMenu;
+  }catch(e){ console.error('완료 이력 불러오기 실패', e); }
+}
+
 /* ── 일보조회: 우리 팀이 저장·제출한 daily_reports를 날짜 역순으로 보여주고, 탭하면
    report-pdf.html?id=로 이동해서 조회 전용(viewingOtherReport)으로 PDF를 확인한다.
    탭을 열 때마다 매번 새로 조회한다 — 캐시해두면 첫 조회 당시 목록이 비어 있었을 경우
@@ -1774,6 +1803,7 @@ var wrScreenReset = false;
    건너뛰어 화면이 새 사진으로 다시 채워지지 않게 한다 — 수동 버튼은 그대로 동작. */
 (async function openLastSelectedCat(){
   await loadTodayItems();
+  loadCompletedTagKeys();
   if(!restorePendingEntry()){
     try{
       var m = localStorage.getItem(LS_LAST_MENU), c = localStorage.getItem(LS_LAST_CAT);
