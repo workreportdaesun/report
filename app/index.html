@@ -1214,7 +1214,7 @@ function checkReportTagDuplicate(tagEl){
     });
   }
   if(dup){
-    var keep=confirm('['+cat+'] 분류에 이미 등록된 기기번호입니다: '+tag+'\n그래도 저장하시겠습니까?');
+    var keep=confirm('['+cat+'] 분류에 이미 작업완료 기기번호입니다: '+tag+'\n그래도 저장하시겠습니까?');
     if(!keep){ tagEl.value=''; tagEl.focus(); }
   }
 }
@@ -2326,7 +2326,7 @@ async function checkTagDuplicate(){
     var res=await q.limit(1);
     if(res.error){console.error('중복 확인 실패',res.error);return;}
     if(res.data&&res.data.length){
-      var keep=confirm('['+cat+'] 분류에 이미 등록된 TAG NO입니다: '+tag+'\n그래도 저장하시겠습니까?');
+      var keep=confirm('['+cat+'] 분류에 이미 작업완료 TAG NO입니다: '+tag+'\n그래도 저장하시겠습니까?');
       if(!keep){tagEl.value='';tagEl.focus();}
     }
   }catch(e){console.error('중복 확인 실패',e);}
