@@ -271,7 +271,7 @@ textarea.f{resize:none; height:44px;}
     <div class="step-label"><span id="shootActiveCatLabel"></span></div>
     <div class="flbl" id="shootLblTag">기기번호</div>
     <div class="mic-row">
-      <input type="text" id="shootInTag" class="f" placeholder="PT-2101, EQ-001 등" oninput="this.value=this.value.toUpperCase()"/>
+      <input type="text" id="shootInTag" class="f" placeholder="PT-2101, EQ-001 등" oninput="normalizeTagInput(this)"/>
       <button class="mic-btn" id="shootMicTag" onclick="startSTT('shootInTag','shootMicTag')" title="음성 입력">🎤</button>
     </div>
 
@@ -1164,6 +1164,20 @@ function openCardForCat(menu, cat){
   document.getElementById('inputCard').scrollIntoView({behavior:'smooth', block:'nearest'});
   if(typeof loadTbmStatus==='function') loadTbmStatus();
 }
+/* 기기번호 입력칸 공통 정규화(2026-08-06, 사용자 요청) — 영어는 항상 대문자로, 수기로
+   띄어쓰기를 하면 공백 대신 "-"가 들어가게 한다. text-transform:uppercase 같은 CSS는
+   화면에만 대문자로 "보이고" 실제 저장값은 그대로라 중복확인/저장 로직이 못 걸러내므로,
+   입력 즉시 값 자체를 바꿔야 한다. toUpperCase()/공백→"-" 치환은 둘 다 문자 길이가
+   바뀌지 않으므로, 커서 위치를 저장했다가 그대로 복원해서 수정 중 커서가 끝으로
+   튀는 불편을 없앤다(값 앞부분을 고칠 때도 커서가 제자리에 남음). */
+function normalizeTagInput(el){
+  var v = el.value;
+  var normalized = v.toUpperCase().replace(/ /g, '-');
+  if(normalized === v) return;
+  var start = el.selectionStart, end = el.selectionEnd;
+  el.value = normalized;
+  el.setSelectionRange(start, end);
+}
 function addEntryRow(prefill){
   var wrap = document.getElementById('entryRows');
   var tag = prefill ? prefill.tag : '';
@@ -1181,7 +1195,7 @@ function addEntryRow(prefill){
     return '<option'+(spec===s?' selected':'')+'>'+s+'</option>';
   }).join('');
   row.innerHTML =
-    '<div class="ec-tag"><input class="entry-cell" data-f="tag" maxlength="12" placeholder="'+currentTagPh+'" value="'+String(tag).replace(/"/g,'&quot;')+'"></div>'
+    '<div class="ec-tag"><input class="entry-cell" data-f="tag" maxlength="12" placeholder="'+currentTagPh+'" value="'+String(tag).replace(/"/g,'&quot;')+'" oninput="normalizeTagInput(this)"></div>'
     +'<div class="ec-spec"><select class="entry-cell" data-f="spec">'
       +'<option value=""'+(spec===''?' selected':'')+'>-</option>'
       +specOptsHtml
