@@ -790,13 +790,33 @@ function renderModalCatSelect(){
   document.getElementById('modalCatComboBtn').classList.remove('open');
   renderModalCatChips();
 }
+/* 작업분류 순서 변경(2026-08-06, 사용자 요청) — catsByMenu[menu]는 app_settings.cats_by_menu에
+   그대로 저장되고, 일보입력 카드/분류 선택 드롭다운뿐 아니라 공정률(buildPgItems)/인원현황
+   (buildPnCatList)/작업사진 탭(populateCatSelect)까지 전부 이 배열을 순서 그대로 훑어서
+   목록을 만든다. admin.html(sikongCatsFrom)과 work-shoot-daesun/work-progress-daesun도
+   같은 app_settings.cats_by_menu를 그대로 동기화해 쓰므로, 배열 순서 하나만 바꾸면(그리고
+   pushSettingsToSupabase로 저장하면) 별도 코드 없이 이 순서가 관련된 모든 화면에 그대로
+   반영된다. */
 function renderModalCatChips(){
   var list = catsByMenu[modalMenu] || [];
   document.getElementById('modalCatChips').innerHTML = list.map(function(c,i){
-    return '<span class="chip">'+c+' <span style="color:var(--muted);font-size:12px;">('+unitOf(c)+')</span>'
+    return '<span class="chip">'
+      +'<button type="button" class="chip-move" onclick="modalMoveCategory('+i+',-1)" title="위로"'+(i===0?' disabled':'')+' style="border:none;background:none;cursor:pointer;padding:0 1px;font-size:11px;'+(i===0?'opacity:.3;cursor:default;':'')+'">▲</button>'
+      +'<button type="button" class="chip-move" onclick="modalMoveCategory('+i+',1)" title="아래로"'+(i===list.length-1?' disabled':'')+' style="border:none;background:none;cursor:pointer;padding:0 4px 0 1px;font-size:11px;'+(i===list.length-1?'opacity:.3;cursor:default;':'')+'">▼</button>'
+      +c+' <span style="color:var(--muted);font-size:12px;">('+unitOf(c)+')</span>'
       +'<button type="button" class="chip-edit" onclick="modalEditCategory('+i+')" title="수정">✏️</button>'
       +'<button type="button" class="chip-del" onclick="modalRemoveCategory('+i+')" title="삭제">✕</button></span>';
   }).join('');
+}
+async function modalMoveCategory(i, dir){
+  var list = catsByMenu[modalMenu];
+  var j = i+dir;
+  if(!list || j<0 || j>=list.length) return;
+  var tmp = list[i]; list[i]=list[j]; list[j]=tmp;
+  renderModalCatChips();
+  if(typeof window.renderPgList==='function') window.renderPgList();
+  if(typeof window.renderPnList==='function') window.renderPnList();
+  await pushSettingsToSupabase();
 }
 function modalEditCategory(i){
   var list = catsByMenu[modalMenu];
