@@ -137,9 +137,9 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 
   <table class="doc-body">
     <thead>
-      <tr><th style="width:26px;">No</th><th style="width:60px;">공종</th><th>작업내용</th><th style="width:44px;">단위</th><th style="width:44px;">수량</th><th style="width:50px;">진행상황</th><th style="width:44px;">사진</th><th>기타자재</th></tr>
+      <tr><th style="width:26px;">No</th><th style="width:60px;">공종</th><th style="width:88px;">작업분류</th><th>기기번호</th><th style="width:44px;">단위</th><th style="width:44px;">수량</th><th style="width:86px; white-space:nowrap;">진행상황</th><th style="width:44px;">사진</th><th>기타자재</th></tr>
     </thead>
-    <tbody id="docBodyRows"><tr><td colspan="8" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+    <tbody id="docBodyRows"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
   </table>
 
   <table class="doc-note">
@@ -290,15 +290,16 @@ async function renderReport(row){
         return '<tr>'
           +'<td>'+(i+1)+'</td>'
           +'<td><span class="doc-tag" style="background:'+(MENU_COLOR[it.menu]||'#888')+';">'+(it.menu||'-')+'</span></td>'
-          +'<td class="al">'+(it.cat||'-')+' · '+(it.tag||'-')+'</td>'
+          +'<td class="al">'+(it.cat||'-')+'</td>'
+          +'<td>'+(it.tag||'-')+'</td>'
           +'<td>'+(UNIT_LABEL[it.unit]||it.unit||'-')+'</td>'
           +'<td>'+(it.qty!=null?it.qty:'-')+'</td>'
-          +'<td>'+(it.status||'-')+'</td>'
+          +'<td style="white-space:nowrap;">'+(it.status||'-')+'</td>'
           +'<td>'+(itemPhotos[i].length?'<div class="doc-thumb" style="background:'+(MENU_COLOR[it.menu]||'#888')+';">🖼</div>':'-')+'</td>'
           +'<td class="note">'+(it.note||'-')+'</td>'
         +'</tr>';
       }).join('')
-    : '<tr><td colspan="8" style="text-align:center;color:var(--lbl);">입력된 항목 없음</td></tr>';
+    : '<tr><td colspan="9" style="text-align:center;color:var(--lbl);">입력된 항목 없음</td></tr>';
 
   // 같은 사진이 여러 항목에 걸쳐 다시 세어지지 않도록(예: 사진 하나가 우연히 두 항목과
   // 매칭되는 경우) id 기준으로 한 번만 담는다.
