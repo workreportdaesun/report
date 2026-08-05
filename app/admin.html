@@ -1112,8 +1112,12 @@ function renderChecklist(){
   var body=tags.map(function(t){
     var cells=cats.map(function(c){
       var r=byTagCat[t+'|'+c];
-      var val = r ? (r.complete_date||'') : '';
-      return '<td>'+(val ? '<span class="pill pill-ok">'+val+'</span>' : '<span style="color:var(--card-bd);">-</span>')+'</td>';
+      // 완료면 완료일자(초록), 완료 전이라도 "진행"으로 한 번이라도 올라왔으면 시작일자+(진행)(주황),
+      // 둘 다 없으면 "-" (2026-08-05).
+      var cell='<span style="color:var(--card-bd);">-</span>';
+      if(r && r.complete_date) cell='<span class="pill pill-ok">'+r.complete_date+'</span>';
+      else if(r && r.start_date) cell='<span class="pill pill-draft">'+r.start_date+' (진행)</span>';
+      return '<td>'+cell+'</td>';
     }).join('');
     return '<tr><td class="mono">'+t+'</td>'+cells+'</tr>';
   }).join('');
