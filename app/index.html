@@ -1485,7 +1485,11 @@ async function doCheckIn(){
       showToast('이미 오늘 출력체크를 완료했습니다', 'var(--brand-2)');
       return;
     }
-    crew.push({member_id:memberId, member_name:memberName, checkInAt:new Date().toISOString(), checkInDistanceM:Math.round(lastCheckDistance||0)});
+    // 인원현황의 작업분류별 집계는 그날 작업일보에 어떤 분류가 등장했는지가 아니라, 이 사람이
+    // 가입·⚙️설정(내 공종/작업분류)에서 등록해둔 자기 분류를 그대로 쓴다(2026-08-06, 사용자
+    // 요청 — 한 사람이 여러 분류에 항목을 입력하면 그 분류마다 전체 출력인원이 중복 집계되던
+    // 문제 수정). loadPersonnelEquipmentData가 이 스냅샷(crew[].cat)을 그대로 씀.
+    crew.push({member_id:memberId, member_name:memberName, checkInAt:new Date().toISOString(), checkInDistanceM:Math.round(lastCheckDistance||0), menu: localStorage.getItem('member_menu')||'', cat: localStorage.getItem('member_cat')||''});
     await upsertDailyReport({crew:crew});
     showToast('✅ 출력체크 완료', 'var(--ok)');
     if(typeof window.loadPersonnelEquipmentData==='function') window.loadPersonnelEquipmentData();
@@ -3082,7 +3086,7 @@ function buildPnCatList(){
 async function loadPersonnelEquipmentData(){
   if(!sbClient) return;
   try{
-    var res = await sbClient.from('daily_reports').select('team,date,crew,items');
+    var res = await sbClient.from('daily_reports').select('team,date,crew');
     if(res.error || !res.data) return;
     var today = todayStr();
     var pT={}, pB={}, cT={}, cB={};
@@ -3094,13 +3098,14 @@ async function loadPersonnelEquipmentData(){
         var pTarget = isToday ? pT : pB;
         pTarget[row.team] = (pTarget[row.team]||0) + crew.length;
       }
-      var catsInRow = {};
-      (Array.isArray(row.items)?row.items:[]).forEach(function(it){
-        if(it && it.cat && it.menu==='시공') catsInRow[it.cat]=true;
-      });
+      // 작업분류별 집계는 그날 작업일보에 등장한 분류가 아니라, 각 사람이 출력체크할 때 자기
+      // 프로필(가입·⚙️설정에서 등록한 공종/작업분류)에서 스냅샷해둔 값을 그대로 쓴다(2026-08-06,
+      // 사용자 요청) — 한 사람이 여러 분류에 항목을 입력해도 그 사람은 자기 분류 한 곳에만
+      // 1명으로 집계되고, 전체인원(위 pT/pB)과도 항상 일치한다. 이 스냅샷이 없는(이 수정 이전에
+      // 체크인한) 기록은 집계에서 빠진다 — 소급 반영 안 됨, 다음 출근부터 정상 반영.
       var cTarget = isToday ? cT : cB;
-      Object.keys(catsInRow).forEach(function(cat){
-        cTarget[cat] = (cTarget[cat]||0) + crew.length;
+      crew.forEach(function(c){
+        if(c && c.menu==='시공' && c.cat) cTarget[c.cat] = (cTarget[c.cat]||0) + 1;
       });
     });
     PN_PEOPLE_TODAY=pT; PN_PEOPLE_BEFORE=pB;
