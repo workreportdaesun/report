@@ -45,6 +45,10 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .tbm-log-table td.tbm-no{width:30px; text-align:center; font-weight:700; color:var(--lbl); font-size:14px;}
 .tbm-log-table th:first-child{width:30px;}
 .tbm-log-table input.f{padding:6px 7px; font-size:14px; border:none; border-radius:6px;}
+.tbm-mic-row{display:flex; gap:4px; align-items:center;}
+.tbm-mic-row .f{flex:1; min-width:0;}
+.tbm-mic-btn{flex-shrink:0; width:26px; height:26px; border:1.5px solid var(--field-bd); border-radius:6px; background:var(--field-bg); font-size:12px; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+.tbm-mic-btn.listening{background:#FDEDEC; border-color:var(--err); animation:micpulse .8s infinite alternate;}
 textarea.f{resize:none; height:44px;}
 
 /* ── 일보 입력: 자동 증가 행 목록 — 기기번호/규격/수량/진행상황/삭제를 한 줄에 배치.
@@ -244,13 +248,25 @@ textarea.f{resize:none; height:44px;}
     <table class="tbm-log-table" id="tbmLogTable">
       <thead><tr><th>번호</th><th>위험요인</th><th>대책 및 수립</th></tr></thead>
       <tbody>
-        <tr><td class="tbm-no">1</td><td><input type="text" class="f tbm-risk" placeholder="위험요인"></td><td><input type="text" class="f tbm-action" placeholder="대책 및 수립"></td></tr>
-        <tr><td class="tbm-no">2</td><td><input type="text" class="f tbm-risk" placeholder="위험요인"></td><td><input type="text" class="f tbm-action" placeholder="대책 및 수립"></td></tr>
-        <tr><td class="tbm-no">3</td><td><input type="text" class="f tbm-risk" placeholder="위험요인"></td><td><input type="text" class="f tbm-action" placeholder="대책 및 수립"></td></tr>
+        <tr><td class="tbm-no">1</td>
+          <td><div class="tbm-mic-row"><input type="text" id="tbmRisk1" class="f tbm-risk" placeholder="위험요인"><button type="button" class="tbm-mic-btn" id="tbmMicRisk1" onclick="startSTT('tbmRisk1','tbmMicRisk1')" title="음성 입력">🎤</button></div></td>
+          <td><div class="tbm-mic-row"><input type="text" id="tbmAction1" class="f tbm-action" placeholder="대책 및 수립"><button type="button" class="tbm-mic-btn" id="tbmMicAction1" onclick="startSTT('tbmAction1','tbmMicAction1')" title="음성 입력">🎤</button></div></td>
+        </tr>
+        <tr><td class="tbm-no">2</td>
+          <td><div class="tbm-mic-row"><input type="text" id="tbmRisk2" class="f tbm-risk" placeholder="위험요인"><button type="button" class="tbm-mic-btn" id="tbmMicRisk2" onclick="startSTT('tbmRisk2','tbmMicRisk2')" title="음성 입력">🎤</button></div></td>
+          <td><div class="tbm-mic-row"><input type="text" id="tbmAction2" class="f tbm-action" placeholder="대책 및 수립"><button type="button" class="tbm-mic-btn" id="tbmMicAction2" onclick="startSTT('tbmAction2','tbmMicAction2')" title="음성 입력">🎤</button></div></td>
+        </tr>
+        <tr><td class="tbm-no">3</td>
+          <td><div class="tbm-mic-row"><input type="text" id="tbmRisk3" class="f tbm-risk" placeholder="위험요인"><button type="button" class="tbm-mic-btn" id="tbmMicRisk3" onclick="startSTT('tbmRisk3','tbmMicRisk3')" title="음성 입력">🎤</button></div></td>
+          <td><div class="tbm-mic-row"><input type="text" id="tbmAction3" class="f tbm-action" placeholder="대책 및 수립"><button type="button" class="tbm-mic-btn" id="tbmMicAction3" onclick="startSTT('tbmAction3','tbmMicAction3')" title="음성 입력">🎤</button></div></td>
+        </tr>
       </tbody>
     </table>
     <div class="flbl" style="margin-top:10px;">위험요인에 대한 대책 및 수립에 대한 결과</div>
-    <textarea class="f" id="tbmResultInput" placeholder="내용기입란"></textarea>
+    <div class="mic-row" style="align-items:flex-start;">
+      <textarea class="f" id="tbmResultInput" placeholder="내용기입란"></textarea>
+      <button class="mic-btn" id="tbmMicResult" onclick="startSTT('tbmResultInput','tbmMicResult')" title="음성 입력" style="height:48px;">🎤</button>
+    </div>
 
     <!-- TBM(안전 조회) 사진 — 팀+날짜 단위 1장(daily_reports.tbm_photo), TBM 활동일지와 같이
          일보 전체(팀+날짜) 단위 필드라 여기 배치(2026-08-04, 인원현황 탭에서 이동) -->
