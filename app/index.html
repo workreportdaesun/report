@@ -98,7 +98,7 @@ textarea.f{resize:none; height:44px;}
 .item-edit{border:none; background:none; color:var(--brand-2); font-size:15px; cursor:pointer; flex-shrink:0; padding:4px;}
 .empty-msg{text-align:center; padding:16px; color:var(--muted); font-size:15px;}
 
-.toast{position:fixed; bottom:28px; left:50%; transform:translateX(-50%); padding:10px 18px; border-radius:10px; font-size:15px; font-weight:700; color:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.25); opacity:0; pointer-events:none; transition:opacity .25s; white-space:nowrap; z-index:9998;}
+.toast{position:fixed; bottom:28px; left:50%; transform:translateX(-50%); max-width:calc(100vw - 32px); padding:10px 18px; border-radius:10px; font-size:15px; font-weight:700; color:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.25); opacity:0; pointer-events:none; transition:opacity .25s; white-space:normal; text-align:center; line-height:1.4; z-index:9998;}
 .toast.show{opacity:1;}
 
 /* worker top-level pane switch (일보입력 / 작업사진 / 공정률) + 작업분류 설정(⚙) */

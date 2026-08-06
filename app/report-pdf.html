@@ -99,7 +99,7 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 .pdf-actions .ghost{background:rgba(127,127,127,0.14); color:#33404f;}
 .pdf-actions .submitted-pill{margin-right:auto; font-size:12px; font-weight:700; color:var(--ok, #27AE60); background:rgba(39,174,96,0.12); padding:6px 12px; border-radius:20px;}
 
-.toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); padding:10px 20px; border-radius:10px; font-size:14px; font-weight:700; color:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.2); opacity:0; pointer-events:none; transition:opacity .25s; white-space:nowrap; z-index:9998;}
+.toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); max-width:calc(100vw - 32px); padding:10px 20px; border-radius:10px; font-size:14px; font-weight:700; color:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.2); opacity:0; pointer-events:none; transition:opacity .25s; white-space:normal; text-align:center; line-height:1.4; z-index:9998;}
 .toast.show{opacity:1;}
 
 /* 모바일 화면 전용 레이아웃(2026-08-06, 사용자 요청 — "PC 화면 그대로 보여서 불편하다").
