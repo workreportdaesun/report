@@ -540,17 +540,17 @@ function logout(){
 
 var MENU_CONFIG = {
   '시공': {
-    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
+    items:['DCS Panel','LCP','Junction Box','Instrument','Cable Duct','Cable Tray','Cable Pulling','Connection','Conduit Pipe','Air Pipe','Hook Up','Support','Stanchion','Steam Tracing','Scaffolding','Line Check','Loop Test','Calibration','Leak Test','Others','관리자','장비작업'],
     catStepLabel:'작업분류 선택', tagLabel:'기기번호', tagPh:'PT-2101, EQ-001 등', locLabel:'작업구역',
     statusOptions:['진행','완료','변경전','변경후']
   },
   '품질': {
-    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
+    items:['DCS Panel','LCP','Junction Box','Instrument','Cable Duct','Cable Tray','Cable Pulling','Connection','Conduit Pipe','Air Pipe','Hook Up','Support','Stanchion','Steam Tracing','Scaffolding','Line Check','Loop Test','Calibration','Leak Test','Others','관리자','장비작업'],
     catStepLabel:'검사분류 선택', tagLabel:'기기번호', tagPh:'검사번호 입력', locLabel:'작업구역',
     statusOptions:['신규','변경전','변경후']
   },
   '자재': {
-    items:['DCS Panel','LCP','Junction Box','Field Instrument','Cable Duct','Cable Tray','Conduit Pipe','Air Pipe','Hook Up','Stanchion','Support','Connection','Line Check','Loop Test','Leak Test','Instrument Calibration','Steam Tracing Tube','Steam Tracing Insulation','Scaffolding','Others'],
+    items:['DCS Panel','LCP','Junction Box','Instrument','Cable Duct','Cable Tray','Cable Pulling','Connection','Conduit Pipe','Air Pipe','Hook Up','Support','Stanchion','Steam Tracing','Scaffolding','Line Check','Loop Test','Calibration','Leak Test','Others','관리자','장비작업'],
     catStepLabel:'자재품명 선택', tagLabel:'검수번호/Packing NO.', tagPh:'검수번호 입력', locLabel:'자재보관장소',
     statusOptions:['도급','사급']
   },
@@ -574,12 +574,12 @@ var MENU_COLOR = {'시공':'var(--m-시공)','품질':'var(--m-품질)','자재'
    ITEM_UNIT/specsByCat과 같은 방식으로 분류명(cat)을 바로 키로 씀. 아래 값은 Supabase에 아직
    아무것도 없을 때 쓰이는 기본값. */
 var ITEM_UNIT = {
-  'DCS Panel':'EA','LCP':'EA','Junction Box':'EA','Field Instrument':'EA',
+  'DCS Panel':'EA','LCP':'EA','Junction Box':'EA','Instrument':'EA','Cable Pulling':'M',
   'Cable Duct':'M','Cable Tray':'M','Conduit Pipe':'M','Air Pipe':'M',
   'Hook Up':'EA','Stanchion':'EA','Support':'EA','Connection':'EA',
-  'Line Check':'PT','Loop Test':'PT','Leak Test':'PT','Instrument Calibration':'EA',
-  'Steam Tracing Tube':'M','Steam Tracing Insulation':'M',
-  'Scaffolding':'EA','Others':'EA'
+  'Line Check':'PT','Loop Test':'PT','Leak Test':'PT','Calibration':'EA',
+  'Steam Tracing':'M',
+  'Scaffolding':'EA','Others':'EA','관리자':'EA','장비작업':'EA'
 };
 var UNIT_LABEL = {'EA':'EA','M':'M','PT':'Point'};
 function unitOf(cat){ return ITEM_UNIT[cat] || 'EA'; }
@@ -603,8 +603,8 @@ var customPersonnel = ['1팀(계장)','2팀(계장)','품질팀','안전관리�
    공유된다. 아래 기본값은 실제 표준 규격을 웹에서 찾아 채운 것(전선관=KS 강제전선관/CD관, 케이블트레이
    =IEC 61537 폭, 계장 공기배관=계장용 튜빙 OD, 스팀트레이싱관=업계 표준 2사이즈, 보온두께=배관 보온재
    일반 두께) — 정션박스(way수)/전선덕트(폭x높이)는 업계 관행값이라 KS 단일표준 확인은 못 했음, 확인
-   필요. 나머지 분류(DCS Panel/LCP/Field Instrument/Hook Up/Stanchion/Support/Connection/Line Check/
-   Loop Test/Leak Test/Instrument Calibration/Scaffolding/Others)는 시험·점검 활동이거나 프로젝트마다
+   필요. 나머지 분류(DCS Panel/LCP/Instrument/Cable Pulling/Hook Up/Stanchion/Support/Line Check/
+   Loop Test/Leak Test/Calibration/Scaffolding/Others)는 시험·점검 활동이거나 프로젝트마다
    달라 표준 규격 목록 자체가 없어서 비워둠 — 설정에서 얼마든지 추가 가능. 공정률 집계는 규격 구분 없이
    분류(cat) 기준 전체수량으로 그대로 하므로 여기 값은 집계 로직에 영향을 주지 않는다. */
 var specsByCat = {
@@ -613,8 +613,7 @@ var specsByCat = {
   'Cable Duct': ['50x25mm','100x50mm','150x75mm','200x100mm'],
   'Junction Box': ['12W','20W','24W','40W','48W'],
   'Air Pipe': ['6mm','8mm','10mm','12mm'],
-  'Steam Tracing Tube': ['3/8"(9.5mm)','1/2"(12.7mm)'],
-  'Steam Tracing Insulation': ['25mm','40mm','50mm','75mm'],
+  'Steam Tracing': ['3/8"(9.5mm)','1/2"(12.7mm)','25mm','40mm','50mm','75mm'],
   /* Connection은 규격 대신 방향(FROM/TO)을 고르는 용도로 재사용 — 한쪽만 하면 0.5,
      양쪽 다 하면 1로 집계(connectionQtyWeight 참고). 이 두 문자열은 집계 로직이
      하드코딩으로 참조하므로 ⚙️설정에서 이름을 바꾸거나 지우면 집계가 깨짐. */
@@ -2242,11 +2241,11 @@ function downloadAll(photos){
 
 // ── 앱 로직 ───────────────────────────────────────────
 var CC={
-  'DCS Panel':"#E67E22",'LCP':"#E74C3C",'Junction Box':"#F39C12",'Field Instrument':"#2980B9",'Cable Duct':"#16A085",
-  'Cable Tray':"#8E44AD",'Conduit Pipe':"#C0392B",'Air Pipe':"#27AE60",'Hook Up':"#2E86AB",
+  'DCS Panel':"#E67E22",'LCP':"#E74C3C",'Junction Box':"#F39C12",'Instrument':"#2980B9",'Cable Duct':"#16A085",
+  'Cable Tray':"#8E44AD",'Cable Pulling':"#B9770E",'Conduit Pipe':"#C0392B",'Air Pipe':"#27AE60",'Hook Up':"#2E86AB",
   'Stanchion':"#5D6D7E",'Support':"#A569BD",'Connection':"#E74C3C",'Line Check':"#1ABC9C",
-  'Loop Test':"#3498DB",'Leak Test':"#1A6B72",'Instrument Calibration':"#D35400",'Steam Tracing Tube':"#C0392B",'Steam Tracing Insulation':"#922B21",
-  'Scaffolding':"#7F8C8D",'Others':"#95A5A6",'관리자':"#34495E"
+  'Loop Test':"#3498DB",'Leak Test':"#1A6B72",'Calibration':"#D35400",'Steam Tracing':"#C0392B",
+  'Scaffolding':"#7F8C8D",'Others':"#95A5A6",'관리자':"#34495E",'장비작업':"#616A6B"
 };
 
 /* 공종(activeMenu)/작업분류(activeCat)/분류목록(catsByMenu)/구역목록(customAreas)은
@@ -3175,7 +3174,8 @@ function renderMyCatOptions(){
   var menu=document.getElementById('myMenuSelect').value;
   var sel=document.getElementById('myCatSelect');
   var cur=sel.value;
-  var list=(catsByMenu[menu]||[]).concat(['관리자']);
+  var base=catsByMenu[menu]||[];
+  var list=base.indexOf('관리자')!==-1 ? base : base.concat(['관리자']);
   sel.innerHTML = list.map(function(c){ return '<option>'+c+'</option>'; }).join('');
   var savedCat = localStorage.getItem('member_cat')||'';
   if(list.indexOf(savedCat)!==-1) sel.value = savedCat;
