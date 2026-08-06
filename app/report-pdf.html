@@ -418,7 +418,7 @@ async function doSubmitReport(){
   // 잠그는 대신, "지금 이 시점에 올라와 있는 항목들"을 각각 submitted:true로 표시(봉인)해서
   // index.html이 같은 (공종,분류,기기번호)를 또 저장하려 할 때 중복임을 알아챌 수 있게 한다.
   // 이후 새로 입력해서 다시 전송하면 그 새 항목들만 추가로 봉인된다.
-  var curRes = await sbClient.from('daily_reports').select('items').eq('id', id).single();
+  var curRes = await sbClient.from('daily_reports').select('items,special_notes').eq('id', id).single();
   var curItems = Array.isArray(curRes.data && curRes.data.items) ? curRes.data.items : [];
   // 사진 없이는 전송을 막는다(2026-08-06, 사용자 요청) — 이미 전송된(submitted:true) 항목은
   // 이 규칙이 생기기 전 것일 수 있어 건드리지 않고, 이번에 새로 전송되는 항목만 검사한다.
@@ -426,6 +426,12 @@ async function doSubmitReport(){
   if(missingPhoto.length){
     var tagList = missingPhoto.map(function(it){ return (it.cat||'-')+' '+(it.tag||'-'); }).join(', ');
     showToast('❌ 사진 없는 항목이 있어 전송할 수 없습니다: '+tagList, 'var(--brand-2)');
+    return;
+  }
+  // TBM 활동일지도 최소 1줄 이상 입력돼야 전송 가능(2026-08-06, 사용자 요청).
+  var tbmLog = parseTbmLog(curRes.data && curRes.data.special_notes);
+  if(!tbmLog.rows.length){
+    showToast('❌ TBM 활동일지 내용이 없어 전송할 수 없습니다 — 위험요인을 1건 이상 입력해주세요', 'var(--brand-2)');
     return;
   }
   curItems.forEach(function(it){ it.submitted = true; });

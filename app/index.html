@@ -258,11 +258,11 @@ textarea.f{resize:none; height:44px;}
           <td><div class="tbm-mic-row"><input type="text" id="tbmRisk1" class="f tbm-risk" placeholder="위험요인"><button type="button" class="tbm-mic-btn" id="tbmMicRisk1" onclick="startSTT('tbmRisk1','tbmMicRisk1')" title="음성 입력">🎤</button></div></td>
           <td><div class="tbm-mic-row"><input type="text" id="tbmAction1" class="f tbm-action" placeholder="대책 및 수립"><button type="button" class="tbm-mic-btn" id="tbmMicAction1" onclick="startSTT('tbmAction1','tbmMicAction1')" title="음성 입력">🎤</button></div></td>
         </tr>
-        <tr><td class="tbm-no">2</td>
+        <tr id="tbmRow2" style="display:none;"><td class="tbm-no">2</td>
           <td><div class="tbm-mic-row"><input type="text" id="tbmRisk2" class="f tbm-risk" placeholder="위험요인"><button type="button" class="tbm-mic-btn" id="tbmMicRisk2" onclick="startSTT('tbmRisk2','tbmMicRisk2')" title="음성 입력">🎤</button></div></td>
           <td><div class="tbm-mic-row"><input type="text" id="tbmAction2" class="f tbm-action" placeholder="대책 및 수립"><button type="button" class="tbm-mic-btn" id="tbmMicAction2" onclick="startSTT('tbmAction2','tbmMicAction2')" title="음성 입력">🎤</button></div></td>
         </tr>
-        <tr><td class="tbm-no">3</td>
+        <tr id="tbmRow3" style="display:none;"><td class="tbm-no">3</td>
           <td><div class="tbm-mic-row"><input type="text" id="tbmRisk3" class="f tbm-risk" placeholder="위험요인"><button type="button" class="tbm-mic-btn" id="tbmMicRisk3" onclick="startSTT('tbmRisk3','tbmMicRisk3')" title="음성 입력">🎤</button></div></td>
           <td><div class="tbm-mic-row"><input type="text" id="tbmAction3" class="f tbm-action" placeholder="대책 및 수립"><button type="button" class="tbm-mic-btn" id="tbmMicAction3" onclick="startSTT('tbmAction3','tbmMicAction3')" title="음성 입력">🎤</button></div></td>
         </tr>
@@ -1802,7 +1802,18 @@ async function previewReport(){
 /* 예전 "특이사항" 자유 입력란을 대신해 TBM 활동일지(위험요인/대책 표 + 결과)를 저장한다.
    기존 daily_reports.special_notes 컬럼을 그대로 재사용하되(스키마 변경 없이), 값은 JSON
    문자열로 담는다 — report-pdf.html/admin.html은 parseTbmLog로 이를 표 형태로 다시 그린다. */
+// 처음엔 1번 칸만 보이고, 저장할 때 그 칸에 내용이 있으면 다음 번호 칸이 열린다(2026-08-06,
+// 사용자 요청) — 3칸을 한꺼번에 보여주지 않고 필요한 만큼만 순서대로 늘어나게.
+function updateTbmRowVisibility(){
+  var risk1 = document.getElementById('tbmRisk1').value.trim();
+  var action1 = document.getElementById('tbmAction1').value.trim();
+  if(risk1 || action1) document.getElementById('tbmRow2').style.display = '';
+  var risk2 = document.getElementById('tbmRisk2').value.trim();
+  var action2 = document.getElementById('tbmAction2').value.trim();
+  if(risk2 || action2) document.getElementById('tbmRow3').style.display = '';
+}
 function buildTbmLogJson(){
+  updateTbmRowVisibility();
   var risks = document.querySelectorAll('#tbmLogTable .tbm-risk');
   var actions = document.querySelectorAll('#tbmLogTable .tbm-action');
   var rows = [];
