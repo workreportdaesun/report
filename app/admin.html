@@ -1095,9 +1095,13 @@ function renderChecklist(){
   // "-"로 표시) — 예전엔 progress_checklist에 실적이 이미 있는 분류만 보여서 신규 분류가
   // 체크리스트에 아예 안 보였음. 설정에서 이미 지워졌지만 과거 데이터가 남은 분류는 뒤에
   // 이어붙여서 안 숨긴다.
+  // settingsCatList(⚙️작업분류 설정)는 시공 공종만 담고 있는데, clRows(progress_checklist)는
+  // 공종 구분 없이 전부 들어있어서 화기/유도·자재 등 다른 공종의 분류(예: "용접작업")가
+  // 시공용 체크리스트에 섞여 나오는 문제가 있었다(2026-08-06) — 시공 공종 행만 쓴다.
   var cats=settingsCatList.slice(), tags=[], byTagCat={};
   var catSeen={}; cats.forEach(function(c){ catSeen[c]=true; });
   clRows.forEach(function(r){
+    if(r.menu!=='시공') return;
     if(!catSeen[r.cat]){ catSeen[r.cat]=true; cats.push(r.cat); }
     if(tags.indexOf(r.tag)===-1) tags.push(r.tag);
     byTagCat[r.tag+'|'+r.cat]=r;
