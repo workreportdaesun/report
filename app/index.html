@@ -1746,7 +1746,7 @@ function renderItemList(){
   // 공정률 탭(pg-table)과 같은 표 형태로 통일(2026-08-04, 사용자 요청) — 카드 스택형 대신
   // 한 줄씩 비교하기 쉬운 표로 보여준다.
   wrap.innerHTML='<div class="pg-table-wrap"><table class="pg-table">'
-    +'<thead><tr><th class="lft">작업분류</th><th class="lft">기기번호</th><th>규격</th><th>수량</th><th>진도</th><th>사진</th><th></th></tr></thead>'
+    +'<thead><tr><th class="lft">작업분류</th><th class="lft">기기번호</th><th>규격</th><th>수량</th><th>진도</th><th></th><th>사진</th></tr></thead>'
     +'<tbody>'
     +visible.map(function(x){
       var it=x.it, idx=x.idx;
@@ -1756,8 +1756,8 @@ function renderItemList(){
         +'<td>'+(it.spec||'-')+'</td>'
         +'<td>'+it.qty+' '+UNIT_LABEL[it.unit]+'</td>'
         +'<td>'+(it.status||'-')+'</td>'
-        +'<td>'+(it.photo?'🖼️':'—')+'</td>'
         +'<td><button type="button" class="item-edit" onclick="editItem('+idx+')" aria-label="수정">✏️</button></td>'
+        +'<td>'+(it.photo?'🖼️':'—')+'</td>'
         +'</tr>';
     }).join('')
     +'</tbody></table></div>';
