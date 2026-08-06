@@ -222,8 +222,12 @@ textarea.f{resize:none; height:44px;}
 <!-- ══ 일보입력 ══ -->
 <div class="worker-pane active" id="pane-report">
 
-  <!-- 입력 카드 -->
-  <div class="card" id="inputCard" style="display:none;">
+  <!-- 입력 카드 — "오늘 입력한 항목"(불러오기 포함)이 TBM 활동일지보다 먼저 보이도록
+       카드 3개(항목입력/오늘 입력한 항목/TBM)로 나눠서 순서를 재배치했다(2026-08-06,
+       사용자 요청). 전체를 감싸는 inputCard는 보이기/숨기기 토글용 래퍼로만 쓰고, 실제
+       카드 테두리는 안쪽 .card 3개가 각각 담당한다. -->
+  <div id="inputCard" style="display:none;">
+  <div class="card">
     <div class="step-label"><span id="cardTitle"></span></div>
 
     <div class="entry-tablewrap">
@@ -250,6 +254,19 @@ textarea.f{resize:none; height:44px;}
       <textarea class="f" id="nextDayPlanInput" placeholder="내일 예정된 작업, 필요한 자재 등..."></textarea>
       <button class="mic-btn" id="nextDayMic" onclick="startSTT('nextDayPlanInput','nextDayMic')" title="음성 입력" style="height:48px;">🎤</button>
     </div>
+  </div>
+
+  <!-- 오늘 입력한 항목 -->
+  <div class="card" id="itemListCard">
+    <div class="list-header">
+      <span class="list-title">오늘 입력한 항목</span>
+      <span class="list-count"><span id="itemCount">0</span>건</span>
+    </div>
+    <button type="button" class="sbtn sbtn-outline" style="margin-top:0;margin-bottom:10px;" onclick="refreshPhotoLinkage(true)">🔄 오늘 작업사진 불러오기</button>
+    <div id="itemList"><div class="empty-msg">아직 입력한 항목이 없습니다</div></div>
+  </div>
+
+  <div class="card">
     <div class="flbl">TBM 활동 일지</div>
     <table class="tbm-log-table" id="tbmLogTable">
       <thead><tr><th>번호</th><th>위험요인</th><th>대책 및 수립</th></tr></thead>
@@ -285,15 +302,6 @@ textarea.f{resize:none; height:44px;}
 
     <button class="sbtn sbtn-add" onclick="saveEntryRows()">💾 저장</button>
   </div>
-
-  <!-- 오늘 입력한 항목 -->
-  <div class="card" id="itemListCard">
-    <div class="list-header">
-      <span class="list-title">오늘 입력한 항목</span>
-      <span class="list-count"><span id="itemCount">0</span>건</span>
-    </div>
-    <button type="button" class="sbtn sbtn-outline" style="margin-top:0;margin-bottom:10px;" onclick="refreshPhotoLinkage(true)">🔄 오늘 작업사진 불러오기</button>
-    <div id="itemList"><div class="empty-msg">아직 입력한 항목이 없습니다</div></div>
   </div>
 
   <button class="sbtn sbtn-send" id="sendBtn" onclick="previewReport()" disabled>📄 미리보기</button>
