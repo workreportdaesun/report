@@ -71,6 +71,10 @@ body{background:var(--bg); font-family:var(--font-body); color:var(--ink); min-h
       <input type="text" id="regName" class="f" placeholder="홍길동">
       <div class="flbl">전화번호</div>
       <input type="tel" id="regPhone" class="f" placeholder="01012345678">
+      <div class="flbl">직책</div>
+      <input type="text" id="regPosition" class="f" placeholder="팀장, 반장, 사원 등">
+      <div class="flbl">기능</div>
+      <input type="text" id="regSkill" class="f" placeholder="계장공, 전공, 조공 등">
       <div class="flbl">소속팀</div>
       <select id="regTeam" class="f">
         <option>1팀(계장)</option><option>2팀(계장)</option><option>품질팀</option><option>안전관리팀</option>
@@ -130,6 +134,8 @@ function saveSession(m){
   localStorage.setItem('member_team', m.team || '');
   localStorage.setItem('member_menu', m.menu || '');
   localStorage.setItem('member_cat', m.cat || '');
+  localStorage.setItem('member_position', m.position || '');
+  localStorage.setItem('member_skill', m.skill || '');
   localStorage.setItem('member_is_leader', m.is_leader ? '1' : '0');
   localStorage.setItem('senderName', m.name);
 }
@@ -151,9 +157,11 @@ async function doSignup(){
   var team = document.getElementById('regTeam').value;
   var menu = document.getElementById('regMenu').value;
   var cat = document.getElementById('regCat').value;
+  var position = document.getElementById('regPosition').value.trim();
+  var skill = document.getElementById('regSkill').value.trim();
   if(!name || phone.length < 10){ showToast('⚠️ 이름과 전화번호를 입력해 주세요', 'var(--err)'); return; }
   showToast('가입 중...', 'var(--brand-2)');
-  var full = {company:company, project:project, name:name, phone:phone, team:team, menu:menu, cat:cat, is_leader:false};
+  var full = {company:company, project:project, name:name, phone:phone, team:team, menu:menu, cat:cat, position:position, skill:skill, is_leader:false};
   var payload = Object.assign({}, full);
   var stripped = [];
   var res;

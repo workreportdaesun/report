@@ -530,7 +530,7 @@ if(!localStorage.getItem('member_id')){ location.href='login.html'; }
   if(c) document.getElementById('hdrCompany').textContent=c;
 })();
 function logout(){
-  ['member_id','member_name','member_company','member_project','member_phone','member_team','member_menu','member_cat','member_is_leader','senderName'].forEach(function(k){ localStorage.removeItem(k); });
+  ['member_id','member_name','member_company','member_project','member_phone','member_team','member_menu','member_cat','member_position','member_skill','member_is_leader','senderName'].forEach(function(k){ localStorage.removeItem(k); });
   location.href='login.html';
 }
 
@@ -3189,7 +3189,7 @@ async function withdrawMember(){
     try{ await sbClient.from('members').delete().eq('id',memberId); }
     catch(e){ showToast('회원 탈퇴 실패: '+(e.message||e), 'var(--err)'); return; }
   }
-  ['member_id','member_name','member_company','member_project','member_phone','member_team','member_menu','member_cat','member_is_leader','senderName'].forEach(function(k){localStorage.removeItem(k);});
+  ['member_id','member_name','member_company','member_project','member_phone','member_team','member_menu','member_cat','member_position','member_skill','member_is_leader','senderName'].forEach(function(k){localStorage.removeItem(k);});
   location.href='login.html';
 }
 
