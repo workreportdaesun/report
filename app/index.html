@@ -502,7 +502,11 @@ textarea.f{resize:none; height:44px;}
       <select id="myMenuSelect" class="f" onchange="renderMyCatOptions()"></select>
       <div class="flbl">내 작업분류</div>
       <select id="myCatSelect" class="f"></select>
-      <button type="button" class="sbtn sbtn-add" style="margin-top:8px;" onclick="saveMyMenuCat()">💾 내 공종/작업분류 저장</button>
+      <div class="flbl">내 소속</div>
+      <select id="myTeamSelect" class="f"></select>
+      <div class="flbl">내 직책</div>
+      <select id="myPositionSelect" class="f"></select>
+      <button type="button" class="sbtn sbtn-add" style="margin-top:8px;" onclick="saveMyMenuCat()">💾 내 정보 저장</button>
       <button type="button" class="sbtn" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.5);color:#E74C3C;" onclick="withdrawMember()">회원탈퇴</button>
     </div>
   </div>
@@ -3149,37 +3153,59 @@ loadPersonnelEquipmentData();
      없어도 조회는 그냥 undefined로 와서 에러 없이 카드가 숨겨진 채 유지됨.
      ══════════════════════════════════════════════════════════════════ -->
 <script>
-/* ⚙️설정 > 계정: 가입 때 고른 공종/작업분류(members.menu/cat)를 나중에라도 바꿀 수 있게 함
-   (2026-08-02) — 가입 전 회원이나 처음에 대충 고른 회원도 여기서 채우면 됨. 목록은
-   일보입력에서 쓰는 catsByMenu를 그대로 재사용(가입 화면 loadCatOptions()와 같은 소스). */
+/* ⚙️설정 > 계정: 가입 때 고른 공종/작업분류/소속/직책(members.menu/cat/team/position)을
+   나중에라도 바꿀 수 있게 함(2026-08-02 최초 도입, 2026-08-06 소속/직책 추가 — 로그인
+   화면(login.html)의 회원가입 항목과 내용이 어긋나 있던 걸 맞춤). 목록은 일보입력에서 쓰는
+   catsByMenu/customPersonnel을 그대로 재사용(가입 화면과 같은 소스), 작업분류엔 "관리자",
+   소속엔 "관리" 옵션을 로그인 화면과 동일하게 추가. */
+var POSITION_OPTIONS = ['현장소장','공무부장','공무과장','공사부장','공사차장','품질차장','품질과장','기사','팀장','계장공','전공','조공','결선공','케이블공','LOOP','비계공','화기감시자','유도원','신호수','계기교정','기타'];
 function renderMyMenuOptions(){
   var sel=document.getElementById('myMenuSelect');
   sel.innerHTML = MENUS.map(function(m){ return '<option>'+m+'</option>'; }).join('');
   var savedMenu = localStorage.getItem('member_menu')||'';
   if(MENUS.indexOf(savedMenu)!==-1) sel.value = savedMenu;
   renderMyCatOptions();
+  renderMyTeamOptions();
+  renderMyPositionOptions();
 }
 function renderMyCatOptions(){
   var menu=document.getElementById('myMenuSelect').value;
   var sel=document.getElementById('myCatSelect');
   var cur=sel.value;
-  var list=catsByMenu[menu]||[];
+  var list=(catsByMenu[menu]||[]).concat(['관리자']);
   sel.innerHTML = list.map(function(c){ return '<option>'+c+'</option>'; }).join('');
   var savedCat = localStorage.getItem('member_cat')||'';
   if(list.indexOf(savedCat)!==-1) sel.value = savedCat;
   else if(list.indexOf(cur)!==-1) sel.value = cur;
 }
+function renderMyTeamOptions(){
+  var sel=document.getElementById('myTeamSelect');
+  var list=customPersonnel.concat(['관리']);
+  sel.innerHTML = list.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+  var savedTeam = localStorage.getItem('member_team')||'';
+  if(list.indexOf(savedTeam)!==-1) sel.value = savedTeam;
+}
+function renderMyPositionOptions(){
+  var sel=document.getElementById('myPositionSelect');
+  sel.innerHTML = ['<option value=""></option>'].concat(POSITION_OPTIONS.map(function(p){ return '<option>'+p+'</option>'; })).join('');
+  var savedPosition = localStorage.getItem('member_position')||'';
+  if(POSITION_OPTIONS.indexOf(savedPosition)!==-1) sel.value = savedPosition;
+}
 async function saveMyMenuCat(){
   var menu=document.getElementById('myMenuSelect').value;
   var cat=document.getElementById('myCatSelect').value;
+  var team=document.getElementById('myTeamSelect').value;
+  var position=document.getElementById('myPositionSelect').value;
   var id=localStorage.getItem('member_id');
   if(!id||!sbClient) return;
   try{
-    var res=await sbClient.from('members').update({menu:menu,cat:cat}).eq('id',id);
+    var res=await sbClient.from('members').update({menu:menu,cat:cat,team:team,position:position}).eq('id',id);
     if(res.error){ showToast('⚠️ 저장 실패: '+res.error.message, 'var(--err)'); return; }
     localStorage.setItem('member_menu', menu);
     localStorage.setItem('member_cat', cat);
-    showToast('✅ 공종/작업분류 저장됨', 'var(--ok)');
+    localStorage.setItem('member_team', team);
+    localStorage.setItem('member_position', position);
+    showToast('✅ 내 정보 저장됨', 'var(--ok)');
   }catch(e){ showToast('⚠️ 저장 실패: '+(e.message||e), 'var(--err)'); }
 }
 async function withdrawMember(){
