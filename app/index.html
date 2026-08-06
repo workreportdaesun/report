@@ -91,6 +91,18 @@ textarea.f{resize:none; height:44px;}
 .bl{bottom:8px; left:8px; border-bottom:3px solid var(--brand-2); border-left:3px solid var(--brand-2); border-radius:0 0 0 3px;}
 .br{bottom:8px; right:8px; border-bottom:3px solid var(--brand-2); border-right:3px solid var(--brand-2); border-radius:0 0 3px 0;}
 
+/* 작업사진 실시간 카메라 미리보기(2026-08-06) — work-shoot-daesun의 #camModal과 동일한 구조 */
+#shootCamModal{display:none; position:fixed; inset:0; background:#000; z-index:9999; align-items:center; justify-content:center;}
+#shootCamViewport{position:relative; overflow:hidden; background:#000; touch-action:none;}
+#shootCamVideo{width:100%; height:100%; object-fit:cover; display:block;}
+#shootCamCloseBtn{position:absolute; top:14px; right:14px; width:38px; height:38px; border-radius:50%; background:rgba(0,0,0,0.5); color:#fff; border:none; font-size:18px; cursor:pointer; z-index:2;}
+#shootCamShotBtn{position:absolute; bottom:26px; left:50%; transform:translateX(-50%); width:70px; height:70px; border-radius:50%; background:#fff; border:5px solid rgba(255,255,255,0.5); cursor:pointer; z-index:2;}
+#shootCamRatioBadge{position:absolute; top:14px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.55); color:#fff; font-size:13px; font-weight:800; padding:5px 14px; border-radius:20px; letter-spacing:0.5px; pointer-events:none; z-index:2;}
+#shootCamViewport .corner{border-color:#fff; filter:drop-shadow(0 0 2px rgba(0,0,0,0.8));}
+.cam-guide-line{position:absolute; background:rgba(255,255,255,0.4); pointer-events:none;}
+.cam-guide-line.v{width:1px; top:0; bottom:0;}
+.cam-guide-line.h{height:1px; left:0; right:0;}
+
 .sbtn{width:100%; padding:12px; border:none; border-radius:10px; font-size:16px; font-weight:800; cursor:pointer; margin-top:8px; font-family:var(--font-body);}
 .sbtn-add{background:var(--brand-2); color:#fff;}
 .sbtn-send{background:linear-gradient(135deg,var(--brand-2),var(--brand-1)); color:#fff;}
@@ -373,6 +385,28 @@ textarea.f{resize:none; height:44px;}
     </div>
     <input type="file" id="shootFileInput" accept="image/*" capture="environment" style="display:none"/>
     <input type="file" id="shootGalleryFileInput" accept="image/*" multiple style="display:none"/>
+  </div>
+
+  <!-- 실시간 카메라 미리보기(2026-08-06, 사용자 요청) — 후면 카메라를 기기와 상관없이 확실히
+       고정하려고 폰 기본 카메라 앱(capture=environment) 대신 work-shoot-daesun과 동일한
+       getUserMedia 방식으로 되돌렸다. 대신 이 방식은 OS의 "무음모드에서도 강제로 나는"
+       진짜 카메라 셔터음을 못 받는다(웹페이지가 직접 만드는 소리는 무음모드에서 묵음될 수
+       있음) — 이 트레이드오프를 사용자가 확인하고 진행을 요청함. 그래서 커스텀 셔터음도
+       추가하지 않았다(work-shoot-daesun과 동일하게 무음 촬영). getUserMedia 자체를 지원하지
+       않는 구형 브라우저에서는 예전처럼 shootFileInput.click()으로 자동 대체된다. -->
+  <div id="shootCamModal">
+    <div id="shootCamViewport">
+      <video id="shootCamVideo" autoplay playsinline muted></video>
+      <div class="cam-guide-line v" style="left:33.333%;"></div>
+      <div class="cam-guide-line v" style="left:66.666%;"></div>
+      <div class="cam-guide-line h" style="top:33.333%;"></div>
+      <div class="cam-guide-line h" style="top:66.666%;"></div>
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+      <div id="shootCamRatioBadge">3:4</div>
+    </div>
+    <button id="shootCamCloseBtn" type="button" onclick="closeShootCamera()">&#10005;</button>
+    <button id="shootCamShotBtn" type="button" onclick="captureShootShot()"></button>
   </div>
 
   <!-- 저장된 사진 목록 -->
@@ -2392,13 +2426,91 @@ shootSyncCategory();
    report 바깥 스코프에서 이미 한 번 실행되므로 여기서 또 부르지 않는다 — catsByMenu/
    customAreas가 바깥 것과 같은 객체라 report 쪽 동기화 결과가 여기도 그대로 반영됨. */
 
-/* 2026-08-04: 자체 실시간 미리보기(getUserMedia)+합성 셔터음을 버리고, 휴대폰 기본 카메라
-   앱(capture=environment 네이티브 파일입력)을 바로 띄우는 방식으로 전환 — 무음 스위치를
-   웹페이지가 뚫을 수 없어서 합성음은 "음량과 무관하게 항상 들림"을 만족 못 했지만, 네이티브
-   카메라 앱은 OS의 실제 셔터음을 그대로 낸다(국내 안드로이드는 법규상 무음 상태에서도 남).
-   대신 코너브라켓 실시간 미리보기/핀치줌은 사라짐(사용자 확인 후 선택한 트레이드오프). */
+/* 2026-08-04에 자체 실시간 미리보기(getUserMedia)를 버리고 휴대폰 기본 카메라 앱
+   (capture=environment)으로 단순화했었는데, 이 방식은 브라우저/기종에 따라 후면 대신
+   전면 카메라로 열리는 경우가 있었다(capture 속성은 강제가 아니라 힌트일 뿐이라 OS가
+   무시할 수 있음). 2026-08-06, 사용자 요청으로 work-shoot-daesun과 동일한 getUserMedia
+   방식(facingMode:{exact:"environment"} → 느슨한 environment → 아무 카메라 순으로 재시도)
+   으로 되돌려 후면 카메라를 확실히 고정했다 — 이 트레이드오프(무음모드 셔터음 보장을
+   못 받음, 대신 커스텀 소리도 안 넣어 work-shoot-daesun과 동일하게 무음 촬영)는 사용자가
+   확인 후 진행을 요청함. getUserMedia 자체를 지원하지 않는 구형 브라우저는 예전처럼
+   shootFileInput.click()으로 자동 대체된다. */
+var shootCamStream=null;
+async function openShootCamera(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    document.getElementById("shootFileInput").click();
+    return;
+  }
+  var stream=null;
+  var videoConstraints={facingMode:{exact:"environment"},aspectRatio:{ideal:captureRatio},width:{ideal:1920},height:{ideal:1920}};
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:videoConstraints,audio:false});
+  }catch(e1){
+    try{
+      videoConstraints.facingMode="environment";
+      stream=await navigator.mediaDevices.getUserMedia({video:videoConstraints,audio:false});
+    }catch(e2){
+      try{
+        stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+      }catch(e3){
+        document.getElementById("shootFileInput").click();
+        return;
+      }
+    }
+  }
+  shootCamStream=stream;
+  document.getElementById("shootCamVideo").srcObject=stream;
+  document.getElementById("shootCamRatioBadge").textContent=normRatioMode(localStorage.getItem("capture_ratio"));
+  sizeShootCamViewport();
+  document.getElementById("shootCamModal").style.display="flex";
+}
+function closeShootCamera(){
+  if(shootCamStream){shootCamStream.getTracks().forEach(function(t){t.stop();});shootCamStream=null;}
+  document.getElementById("shootCamModal").style.display="none";
+}
+function sizeShootCamViewport(){
+  var vw=window.innerWidth,vh=window.innerHeight;
+  var w,h;
+  if(vw/vh>captureRatio){h=vh;w=Math.round(h*captureRatio);}
+  else{w=vw;h=Math.round(w/captureRatio);}
+  var vp=document.getElementById("shootCamViewport");
+  vp.style.width=w+"px";
+  vp.style.height=h+"px";
+}
+window.addEventListener("resize",function(){
+  if(document.getElementById("shootCamModal").style.display==="flex")sizeShootCamViewport();
+});
+window.addEventListener("orientationchange",function(){
+  setTimeout(function(){
+    if(document.getElementById("shootCamModal").style.display==="flex")sizeShootCamViewport();
+  },250);
+});
+async function captureShootShot(){
+  var video=document.getElementById("shootCamVideo");
+  if(!video.videoWidth)return;
+  var track=shootCamStream&&shootCamStream.getVideoTracks()[0];
+  var cv=null;
+  if(window.ImageCapture&&track){
+    try{
+      var imageCapture=new ImageCapture(track);
+      var blob=await imageCapture.takePhoto();
+      var bitmap=await createImageBitmap(blob);
+      cv=document.createElement("canvas");
+      cv.width=bitmap.width;cv.height=bitmap.height;
+      cv.getContext("2d").drawImage(bitmap,0,0);
+    }catch(e){console.error("고화질 촬영 실패, 미리보기 프레임으로 대체",e);cv=null;}
+  }
+  if(!cv){
+    cv=document.createElement("canvas");
+    cv.width=video.videoWidth;cv.height=video.videoHeight;
+    cv.getContext("2d").drawImage(video,0,0,cv.width,cv.height);
+  }
+  closeShootCamera();
+  var now=new Date();
+  processCapturedFrame(cv,localDateStr(now),now.toTimeString().slice(0,5));
+}
 document.getElementById("shootCamBox").addEventListener("click",function(){
-  document.getElementById("shootFileInput").click();
+  openShootCamera();
 });
 document.getElementById("shootFileInput").addEventListener("change",loadImg);
 document.getElementById("shootGalleryFileInput").addEventListener("change",loadImgsFromGallery);
@@ -2414,6 +2526,10 @@ function setCaptureRatio(mode){
   Object.keys(RATIO_BTN_IDS).forEach(function(m){
     document.getElementById(RATIO_BTN_IDS[m]).classList.toggle("active",m===mode);
   });
+  if(document.getElementById("shootCamModal").style.display==="flex"){
+    document.getElementById("shootCamRatioBadge").textContent=mode;
+    sizeShootCamViewport();
+  }
 }
 (function(){
   var mode=normRatioMode(localStorage.getItem("capture_ratio"));
