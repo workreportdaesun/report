@@ -319,6 +319,30 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
         <button type="button" onclick="saveSiteSettings()" style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--brand-2);color:#fff;cursor:pointer;font-size:12px;font-weight:700;">저장</button>
       </div>
     </div>
+
+    <!-- 공휴일 자동계산 — 양력 고정일은 매년 자동 계산, 설날/추석 등 음력 기반+대체공휴일만
+         한 해에 한 번 아래에서 추가해두면 그 다음부터 자동으로 같이 표시됨(2026-08-06). -->
+    <div style="background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px; margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:800;color:var(--brand-1);margin-bottom:8px;">공휴일 (작업일수 계산 기준)</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+        <label style="font-size:11px;color:var(--lbl);">연도</label>
+        <select id="holidayYearSelect" onchange="renderHolidayTable()" style="padding:5px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);font-size:12px;"></select>
+        <span style="font-size:11px;color:var(--lbl);">— 신정·3·1절·어린이날·현충일·광복절·개천절·한글날·크리스마스는 자동 계산됩니다</span>
+      </div>
+      <div style="max-height:260px;overflow-y:auto;border-radius:10px;">
+        <table class="dtable">
+          <tr><th>날짜</th><th>명칭</th><th style="width:60px;"></th></tr>
+          <tbody id="holidayTableRows"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;">
+        <input type="date" id="holidayNewDate" style="flex:1;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);font-size:12px;">
+        <input type="text" id="holidayNewName" placeholder="명칭 (예: 설날, 대체공휴일)" style="flex:1;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+        <button type="button" onclick="addCustomHoliday()" style="padding:6px 14px;border:none;border-radius:6px;background:var(--brand-2);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">+ 추가</button>
+      </div>
+      <div style="font-size:11px;color:var(--lbl);margin-top:6px;">설날·추석·부처님오신날·대체공휴일처럼 해마다 날짜가 바뀌는 음력 기반 휴일만 연초에 한 번 추가해두면 됩니다. 2026년은 미리 채워져 있습니다.</div>
+    </div>
+
     <div class="out-grid" id="outGrid"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
     <div class="scroll-frame"><div class="scroll-body">
     <table class="dtable">
@@ -1011,6 +1035,109 @@ async function saveSiteSettings(){
     alert('현장 좌표가 저장되었습니다.');
   }catch(e){ alert('저장 실패: '+e.message); }
 }
+
+/* ── 공휴일 자동계산(2026-08-06) — 매년 날짜가 고정인 양력 공휴일은 계산으로 자동 생성하고,
+   해마다 날짜가 바뀌는 음력 기반(설날/추석/부처님오신날)·대체공휴일만 app_settings.holidays_extra
+   (연도별 배열)에 한 해에 한 번 추가해두면 된다. 컬럼이 아직 없으면(순차 배포) 위 site_lat 등과
+   같은 방식으로 화면엔 기본값(2026년 실제 날짜)만 보이고 저장 시 에러 토스트로 안내한다. */
+var FIXED_HOLIDAYS = [
+  {md:'01-01', name:'신정'}, {md:'03-01', name:'3·1절'}, {md:'05-05', name:'어린이날'},
+  {md:'06-06', name:'현충일'}, {md:'08-15', name:'광복절'}, {md:'10-03', name:'개천절'},
+  {md:'10-09', name:'한글날'}, {md:'12-25', name:'크리스마스'}
+];
+// 2026년은 실제 날짜로 미리 채워둠(사용자 제공 자료 기준) — 다른 연도는 관리자가 그 해 초에 추가.
+var holidaysExtra = {
+  '2026': [
+    {date:'2026-02-16',name:'설날'}, {date:'2026-02-17',name:'설날'}, {date:'2026-02-18',name:'설날'},
+    {date:'2026-03-02',name:'대체공휴일'},
+    {date:'2026-05-24',name:'부처님오신날'}, {date:'2026-05-25',name:'대체공휴일'},
+    {date:'2026-08-17',name:'대체공휴일'},
+    {date:'2026-09-24',name:'추석'}, {date:'2026-09-25',name:'추석'}, {date:'2026-09-26',name:'추석'},
+    {date:'2026-10-05',name:'대체공휴일'}
+  ]
+};
+function fixedHolidaysForYear(year){
+  return FIXED_HOLIDAYS.map(function(h){ return {date:year+'-'+h.md, name:h.name, fixed:true}; });
+}
+function getHolidaysForYear(year){
+  var extra = holidaysExtra[year] || [];
+  var all = fixedHolidaysForYear(year).concat(extra.map(function(h){ return {date:h.date, name:h.name, fixed:false}; }));
+  all.sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:0); });
+  return all;
+}
+function renderHolidayTable(){
+  var year = document.getElementById('holidayYearSelect').value;
+  var rows = getHolidaysForYear(year);
+  document.getElementById('holidayTableRows').innerHTML = rows.map(function(h){
+    return '<tr><td class="mono">'+h.date+'</td><td>'+h.name+(h.fixed?' <span style="color:var(--lbl);font-size:10.5px;">(자동)</span>':'')+'</td>'
+      + '<td>'+(h.fixed?'' : '<button type="button" class="holDelBtn" data-year="'+year+'" data-date="'+h.date+'" data-name="'+h.name+'" style="border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.1);color:#E74C3C;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">삭제</button>')+'</td></tr>';
+  }).join('');
+}
+async function saveHolidaysExtra(){
+  if(!sbClient) return;
+  var payload = {id:'global', holidays_extra:holidaysExtra, updated_at:new Date().toISOString()};
+  for(var attempt=0; attempt<3; attempt++){
+    var res = await sbClient.from('app_settings').upsert(payload);
+    if(!res.error) return true;
+    var m = /Could not find the '([^']+)' column/.exec(res.error.message||'');
+    if(m && m[1]==='holidays_extra'){
+      alert('공휴일 저장 실패 — Supabase에 holidays_extra 컬럼이 아직 없습니다.\nSQL Editor에서 다음을 실행해주세요:\nALTER TABLE app_settings ADD COLUMN IF NOT EXISTS holidays_extra jsonb DEFAULT \'{}\'::jsonb;');
+      return false;
+    }
+    break;
+  }
+  return false;
+}
+function addCustomHoliday(){
+  var date = document.getElementById('holidayNewDate').value;
+  var name = document.getElementById('holidayNewName').value.trim();
+  if(!date || !name){ alert('날짜와 명칭을 모두 입력해주세요.'); return; }
+  var year = date.slice(0,4);
+  holidaysExtra[year] = holidaysExtra[year] || [];
+  if(holidaysExtra[year].some(function(h){ return h.date===date && h.name===name; })){ alert('이미 등록된 날짜·명칭입니다.'); return; }
+  holidaysExtra[year].push({date:date, name:name});
+  document.getElementById('holidayNewDate').value = '';
+  document.getElementById('holidayNewName').value = '';
+  ensureHolidayYearOption(year);
+  document.getElementById('holidayYearSelect').value = year;
+  renderHolidayTable();
+  saveHolidaysExtra();
+}
+function ensureHolidayYearOption(year){
+  var sel = document.getElementById('holidayYearSelect');
+  if(!sel.querySelector('option[value="'+year+'"]')){
+    var opt = document.createElement('option');
+    opt.value = year; opt.textContent = year+'년';
+    sel.appendChild(opt);
+  }
+}
+document.getElementById('holidayTableRows').addEventListener('click', function(e){
+  var btn = e.target.closest('.holDelBtn');
+  if(!btn) return;
+  var year = btn.getAttribute('data-year'), date = btn.getAttribute('data-date'), name = btn.getAttribute('data-name');
+  if(!confirm(date+' '+name+'을(를) 삭제할까요?')) return;
+  holidaysExtra[year] = (holidaysExtra[year]||[]).filter(function(h){ return !(h.date===date && h.name===name); });
+  renderHolidayTable();
+  saveHolidaysExtra();
+});
+async function loadHolidaySettings(){
+  var thisYear = new Date().getFullYear();
+  var sel = document.getElementById('holidayYearSelect');
+  [thisYear-1, thisYear, thisYear+1, thisYear+2].forEach(function(y){ ensureHolidayYearOption(String(y)); });
+  sel.value = String(thisYear);
+  if(sbClient){
+    try{
+      var res = await sbClient.from('app_settings').select('holidays_extra').eq('id','global').single();
+      if(!res.error && res.data && res.data.holidays_extra && Object.keys(res.data.holidays_extra).length){
+        holidaysExtra = res.data.holidays_extra;
+        Object.keys(holidaysExtra).forEach(ensureHolidayYearOption);
+      }
+    }catch(e){ console.error('공휴일 불러오기 실패', e); }
+  }
+  renderHolidayTable();
+}
+loadHolidaySettings();
+
 if(admIsMobile){
   var _psb=document.getElementById('planSettingsBtn'); if(_psb) _psb.style.display='none';
 }
@@ -1036,12 +1163,34 @@ async function loadMembers(){
     renderMembers();
   }catch(e){ wrap.innerHTML='<div style="text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오기 실패</div>'; }
 }
+function escAttr(v){ return String(v==null?'':v).replace(/"/g,'&quot;'); }
+/* members 테이블에 role/area/active 컬럼이 아직 없을 수 있어(순차 배포), 에러 메시지에
+   언급된 컬럼을 하나씩 빼면서 재시도한다(login.html doSignup과 동일한 패턴, 2026-08-06). */
+async function updateMemberResilient(id, patch){
+  var payload = Object.assign({}, patch);
+  for(var attempt=0; attempt<5; attempt++){
+    var res = await sbClient.from('members').update(payload).eq('id', id);
+    if(!res.error) return res;
+    var m = /Could not find the '([^']+)' column/.exec(res.error.message||'');
+    if(m && Object.prototype.hasOwnProperty.call(payload, m[1])){ delete payload[m[1]]; continue; }
+    return res;
+  }
+  return {error:{message:'재시도 초과'}};
+}
 function memberRowHtml(m,isLeader){
-  return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--field-bg);">'
-    +'<span style="font-size:13px;'+(isLeader?'font-weight:800;color:var(--brand-2);':'color:var(--ink);')+'">'+(isLeader?'👑 ':'')+m.name+'</span>'
+  var inactive = m.active===false;
+  return '<div style="padding:8px 0;border-top:1px solid var(--field-bg);'+(inactive?'opacity:.55;':'')+'">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:13px;'+(isLeader?'font-weight:800;color:var(--brand-2);':'color:var(--ink);')+'">'+(isLeader?'👑 ':'')+m.name+(inactive?' <span style="font-size:10.5px;font-weight:400;color:var(--lbl);">(퇴사)</span>':'')+'</span>'
     +'<div style="display:flex;gap:6px;">'
     +'<button type="button" class="memberLeaderBtn" data-id="'+m.id+'" data-cur="'+(isLeader?'1':'0')+'" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--brand-2);border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">'+(isLeader?'리더 해제':'리더 지정')+'</button>'
+    +'<button type="button" class="memberActiveBtn" data-id="'+m.id+'" data-cur="'+(inactive?'0':'1')+'" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">'+(inactive?'근무 재개':'퇴사 처리')+'</button>'
     +'<button type="button" class="memberDelBtn" data-id="'+m.id+'" style="border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.1);color:#E74C3C;border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">탈퇴</button>'
+    +'</div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;">'
+    +'<input type="text" class="memberFieldInput" data-id="'+m.id+'" data-field="role" placeholder="직무" value="'+escAttr(m.role)+'" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
+    +'<input type="text" class="memberFieldInput" data-id="'+m.id+'" data-field="area" placeholder="AREA" value="'+escAttr(m.area)+'" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
+    +'<input type="text" class="memberFieldInput" data-id="'+m.id+'" data-field="cat" placeholder="작업분류" value="'+escAttr(m.cat)+'" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
     +'</div></div>';
 }
 function renderMembers(){
@@ -1082,6 +1231,14 @@ document.getElementById('membersList').addEventListener('click', async function(
     membersLoaded=false; loadMembers();
     return;
   }
+  var activeBtn=e.target.closest('.memberActiveBtn');
+  if(activeBtn){
+    var id3=activeBtn.getAttribute('data-id'), cur3=activeBtn.getAttribute('data-cur')==='1';
+    var res3=await updateMemberResilient(id3, {active: !cur3});
+    if(res3.error){ alert('처리 실패: '+res3.error.message); return; }
+    membersLoaded=false; loadMembers();
+    return;
+  }
   var delBtn=e.target.closest('.memberDelBtn');
   if(delBtn){
     var id2=delBtn.getAttribute('data-id');
@@ -1094,6 +1251,17 @@ document.getElementById('membersList').addEventListener('click', async function(
     }catch(err2){ alert('탈퇴 처리 실패: '+(err2.message||err2)); return; }
     membersLoaded=false; loadMembers();
   }
+});
+document.getElementById('membersList').addEventListener('change', async function(e){
+  var inp=e.target.closest('.memberFieldInput');
+  if(!inp) return;
+  var id=inp.getAttribute('data-id'), field=inp.getAttribute('data-field');
+  var patch={}; patch[field]=inp.value.trim();
+  var res=await updateMemberResilient(id, patch);
+  var label = field==='role' ? '직무' : (field==='area' ? 'AREA' : '작업분류');
+  if(res.error){ alert(label+' 저장 실패: '+res.error.message); return; }
+  var row=lastMembers.find(function(m){ return String(m.id)===String(id); });
+  if(row) row[field]=patch[field];
 });
 
 /* ── Check List: TAG NO.×작업분류 그리드, 읽기 전용 — progress_checklist를 그대로 보여줌.
