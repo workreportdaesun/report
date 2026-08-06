@@ -422,7 +422,10 @@ async function doSubmitReport(){
   var curItems = Array.isArray(curRes.data && curRes.data.items) ? curRes.data.items : [];
   // 사진 없이는 전송을 막는다(2026-08-06, 사용자 요청) — 이미 전송된(submitted:true) 항목은
   // 이 규칙이 생기기 전 것일 수 있어 건드리지 않고, 이번에 새로 전송되는 항목만 검사한다.
-  var missingPhoto = curItems.filter(function(it){ return !it.submitted && !it.photo; });
+  // 단, 비고(작업내용)조차 없는 항목은 사진도 불필요하다고 판단해 예외로 둔다(2026-08-06,
+  // 사용자 요청 — 기기번호는 지금도 필수라 항상 있지만, 비고가 빈 항목까지 사진을 강제하면
+  // 과했다는 피드백).
+  var missingPhoto = curItems.filter(function(it){ return !it.submitted && !it.photo && it.note && it.note.trim(); });
   if(missingPhoto.length){
     var tagList = missingPhoto.map(function(it){ return (it.cat||'-')+' '+(it.tag||'-'); }).join(', ');
     showToast('❌ 사진 없는 항목이 있어 전송할 수 없습니다: '+tagList, 'var(--brand-2)');
