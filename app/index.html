@@ -238,12 +238,18 @@ textarea.f{resize:none; height:44px;}
     </div>
 
     <div class="flbl">기타자재</div>
-    <textarea class="f" id="noteInput" placeholder="기타 자재 관련 사항..."></textarea>
+    <div class="mic-row" style="align-items:flex-start;">
+      <textarea class="f" id="noteInput" placeholder="기타 자재 관련 사항..."></textarea>
+      <button class="mic-btn" id="noteMic" onclick="startSTT('noteInput','noteMic')" title="음성 입력" style="height:48px;">🎤</button>
+    </div>
 
     <!-- 명일 작업내용/자재요청, TBM 활동일지 — 작업분류와 무관하게 일보 전체(팀+날짜)에 하나씩만 있으면 되지만,
          기타자재 바로 아래에서 같이 입력하도록 배치(놓치기 쉬워서 눈에 잘 띄는 위치로 이동) -->
     <div class="flbl">명일 작업내용 및 자재요청</div>
-    <textarea class="f" id="nextDayPlanInput" placeholder="내일 예정된 작업, 필요한 자재 등..."></textarea>
+    <div class="mic-row" style="align-items:flex-start;">
+      <textarea class="f" id="nextDayPlanInput" placeholder="내일 예정된 작업, 필요한 자재 등..."></textarea>
+      <button class="mic-btn" id="nextDayMic" onclick="startSTT('nextDayPlanInput','nextDayMic')" title="음성 입력" style="height:48px;">🎤</button>
+    </div>
     <div class="flbl">TBM 활동 일지</div>
     <table class="tbm-log-table" id="tbmLogTable">
       <thead><tr><th>번호</th><th>위험요인</th><th>대책 및 수립</th></tr></thead>
