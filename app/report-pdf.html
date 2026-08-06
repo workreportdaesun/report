@@ -183,19 +183,10 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
     <tr><th>명일 작업내용<br>및 자재요청</th><td id="docNextDayCell">-</td></tr>
   </table>
 
-  <div class="doc-rostersec-head">TBM 활동 일지</div>
-  <div class="doc-scroll"><table class="doc-roster" id="docTbmTable">
-    <thead><tr><th style="width:36px;">번호</th><th>위험요인</th><th>대책 및 수립</th></tr></thead>
-    <tbody id="docTbmRows"><tr><td colspan="3" style="text-align:center;color:var(--lbl);">-</td></tr></tbody>
-  </table></div>
-  <table class="doc-note" style="margin-top:6px;">
-    <tr><th>위험요인에 대한<br>대책 및 수립에<br>대한 결과</th><td id="docTbmResultCell">-</td></tr>
-  </table>
-
 </div>
 </div>
 </div>
-<div class="pdf-page-hint">📄 사진은 1페이지에는 표시되지 않고, TBM 사진이 있으면 그 다음 페이지에 단독으로, 이어서 작업사진이 4장씩 표시됩니다.</div>
+<div class="pdf-page-hint">📄 1페이지 작업일보에 이어, 2페이지는 TBM 활동일지(TBM 사진 포함), 3페이지부터는 작업사진이 4장씩 표시됩니다.</div>
 
 <div class="pdf-actions" id="pdfActions">
   <button class="ghost" id="backBtn" onclick="history.length>1?history.back():location.href='index.html';">← 입력화면으로</button>
@@ -261,47 +252,51 @@ function myDraftId(){
 
 var viewingOtherReport = false; // ?id=로 남의(또는 이미 제출된) 일보를 조회 전용으로 보는 중인지
 
-/* 1페이지 다음부터 work-log(사진대지생성기)와 동일한 두 서식을 섞어 이어붙인다 — TBM 사진은
-   항상 맨 첫 페이지에 "사진2장" 서식(상/하 2칸)으로 단독 배치하고(한 장만 채우고 나머지 칸은
-   비움), 그 다음 페이지부터 작업사진은 "사진4장" 서식(2x2)으로 4장씩 채운다(2026-08-04,
-   사용자 요청). 캡션은 두 서식 모두 기기번호/작업구역/작업내용/날짜 2행으로 동일
-   (excel_builder.py FIELD_CELLS와 동일한 항목·순서). */
-function captionHtml(p){
-  return '<div class="doc-cap2">'
-    + '<div><span class="lbl">기기번호 :</span><span class="val">'+(p.tag||'-')+'</span></div>'
-    + '<div><span class="lbl">작업구역 :</span><span class="val">'+(p.loc||'-')+'</span></div>'
-    + '<div><span class="lbl">작업내용 :</span><span class="val">'+(p.cat||'-')+'</span></div>'
-    + '<div><span class="lbl">날짜 :</span><span class="val">'+(p.date||'-')+'</span></div>'
-    + '</div>';
+/* 페이지 구성(2026-08-06, 사용자 요청): 1페이지 작업일보, 2페이지 TBM 활동일지(위험요인/대책
+   표+결과 내용 다음에 TBM 사진 1장), 3페이지부터 작업사진을 "사진4장" 서식(2x2)으로 4장씩
+   이어붙인다. TBM 사진은 더 이상 "사진 첨부" 흐름의 첫 장이 아니라 TBM 활동일지 페이지
+   안에 내용 다음 순서로 고정 배치된다. 작업사진 캡션은 박스가 좁아 생략(2026-08-04,
+   사용자 요청) — excel_builder.py FIELD_CELLS와 같은 항목이지만 여기선 안 보임. */
+function buildTbmPageHtml(tbmLog, tbmPhoto){
+  var rowsHtml = tbmLog.rows.length
+    ? tbmLog.rows.map(function(r,i){ return '<tr><td style="text-align:center;">'+(i+1)+'</td><td>'+(r.risk||'-')+'</td><td>'+(r.action||'-')+'</td></tr>'; }).join('')
+    : '<tr><td colspan="3" style="text-align:center;color:var(--lbl);">입력된 위험요인 없음</td></tr>';
+  var photoHtml = tbmPhoto
+    ? '<div class="doc-photosec-head" style="margin-top:16px;">TBM(안전 조회) 사진</div>'
+      + '<div class="doc-photo2"><img class="ph" src="'+tbmPhoto.url+'"></div>'
+    : '';
+  return '<div class="doc-rostersec-head">TBM 활동 일지 <span style="float:right;font-weight:600;opacity:.85;font-family:var(--font-mono);">2페이지</span></div>'
+    + '<div class="doc-scroll"><table class="doc-roster"><thead><tr><th style="width:36px;">번호</th><th>위험요인</th><th>대책 및 수립</th></tr></thead>'
+    + '<tbody>' + rowsHtml + '</tbody></table></div>'
+    + '<table class="doc-note" style="margin-top:6px;"><tr><th>위험요인에 대한<br>대책 및 수립에<br>대한 결과</th><td>'+(tbmLog.result||'-')+'</td></tr></table>'
+    + photoHtml;
 }
 /* 작업사진(사진4장, layout='4')은 박스가 좁아 캡션(기기번호/작업구역/작업내용/날짜)을
    넣으면 글자가 너무 작아져 읽기 어려웠다 — 사진만 보여주고 캡션은 생략한다(2026-08-04,
-   사용자 요청). TBM 사진(사진2장, layout='2')은 캡션을 그대로 유지. */
-function photoSlotHtml(p, layout){
-  var boxClass = layout==='4' ? 'doc-photo4' : 'doc-photo2';
-  if(layout==='4'){
-    if(!p) return '<div class="'+boxClass+'"><div class="ph-empty"></div></div>';
-    return '<div class="'+boxClass+'"><img class="ph" src="'+p.url+'"></div>';
-  }
-  if(!p) return '<div class="'+boxClass+'"><div class="ph-empty"></div><div class="doc-cap2"><div></div><div></div><div></div><div></div></div></div>';
-  return '<div class="'+boxClass+'"><img class="ph" src="'+p.url+'">' + captionHtml(p) + '</div>';
+   사용자 요청). */
+function photoSlotHtml(p){
+  if(!p) return '<div class="doc-photo4"><div class="ph-empty"></div></div>';
+  return '<div class="doc-photo4"><img class="ph" src="'+p.url+'"></div>';
 }
-function buildContinuationPages(photos, tbmPhoto){
+function buildContinuationPages(tbmLog, tbmPhoto, photos){
   var root = document.getElementById('pdfPagesRoot');
   root.querySelectorAll('.pdf-page-continuation').forEach(function(el){ el.remove(); });
-  var pages = [];
-  if(tbmPhoto) pages.push({ layout:'2', chunk:[tbmPhoto, null] });
+
+  var tbmPageEl = document.createElement('div');
+  tbmPageEl.className = 'pdf-page pdf-page-continuation';
+  tbmPageEl.innerHTML = '<div class="pdf-sheet">' + buildTbmPageHtml(tbmLog, tbmPhoto) + '</div>';
+  root.appendChild(tbmPageEl);
+
   var perPage = 4;
-  for(var i=0; i<photos.length; i+=perPage) pages.push({ layout:'4', chunk:photos.slice(i, i+perPage) });
-  pages.forEach(function(pg, idx){
+  var photoPages = [];
+  for(var i=0; i<photos.length; i+=perPage) photoPages.push(photos.slice(i, i+perPage));
+  photoPages.forEach(function(chunk, idx){
     var pageEl = document.createElement('div');
     pageEl.className = 'pdf-page pdf-page-continuation';
-    var body = pg.layout==='4'
-      ? '<div class="doc-photogrid4">' + pg.chunk.map(function(p){ return photoSlotHtml(p,'4'); }).join('') + '</div>'
-      : pg.chunk.map(function(p){ return photoSlotHtml(p,'2'); }).join('');
+    var body = '<div class="doc-photogrid4">' + chunk.map(photoSlotHtml).join('') + '</div>';
     pageEl.innerHTML =
       '<div class="pdf-sheet">'
-      + '<div class="doc-photosec-head">사진 첨부 (계속) <span>' + (idx+2) + '페이지</span></div>'
+      + '<div class="doc-photosec-head">작업 사진 <span>' + (idx+3) + '페이지</span></div>'
       + body
       + '</div>';
     root.appendChild(pageEl);
@@ -337,9 +332,9 @@ async function renderReport(row){
     document.getElementById('docRosterBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--lbl);">출력체크 기록 없음</td></tr>';
   }
 
-  // TBM 사진은 더 이상 별도 섹션이 아니라 "사진 첨부"의 첫 장으로 들어간다(2026-08-04, 사용자
-  // 요청) — buildContinuationPages에서 항상 첫 페이지에 단독으로(2장 규격에서 한 장만) 배치.
-  var tbmPhoto = row.tbm_photo ? { url:row.tbm_photo, tag:'', loc:'', cat:'TBM(안전 조회)', date:row.date||'' } : null;
+  // TBM 사진은 2페이지(TBM 활동일지) 안에, 위험요인/대책 표+결과 내용 다음 순서로 고정
+  // 배치된다(2026-08-06, 사용자 요청) — buildContinuationPages/buildTbmPageHtml 참고.
+  var tbmPhoto = row.tbm_photo ? { url:row.tbm_photo } : null;
 
   var items = reportItems;
 
@@ -394,14 +389,10 @@ async function renderReport(row){
       allPhotos.push({ url:p.photo_url, tag:it.tag||'-', loc:it.loc||p.loc||'', cat:it.cat||'', date:p.date||row.date||'' });
     });
   });
-  buildContinuationPages(allPhotos, tbmPhoto);
+  var tbmLog = parseTbmLog(row.special_notes);
+  buildContinuationPages(tbmLog, tbmPhoto, allPhotos);
 
   document.getElementById('docNextDayCell').textContent = row.next_day_plan || '-';
-  var tbmLog = parseTbmLog(row.special_notes);
-  document.getElementById('docTbmRows').innerHTML = tbmLog.rows.length
-    ? tbmLog.rows.map(function(r,i){ return '<tr><td style="text-align:center;">'+(i+1)+'</td><td>'+(r.risk||'-')+'</td><td>'+(r.action||'-')+'</td></tr>'; }).join('')
-    : '<tr><td colspan="3" style="text-align:center;color:var(--lbl);">입력된 위험요인 없음</td></tr>';
-  document.getElementById('docTbmResultCell').textContent = tbmLog.result || '-';
 
   // 하루에 여러 번 전송할 수 있다(2026-08-01) — row.status만으로 잠그면 오전에 한 번
   // 전송한 뒤로 오후에 새로 입력한 항목을 다시 전송할 방법이 없어진다. 대신 "아직 전송
