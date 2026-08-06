@@ -135,6 +135,8 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
   .doc-cap2 .lbl{font-size:11px;}
 
   .pdf-actions{flex-wrap:wrap;}
+  /* 모바일엔 프린터가 붙어있는 경우가 거의 없어 인쇄 버튼 자체를 숨김(2026-08-06, 사용자 요청). */
+  #printBtn{display:none;}
 }
 </style>
 </head>
@@ -190,7 +192,7 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 <div class="pdf-actions" id="pdfActions">
   <button class="ghost" id="backBtn" onclick="history.length>1?history.back():location.href='index.html';">← 입력화면으로</button>
   <button class="primary" id="submitBtn" style="display:none;" onclick="doSubmitReport()">📤 일보 전송</button>
-  <button class="ghost" onclick="window.print()">🖨️ 인쇄</button>
+  <button class="ghost" id="printBtn" onclick="window.print()">🖨️ 인쇄</button>
   <button class="primary" onclick="showToast('📄 PDF 다운로드 (목업 — 실제 파일 생성은 다음 단계)','var(--brand-2)');">📄 PDF 다운로드</button>
 </div>
 
