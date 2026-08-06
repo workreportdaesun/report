@@ -1493,7 +1493,10 @@ async function doCheckIn(){
     // 가입·⚙️설정(내 공종/작업분류)에서 등록해둔 자기 분류를 그대로 쓴다(2026-08-06, 사용자
     // 요청 — 한 사람이 여러 분류에 항목을 입력하면 그 분류마다 전체 출력인원이 중복 집계되던
     // 문제 수정). loadPersonnelEquipmentData가 이 스냅샷(crew[].cat)을 그대로 씀.
-    crew.push({member_id:memberId, member_name:memberName, checkInAt:new Date().toISOString(), checkInDistanceM:Math.round(lastCheckDistance||0), menu: localStorage.getItem('member_menu')||'', cat: localStorage.getItem('member_cat')||''});
+    // "공종별 투입인원(월간)"의 직책별 실적 집계도 이 스냅샷(crew[].position)을 그대로 쓴다
+    // (2026-08-06 추가) — 위 작업분류와 같은 이유로, 그날그날 다른 값이 아니라 체크인 시점의
+    // 등록 직책을 고정해서 남긴다.
+    crew.push({member_id:memberId, member_name:memberName, checkInAt:new Date().toISOString(), checkInDistanceM:Math.round(lastCheckDistance||0), menu: localStorage.getItem('member_menu')||'', cat: localStorage.getItem('member_cat')||'', position: localStorage.getItem('member_position')||''});
     await upsertDailyReport({crew:crew});
     showToast('✅ 출력체크 완료', 'var(--ok)');
     if(typeof window.loadPersonnelEquipmentData==='function') window.loadPersonnelEquipmentData();

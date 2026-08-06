@@ -369,7 +369,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
          행(dashAllReportRows)을 재사용한다. -->
     <div style="font-size:13px;font-weight:800;color:var(--brand-1);margin:22px 0 8px;">출력일지 (사람별 월간 요약)</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-      <input type="month" id="attMonthInput" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);font-size:12px;" onchange="renderAttendanceSummary()">
+      <input type="month" id="attMonthInput" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);font-size:12px;" onchange="renderAttendanceSummary();renderPositionSummary();">
     </div>
     <div class="scroll-frame"><div class="scroll-body">
     <table class="dtable">
@@ -378,6 +378,20 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     </table>
     </div></div>
     <div style="font-size:11px;color:var(--lbl);margin-top:8px;">기본(일)은 그달 출근체크한 날수, 연장(일)은 그중 연장근무를 신청한 날수입니다. 직책은 현재 등록된 값(과거 기록에 스냅샷되지 않음)을 표시합니다.</div>
+
+    <!-- 공종별 투입인원(월간) — 원본 엑셀의 "공종별 투입 인원"(계획 대비 실적) 시트를 1개월
+         단위 웹 화면으로(2026-08-06). 계획은 관리자가 그 달 직책별 계획인원(M/D, 연인원)을
+         입력해두고, 실적은 crew[].position 스냅샷을 그대로 세서 자동 계산한다. 위 출력일지와
+         같은 월 선택(attMonthInput)을 공유해서 두 표가 항상 같은 달을 본다. -->
+    <div style="font-size:13px;font-weight:800;color:var(--brand-1);margin:22px 0 8px;">공종별 투입인원 (직책별 월간 계획 대비 실적)</div>
+    <div class="scroll-frame"><div class="scroll-body">
+    <table class="dtable">
+      <tr class="dtable-head-row"><th>직책</th><th>계획인원(M/D)</th><th>실적인원(M/D)</th><th>달성률</th></tr>
+      <tbody id="posTableRows"><tr><td colspan="4" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+    </table>
+    </div></div>
+    <button type="button" onclick="savePositionPlan()" style="width:100%;margin-top:10px;padding:8px;border:none;border-radius:8px;background:var(--brand-2);color:#fff;cursor:pointer;font-size:12px;font-weight:700;">💾 계획인원 저장</button>
+    <div style="font-size:11px;color:var(--lbl);margin-top:8px;">계획인원(M/D)은 그 달 직책별로 필요한 연인원(관리자가 입력). 실적인원(M/D)은 그 달 출근체크 중 그 직책으로 체크인한 날수를 합산한 값입니다.</div>
   </div>
 
   <!-- 작업일보 전체내용 — 검색/필터 + 클릭 시 상세보기 모달 -->
@@ -715,6 +729,8 @@ async function loadDashboardData(){
     renderOutGrid(todayCrewByTeam,registeredTeams);
     renderOutTable(todayCrewByTeam,todayNamesByTeam);
     renderAttendanceSummary();
+    await loadPositionPlan();
+    renderPositionSummary();
   }catch(e){ console.error('대시보드 데이터 불러오기 실패', e); }
 }
 function renderProcGrid(catToday,catBefore,catMenu,planQty,installQty,gridId){
@@ -969,6 +985,66 @@ function renderAttendanceSummary(){
   rowsHtml += '<tr style="font-weight:800;"><td colspan="4" style="text-align:right;">합계 ('+memberIds.length+'명)</td>'
     +'<td class="mono">'+totalBase+'</td><td class="mono">'+totalOt+'</td><td class="mono">'+(totalBase+totalOt)+'</td></tr>';
   wrap.innerHTML = rowsHtml;
+}
+
+/* 공종별 투입인원(직책별 월간 계획 대비 실적, 2026-08-06) — 원본 엑셀 "공종별 투입 인원"
+   시트의 계획(P)/실적(A/F) 개념을 1개월 단위로 단순화. 계획은 app_settings.position_plan_qty
+   (연월별 {직책:계획인원}) 에 관리자가 입력, 실적은 crew[].position 스냅샷을 그 달 기준으로
+   센다(renderAttendanceSummary와 같은 dashAllReportRows 재사용, 별도 조회 없음). */
+var positionPlanQty = {}, positionPlanLoaded = false;
+async function loadPositionPlan(){
+  if(positionPlanLoaded || !sbClient) return;
+  positionPlanLoaded = true;
+  try{
+    var res = await sbClient.from('app_settings').select('position_plan_qty').eq('id','global').single();
+    if(!res.error && res.data && res.data.position_plan_qty) positionPlanQty = res.data.position_plan_qty;
+  }catch(e){ console.error('직책별 계획인원 불러오기 실패', e); }
+}
+function renderPositionSummary(){
+  var monthInput = document.getElementById('attMonthInput');
+  if(!monthInput.value) monthInput.value = todayStr().slice(0,7);
+  var ym = monthInput.value;
+  var actualByPosition = {};
+  dashAllReportRows.forEach(function(row){
+    if(!row.date || row.date.slice(0,7)!==ym) return;
+    var crew = Array.isArray(row.crew) ? row.crew : [];
+    crew.forEach(function(c){
+      if(c && c.position && c.checkInAt) actualByPosition[c.position] = (actualByPosition[c.position]||0)+1;
+    });
+  });
+  var planForMonth = positionPlanQty[ym] || {};
+  var wrap = document.getElementById('posTableRows');
+  wrap.innerHTML = POSITION_OPTIONS.map(function(p){
+    var actual = actualByPosition[p] || 0;
+    var plan = planForMonth[p] || 0;
+    var pct = plan>0 ? Math.round(actual/plan*100)+'%' : '-';
+    return '<tr><td>'+p+'</td>'
+      +'<td><input type="number" min="0" class="posPlanInput" data-position="'+p+'" value="'+(plan||'')+'" style="width:70px;padding:4px 6px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);font-size:12px;"></td>'
+      +'<td class="mono">'+actual+'</td><td class="mono">'+pct+'</td></tr>';
+  }).join('');
+}
+async function savePositionPlan(){
+  if(!sbClient){ alert('Supabase 연결 실패'); return; }
+  var ym = document.getElementById('attMonthInput').value;
+  if(!ym){ alert('월을 먼저 선택해주세요.'); return; }
+  var planForMonth = {};
+  document.querySelectorAll('.posPlanInput').forEach(function(inp){
+    var v = Number(inp.value)||0;
+    if(v>0) planForMonth[inp.getAttribute('data-position')] = v;
+  });
+  positionPlanQty[ym] = planForMonth;
+  var payload = {id:'global', position_plan_qty:positionPlanQty, updated_at:new Date().toISOString()};
+  for(var attempt=0; attempt<3; attempt++){
+    var res = await sbClient.from('app_settings').upsert(payload);
+    if(!res.error){ alert('계획인원이 저장되었습니다.'); renderPositionSummary(); return; }
+    var m = /Could not find the '([^']+)' column/.exec(res.error.message||'');
+    if(m && m[1]==='position_plan_qty'){
+      alert('저장 실패 — Supabase에 position_plan_qty 컬럼이 아직 없습니다.\nSQL Editor에서 다음을 실행해주세요:\nALTER TABLE app_settings ADD COLUMN IF NOT EXISTS position_plan_qty jsonb DEFAULT \'{}\'::jsonb;');
+      return;
+    }
+    alert('저장 실패: '+res.error.message);
+    return;
+  }
 }
 
 var reportsLoaded = false, reportsRows = [];
