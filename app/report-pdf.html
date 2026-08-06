@@ -181,7 +181,15 @@ body{background:var(--bg); font-family:var(--font-body); color:#1A2332; padding:
 
   <table class="doc-note">
     <tr><th>명일 작업내용<br>및 자재요청</th><td id="docNextDayCell">-</td></tr>
-    <tr><th>특이사항</th><td id="docNoteCell">-</td></tr>
+  </table>
+
+  <div class="doc-rostersec-head">TBM 활동 일지</div>
+  <div class="doc-scroll"><table class="doc-roster" id="docTbmTable">
+    <thead><tr><th style="width:36px;">번호</th><th>위험요인</th><th>대책 및 수립</th></tr></thead>
+    <tbody id="docTbmRows"><tr><td colspan="3" style="text-align:center;color:var(--lbl);">-</td></tr></tbody>
+  </table></div>
+  <table class="doc-note" style="margin-top:6px;">
+    <tr><th>위험요인에 대한<br>대책 및 수립에<br>대한 결과</th><td id="docTbmResultCell">-</td></tr>
   </table>
 
 </div>
@@ -205,6 +213,18 @@ function showToast(msg, color){
   t.textContent=msg; t.style.background=color; t.classList.add('show');
   clearTimeout(t._timer);
   t._timer=setTimeout(function(){t.classList.remove('show');}, 2400);
+}
+
+/* 예전 "특이사항" 자유 입력란 자리에 TBM 활동일지(위험요인/대책 표 + 결과)를 대신 저장한다
+   — daily_reports.special_notes 컬럼을 그대로 재사용(스키마 변경 없이), 값은 index.html의
+   buildTbmLogJson()이 만든 JSON 문자열이다. 여기서는 그 JSON을 표로 다시 그린다. */
+function parseTbmLog(raw){
+  if(!raw) return {rows:[], result:''};
+  try{
+    var d = JSON.parse(raw);
+    if(d && d.tbm) return {rows:Array.isArray(d.rows)?d.rows:[], result:d.result||''};
+  }catch(e){}
+  return {rows:[], result:''};
 }
 
 var SUPABASE_URL='https://feymoykefzfwucbrqoja.supabase.co';
@@ -377,7 +397,11 @@ async function renderReport(row){
   buildContinuationPages(allPhotos, tbmPhoto);
 
   document.getElementById('docNextDayCell').textContent = row.next_day_plan || '-';
-  document.getElementById('docNoteCell').textContent = row.special_notes || '특이사항 없음';
+  var tbmLog = parseTbmLog(row.special_notes);
+  document.getElementById('docTbmRows').innerHTML = tbmLog.rows.length
+    ? tbmLog.rows.map(function(r,i){ return '<tr><td style="text-align:center;">'+(i+1)+'</td><td>'+(r.risk||'-')+'</td><td>'+(r.action||'-')+'</td></tr>'; }).join('')
+    : '<tr><td colspan="3" style="text-align:center;color:var(--lbl);">입력된 위험요인 없음</td></tr>';
+  document.getElementById('docTbmResultCell').textContent = tbmLog.result || '-';
 
   // 하루에 여러 번 전송할 수 있다(2026-08-01) — row.status만으로 잠그면 오전에 한 번
   // 전송한 뒤로 오후에 새로 입력한 항목을 다시 전송할 방법이 없어진다. 대신 "아직 전송

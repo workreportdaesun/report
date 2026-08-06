@@ -343,7 +343,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <input type="date" id="rpDateFrom" onchange="renderReportsTable()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
       <span style="color:var(--lbl);font-size:12px;">~</span>
       <input type="date" id="rpDateTo" onchange="renderReportsTable()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
-      <input type="text" id="rpKeyword" oninput="renderReportsTable()" placeholder="기기번호/비고/특이사항 검색" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:180px;">
+      <input type="text" id="rpKeyword" oninput="renderReportsTable()" placeholder="기기번호/비고/TBM 위험요인 검색" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:180px;">
       <button type="button" onclick="resetReportsFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">초기화</button>
       <span id="rpSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
     </div>
@@ -974,7 +974,7 @@ function openReportDetail(id){
     + (r.tbm_photo ? '<div style="font-size:13px;margin-bottom:8px;"><b>TBM(안전 조회) 사진</b><br><img src="'+r.tbm_photo+'" alt="TBM 사진" style="max-width:220px;border-radius:10px;border:1px solid var(--card-bd);margin-top:6px;display:block;"></div>' : '')
     + '<div style="font-size:13px;margin-bottom:8px;"><b>출력 인원</b> ('+crew.length+'명): '+crewHtml+'</div>'
     + '<div style="font-size:13px;margin-bottom:8px;"><b>명일 작업계획</b>: '+(r.next_day_plan||'-')+'</div>'
-    + '<div style="font-size:13px;"><b>특이사항</b>: '+(r.special_notes||'-')+'</div>';
+    + tbmLogHtml(r.special_notes);
   document.getElementById('reportDetailOverlay').style.display='flex';
 }
 function closeReportDetail(){
@@ -1174,6 +1174,29 @@ function trackHtml(status){
   var t=trackOf(status);
   if(t==='-') return '<span style="color:var(--card-bd);">-</span>';
   return '<span style="color:'+(t==='신규'?'#2E5F9E':'#E67E22')+';font-weight:700;">'+t+'</span>';
+}
+
+/* 예전 "특이사항" 자유 입력란 자리에 TBM 활동일지(위험요인/대책 표 + 결과)를 대신 저장한다
+   — daily_reports.special_notes 컬럼을 그대로 재사용(스키마 변경 없이), 값은 index.html의
+   buildTbmLogJson()이 만든 JSON 문자열이다. 여기서는 그 JSON을 표로 다시 그린다. */
+function parseTbmLog(raw){
+  if(!raw) return {rows:[], result:''};
+  try{
+    var d = JSON.parse(raw);
+    if(d && d.tbm) return {rows:Array.isArray(d.rows)?d.rows:[], result:d.result||''};
+  }catch(e){}
+  return {rows:[], result:''};
+}
+function tbmLogHtml(raw){
+  var d = parseTbmLog(raw);
+  if(!d.rows.length && !d.result) return '<div style="font-size:13px;"><b>TBM 활동 일지</b>: -</div>';
+  var rowsHtml = d.rows.length
+    ? '<table class="dtable" style="margin:4px 0 8px;"><tr><th style="width:40px;">번호</th><th>위험요인</th><th>대책 및 수립</th></tr>'
+      + d.rows.map(function(r,i){ return '<tr><td>'+(i+1)+'</td><td>'+(r.risk||'-')+'</td><td>'+(r.action||'-')+'</td></tr>'; }).join('')
+      + '</table>'
+    : '';
+  return '<div style="font-size:13px;margin-bottom:8px;"><b>TBM 활동 일지</b>'+rowsHtml
+    + '<div style="margin-top:4px;"><b>대책 및 수립 결과</b>: '+(d.result||'-')+'</div></div>';
 }
 
 /* ── 물량관리: work_log(report/app/index.html의 syncWorkLog가 daily_reports에서 매번

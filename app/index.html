@@ -38,6 +38,13 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .flbl{font-size:13px; font-weight:700; color:var(--lbl); letter-spacing:.5px; text-transform:uppercase; margin:8px 0 4px;}
 .flbl:first-child{margin-top:0;}
 .f{width:100%; background:var(--field-bg); border:1.5px solid var(--field-bd); border-radius:8px; padding:9px 11px; color:var(--ink); font-size:17px; font-family:var(--font-body);}
+
+.tbm-log-table{width:100%; border-collapse:collapse; margin-bottom:4px; table-layout:fixed;}
+.tbm-log-table th{background:var(--field-bg); border:1px solid var(--field-bd); padding:5px 4px; font-size:12px; font-weight:700; color:var(--lbl);}
+.tbm-log-table td{border:1px solid var(--field-bd); padding:4px;}
+.tbm-log-table td.tbm-no{width:30px; text-align:center; font-weight:700; color:var(--lbl); font-size:14px;}
+.tbm-log-table th:first-child{width:30px;}
+.tbm-log-table input.f{padding:6px 7px; font-size:14px; border:none; border-radius:6px;}
 textarea.f{resize:none; height:44px;}
 
 /* ── 일보 입력: 자동 증가 행 목록 — 기기번호/규격/수량/진행상황/삭제를 한 줄에 배치.
@@ -229,14 +236,23 @@ textarea.f{resize:none; height:44px;}
     <div class="flbl">기타자재</div>
     <textarea class="f" id="noteInput" placeholder="기타 자재 관련 사항..."></textarea>
 
-    <!-- 명일 작업내용/자재요청, 특이사항 — 작업분류와 무관하게 일보 전체(팀+날짜)에 하나씩만 있으면 되지만,
+    <!-- 명일 작업내용/자재요청, TBM 활동일지 — 작업분류와 무관하게 일보 전체(팀+날짜)에 하나씩만 있으면 되지만,
          기타자재 바로 아래에서 같이 입력하도록 배치(놓치기 쉬워서 눈에 잘 띄는 위치로 이동) -->
     <div class="flbl">명일 작업내용 및 자재요청</div>
     <textarea class="f" id="nextDayPlanInput" placeholder="내일 예정된 작업, 필요한 자재 등..."></textarea>
-    <div class="flbl">특이사항</div>
-    <textarea class="f" id="specialNotesInput" placeholder="현장 특이사항..."></textarea>
+    <div class="flbl">TBM 활동 일지</div>
+    <table class="tbm-log-table" id="tbmLogTable">
+      <thead><tr><th>번호</th><th>위험요인</th><th>대책 및 수립</th></tr></thead>
+      <tbody>
+        <tr><td class="tbm-no">1</td><td><input type="text" class="f tbm-risk" placeholder="위험요인"></td><td><input type="text" class="f tbm-action" placeholder="대책 및 수립"></td></tr>
+        <tr><td class="tbm-no">2</td><td><input type="text" class="f tbm-risk" placeholder="위험요인"></td><td><input type="text" class="f tbm-action" placeholder="대책 및 수립"></td></tr>
+        <tr><td class="tbm-no">3</td><td><input type="text" class="f tbm-risk" placeholder="위험요인"></td><td><input type="text" class="f tbm-action" placeholder="대책 및 수립"></td></tr>
+      </tbody>
+    </table>
+    <div class="flbl" style="margin-top:10px;">위험요인에 대한 대책 및 수립에 대한 결과</div>
+    <textarea class="f" id="tbmResultInput" placeholder="내용기입란"></textarea>
 
-    <!-- TBM(안전 조회) 사진 — 팀+날짜 단위 1장(daily_reports.tbm_photo), 특이사항과 같이
+    <!-- TBM(안전 조회) 사진 — 팀+날짜 단위 1장(daily_reports.tbm_photo), TBM 활동일지와 같이
          일보 전체(팀+날짜) 단위 필드라 여기 배치(2026-08-04, 인원현황 탭에서 이동) -->
     <div class="flbl">TBM(안전 조회) 사진</div>
     <div id="tbmPreview" style="margin-bottom:10px;font-size:13px;color:var(--lbl);">불러오는 중...</div>
@@ -1298,7 +1314,7 @@ async function saveEntryRows(){
     items:items,
     status:computeReportStatus(items),
     next_day_plan: document.getElementById('nextDayPlanInput').value.trim(),
-    special_notes: document.getElementById('specialNotesInput').value.trim()
+    special_notes: buildTbmLogJson()
   });
   if(typeof window.loadProgressData==='function') window.loadProgressData();
   if(typeof window.syncProgressChecklist==='function') window.syncProgressChecklist();
@@ -1746,9 +1762,24 @@ async function previewReport(){
     items:items,
     status:computeReportStatus(items),
     next_day_plan: document.getElementById('nextDayPlanInput').value.trim(),
-    special_notes: document.getElementById('specialNotesInput').value.trim()
+    special_notes: buildTbmLogJson()
   });
   location.href='report-pdf.html';
+}
+/* 예전 "특이사항" 자유 입력란을 대신해 TBM 활동일지(위험요인/대책 표 + 결과)를 저장한다.
+   기존 daily_reports.special_notes 컬럼을 그대로 재사용하되(스키마 변경 없이), 값은 JSON
+   문자열로 담는다 — report-pdf.html/admin.html은 parseTbmLog로 이를 표 형태로 다시 그린다. */
+function buildTbmLogJson(){
+  var risks = document.querySelectorAll('#tbmLogTable .tbm-risk');
+  var actions = document.querySelectorAll('#tbmLogTable .tbm-action');
+  var rows = [];
+  for(var i=0;i<risks.length;i++){
+    var risk = risks[i].value.trim(), action = actions[i].value.trim();
+    if(risk || action) rows.push({risk:risk, action:action});
+  }
+  var result = document.getElementById('tbmResultInput').value.trim();
+  if(!rows.length && !result) return '';
+  return JSON.stringify({tbm:true, rows:rows, result:result});
 }
 function showToast(msg, color){
   var t=document.getElementById('toast');
