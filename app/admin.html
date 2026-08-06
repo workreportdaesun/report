@@ -1195,6 +1195,14 @@ async function loadMembers(){
   }catch(e){ wrap.innerHTML='<div style="text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오기 실패</div>'; }
 }
 function escAttr(v){ return String(v==null?'':v).replace(/"/g,'&quot;'); }
+// login.html 회원가입의 직책 목록과 동일(2026-08-06) — 관리직/현장직을 한 목록으로 통합.
+var POSITION_OPTIONS = ['현장소장','공무부장','공무과장','공사부장','공사차장','품질차장','품질과장','기사','팀장','계장공','전공','조공','결선공','케이블공','LOOP','비계공','화기감시자','유도원','신호수','계기교정','기타'];
+function positionSelectHtml(id, cur){
+  var opts = ['<option value=""></option>'].concat(POSITION_OPTIONS.map(function(p){
+    return '<option'+(p===cur?' selected':'')+'>'+p+'</option>';
+  }));
+  return '<select class="memberFieldInput" data-id="'+id+'" data-field="position" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'+opts.join('')+'</select>';
+}
 /* members 테이블에 role/area/active 컬럼이 아직 없을 수 있어(순차 배포), 에러 메시지에
    언급된 컬럼을 하나씩 빼면서 재시도한다(login.html doSignup과 동일한 패턴, 2026-08-06). */
 async function updateMemberResilient(id, patch){
@@ -1218,9 +1226,8 @@ function memberRowHtml(m,isLeader){
     +'<button type="button" class="memberActiveBtn" data-id="'+m.id+'" data-cur="'+(inactive?'0':'1')+'" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">'+(inactive?'근무 재개':'퇴사 처리')+'</button>'
     +'<button type="button" class="memberDelBtn" data-id="'+m.id+'" style="border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.1);color:#E74C3C;border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">탈퇴</button>'
     +'</div></div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-top:6px;">'
-    +'<input type="text" class="memberFieldInput" data-id="'+m.id+'" data-field="position" placeholder="직책(팀장 등)" value="'+escAttr(m.position)+'" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
-    +'<input type="text" class="memberFieldInput" data-id="'+m.id+'" data-field="skill" placeholder="기능(전공 등)" value="'+escAttr(m.skill)+'" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;">'
+    +positionSelectHtml(m.id, m.position)
     +'<input type="text" class="memberFieldInput" data-id="'+m.id+'" data-field="area" placeholder="AREA" value="'+escAttr(m.area)+'" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
     +'<input type="text" class="memberFieldInput" data-id="'+m.id+'" data-field="cat" placeholder="작업분류" value="'+escAttr(m.cat)+'" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
     +'</div></div>';
@@ -1290,7 +1297,7 @@ document.getElementById('membersList').addEventListener('change', async function
   var id=inp.getAttribute('data-id'), field=inp.getAttribute('data-field');
   var patch={}; patch[field]=inp.value.trim();
   var res=await updateMemberResilient(id, patch);
-  var FIELD_LABELS = {position:'직책', skill:'기능', area:'AREA', cat:'작업분류'};
+  var FIELD_LABELS = {position:'직책', area:'AREA', cat:'작업분류'};
   var label = FIELD_LABELS[field] || field;
   if(res.error){ alert(label+' 저장 실패: '+res.error.message); return; }
   var row=lastMembers.find(function(m){ return String(m.id)===String(id); });

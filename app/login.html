@@ -71,27 +71,35 @@ body{background:var(--bg); font-family:var(--font-body); color:var(--ink); min-h
       <input type="text" id="regName" class="f" placeholder="홍길동">
       <div class="flbl">전화번호</div>
       <input type="tel" id="regPhone" class="f" placeholder="01012345678">
-      <div class="flbl">직책</div>
-      <input type="text" id="regPosition" class="f" placeholder="팀장, 반장, 사원 등">
-      <div class="flbl">기능</div>
-      <input type="text" id="regSkill" class="f" placeholder="계장공, 전공, 조공 등">
-      <div class="flbl">소속팀</div>
-      <select id="regTeam" class="f">
-        <option>1팀(계장)</option><option>2팀(계장)</option><option>품질팀</option><option>안전관리팀</option>
-      </select>
-      <!-- 위 4개는 Supabase 연결 실패 시를 대비한 기본값 — 정상 연결되면 loadTeamOptions()가
-           app_settings.personnel(⚙️설정 > 인원 관리와 동일한 목록)로 즉시 덮어씀 -->
-      <div id="regTeamHint" style="font-size:11px;color:var(--lbl);margin-top:4px;"></div>
       <div class="flbl">공종</div>
       <select id="regMenu" class="f" onchange="renderRegCatOptions()">
         <option>시공</option><option>품질</option><option>자재</option><option>안전</option><option>화기/유도</option>
       </select>
       <div class="flbl">작업분류</div>
       <select id="regCat" class="f"></select>
-      <!-- 작업일보 앱(index.html)의 공종/작업분류(MENU_CONFIG·catsByMenu)와 같은 목록 —
-           Supabase 연결 실패 시를 대비한 기본값이고, 정상 연결되면 loadCatOptions()가
-           app_settings.cats_by_menu(작업일보 ⚙️설정과 동일한 목록)로 즉시 덮어씀 -->
+      <!-- 작업일보 앱(index.html)의 공종/작업분류(MENU_CONFIG·catsByMenu)와 같은 목록 + "관리자"
+           (특정 작업분류 없이 관리 업무만 하는 사람용, 2026-08-06 추가) — Supabase 연결 실패
+           시를 대비한 기본값이고, 정상 연결되면 loadCatOptions()가 app_settings.cats_by_menu
+           (작업일보 ⚙️설정과 동일한 목록)로 즉시 덮어씀. -->
       <div id="regCatHint" style="font-size:11px;color:var(--lbl);margin-top:4px;"></div>
+      <div class="flbl">소속</div>
+      <select id="regTeam" class="f">
+        <option>1팀(계장)</option><option>2팀(계장)</option><option>품질팀</option><option>안전관리팀</option><option>관리</option>
+      </select>
+      <!-- 팀 목록(관리 제외)은 Supabase 연결 실패 시를 대비한 기본값 — 정상 연결되면
+           loadTeamOptions()가 app_settings.personnel(⚙️설정 > 인원 관리와 동일한 목록)로
+           즉시 덮어쓰되, "관리"(현장 관리직용) 옵션은 항상 맨 뒤에 같이 붙여둠. -->
+      <div id="regTeamHint" style="font-size:11px;color:var(--lbl);margin-top:4px;"></div>
+      <div class="flbl">직책</div>
+      <select id="regPosition" class="f">
+        <optgroup label="관리직">
+          <option>현장소장</option><option>공무부장</option><option>공무과장</option><option>공사부장</option><option>공사차장</option><option>품질차장</option><option>품질과장</option><option>기사</option>
+        </optgroup>
+        <optgroup label="현장직">
+          <option>팀장</option><option>계장공</option><option>전공</option><option>조공</option><option>결선공</option><option>케이블공</option><option>LOOP</option><option>비계공</option><option>화기감시자</option><option>유도원</option><option>신호수</option><option>계기교정</option>
+        </optgroup>
+        <option>기타</option>
+      </select>
       <button class="sbtn" onclick="doSignup()">가입하기</button>
     </div>
   </div>
@@ -135,7 +143,6 @@ function saveSession(m){
   localStorage.setItem('member_menu', m.menu || '');
   localStorage.setItem('member_cat', m.cat || '');
   localStorage.setItem('member_position', m.position || '');
-  localStorage.setItem('member_skill', m.skill || '');
   localStorage.setItem('member_is_leader', m.is_leader ? '1' : '0');
   localStorage.setItem('senderName', m.name);
 }
@@ -157,11 +164,10 @@ async function doSignup(){
   var team = document.getElementById('regTeam').value;
   var menu = document.getElementById('regMenu').value;
   var cat = document.getElementById('regCat').value;
-  var position = document.getElementById('regPosition').value.trim();
-  var skill = document.getElementById('regSkill').value.trim();
+  var position = document.getElementById('regPosition').value;
   if(!name || phone.length < 10){ showToast('⚠️ 이름과 전화번호를 입력해 주세요', 'var(--err)'); return; }
   showToast('가입 중...', 'var(--brand-2)');
-  var full = {company:company, project:project, name:name, phone:phone, team:team, menu:menu, cat:cat, position:position, skill:skill, is_leader:false};
+  var full = {company:company, project:project, name:name, phone:phone, team:team, menu:menu, cat:cat, position:position, is_leader:false};
   var payload = Object.assign({}, full);
   var stripped = [];
   var res;
@@ -208,6 +214,8 @@ async function loadTeamOptions(){
     var res = await sbClient.from('app_settings').select('personnel').eq('id','global').single();
     var list = (res.data && Array.isArray(res.data.personnel)) ? res.data.personnel : [];
     if(res.error || !list.length){ hint.textContent='⚠️ 팀 목록을 불러오지 못해 기본 목록으로 표시합니다.'; return; }
+    // "관리"(현장 관리직용)는 팀 관리 목록에 없어도 항상 맨 뒤에 붙여둔다(2026-08-06 추가).
+    list = list.concat(['관리']);
     var cur = sel.value;
     sel.innerHTML = list.map(function(t){ return '<option>'+t+'</option>'; }).join('');
     if(list.indexOf(cur)!==-1) sel.value = cur;
@@ -230,7 +238,9 @@ function renderRegCatOptions(){
   var menu = document.getElementById('regMenu').value;
   var sel = document.getElementById('regCat');
   var cur = sel.value;
-  var list = catsByMenu[menu] || [];
+  // 실제 작업분류 목록 + "관리자"(특정 분류 없이 관리 업무만 하는 사람용, 2026-08-06 추가) —
+  // catsByMenu가 나중에 Supabase 값으로 덮어써져도 이 함수가 다시 불릴 때마다 항상 맨 뒤에 붙음.
+  var list = (catsByMenu[menu] || []).concat(['관리자']);
   sel.innerHTML = list.map(function(c){ return '<option>'+c+'</option>'; }).join('');
   if(list.indexOf(cur)!==-1) sel.value = cur;
 }
