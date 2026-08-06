@@ -320,6 +320,18 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       </div>
     </div>
 
+    <!-- 연장근무 종료시간 — 출퇴근체크 앱(work-checkin-daesun)의 퇴근체크 게이트 기준(2026-08-06).
+         오늘 날짜에만 유효하도록 날짜를 같이 저장해서, 어제 입력값이 오늘까지 남아있는 실수를 막는다. -->
+    <div style="background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px; margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:800;color:var(--brand-1);margin-bottom:8px;">연장근무 종료시간 (오늘만 적용)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">날짜</label><input type="date" id="overtimeDateInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
+        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">종료시간</label><input type="time" id="overtimeEndInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
+      </div>
+      <div style="font-size:11px;color:var(--lbl);margin-top:8px;">연장근무를 신청한 근로자는 이 시간+5분부터 퇴근체크가 가능합니다. 연장근무가 없는 날은 비워두거나 지난 날짜로 두면 됩니다(오늘 날짜가 아니면 자동으로 무시됨).</div>
+      <button type="button" onclick="saveOvertimeSettings()" style="width:100%;margin-top:10px;padding:8px;border:none;border-radius:8px;background:var(--brand-2);color:#fff;cursor:pointer;font-size:12px;font-weight:700;">저장</button>
+    </div>
+
     <!-- 공휴일 자동계산 — 양력 고정일은 매년 자동 계산, 설날/추석 등 음력 기반+대체공휴일만
          한 해에 한 번 아래에서 추가해두면 그 다음부터 자동으로 같이 표시됨(2026-08-06). -->
     <div style="background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px; margin-bottom:16px;">
@@ -1009,12 +1021,31 @@ function closeReportDetail(){
 async function loadSiteSettings(){
   if(!sbClient) return;
   try{
-    var res = await sbClient.from('app_settings').select('site_lat,site_lng,geofence_m').eq('id','global').single();
+    var res = await sbClient.from('app_settings').select('site_lat,site_lng,geofence_m,overtime_date,overtime_end_time').eq('id','global').single();
     if(res.error || !res.data) return;
     if(typeof res.data.site_lat==='number') document.getElementById('siteLatInput').value = res.data.site_lat;
     if(typeof res.data.site_lng==='number') document.getElementById('siteLngInput').value = res.data.site_lng;
     if(typeof res.data.geofence_m==='number') document.getElementById('geofenceInput').value = res.data.geofence_m;
+    if(res.data.overtime_date) document.getElementById('overtimeDateInput').value = res.data.overtime_date;
+    if(res.data.overtime_end_time) document.getElementById('overtimeEndInput').value = res.data.overtime_end_time;
   }catch(e){ console.error('현장 좌표 불러오기 실패', e); }
+}
+async function saveOvertimeSettings(){
+  if(!sbClient){ alert('Supabase 연결 실패'); return; }
+  var date = document.getElementById('overtimeDateInput').value;
+  var time = document.getElementById('overtimeEndInput').value;
+  var payload = {id:'global', overtime_date: date||null, overtime_end_time: time||null, updated_at:new Date().toISOString()};
+  for(var attempt=0; attempt<3; attempt++){
+    var res = await sbClient.from('app_settings').upsert(payload);
+    if(!res.error){ alert('연장근무 설정이 저장되었습니다.'); return; }
+    var m = /Could not find the '([^']+)' column/.exec(res.error.message||'');
+    if(m && Object.prototype.hasOwnProperty.call(payload, m[1])){
+      alert('저장 실패 — Supabase에 '+m[1]+' 컬럼이 아직 없습니다.\nSQL Editor에서 다음을 실행해주세요:\nALTER TABLE app_settings ADD COLUMN IF NOT EXISTS overtime_date date, ADD COLUMN IF NOT EXISTS overtime_end_time text;');
+      return;
+    }
+    alert('저장 실패: '+res.error.message);
+    return;
+  }
 }
 function useCurrentLocation(){
   if(!navigator.geolocation){ alert('이 브라우저는 위치 사용을 지원하지 않습니다.'); return; }
