@@ -30,6 +30,64 @@
 -- ════════════════════════════════════════════════════════════════════════
 
 
+-- ════════════════════════════════════════════════════════════════════════
+--  ★ 확정된 실행 블록 (2026-08-09, 사용자 결정)
+--    "7/31·8/4만 살리고 나머지 삭제"
+--
+--  아래 ①~④를 위에서부터 순서대로 실행하면 끝납니다. 이 블록만 쓰시면 되고,
+--  그 아래 STEP 0~4는 참고용 원본입니다.
+--
+--  확인된 사실 (실행 직전 실제 데이터로 검증)
+--    · 관리_2026-07-31, 관리_2026-08-04 가 없으므로 두 건은 단순 이관 가능(병합 불필요)
+--    · 삭제 대상 5건: 7/17, 7/25, 7/26, 8/5(제출완료), 8/6
+--    · ⚠️ 미지정_2026-08-06 에만 설동석 님 출근기록(05:51)이 있고
+--         관리_2026-08-06 의 crew 는 비어 있음 → 그냥 지우면 그날 출력일수가 사라짐.
+--         그래서 ②에서 출근기록을 먼저 옮긴 뒤 ③에서 삭제한다.
+-- ════════════════════════════════════════════════════════════════════════
+
+-- ① 백업 (반드시 먼저)
+CREATE TABLE IF NOT EXISTS daily_reports_backup_20260809 AS
+SELECT * FROM daily_reports WHERE id LIKE '미지정\_%';
+
+-- ② 8/6 출근기록을 같은 날 '관리' 행으로 옮긴다 (삭제로 근태가 사라지지 않게)
+--    crew 컬럼이 jsonb가 아니라 json이면 "column crew is of type json" 오류가 납니다.
+--    그때는 마지막 줄의 대입식을 (COALESCE(...) || COALESCE(...))::json 으로 감싸세요.
+--    (타입 확인은 아래 참고용 STEP 0 쿼리)
+UPDATE daily_reports AS tgt
+SET crew = COALESCE(tgt.crew::jsonb, '[]'::jsonb) || COALESCE(src.crew::jsonb, '[]'::jsonb),
+    updated_at = now()
+FROM daily_reports AS src
+WHERE tgt.id = '관리_2026-08-06'
+  AND src.id = '미지정_2026-08-06';
+
+-- ③ 7/31·8/4 두 건을 '관리' 팀 일보로 이관 (id도 '팀_날짜' 형식이라 함께 변경)
+UPDATE daily_reports
+SET team = '관리',
+    id   = '관리_' || date::text,
+    updated_at = now()
+WHERE id LIKE '미지정\_%'
+  AND date::text IN ('2026-07-31', '2026-08-04');
+
+-- ④ 남은 고아 행(7/17, 7/25, 7/26, 8/5, 8/6) 삭제
+DELETE FROM daily_reports WHERE id LIKE '미지정\_%';
+
+-- ⑤ 확인 — 첫 쿼리가 0행이면 완료
+SELECT id FROM daily_reports WHERE id LIKE '미지정\_%';
+SELECT id, team, date, status,
+       jsonb_array_length(COALESCE(items::jsonb, '[]'::jsonb)) AS 항목수,
+       jsonb_array_length(COALESCE(crew::jsonb,  '[]'::jsonb)) AS 출력인원
+FROM daily_reports ORDER BY date;
+-- 기대 결과: 관리_2026-07-31(5항목), 관리_2026-08-04(7항목)이 새로 보이고,
+--            관리_2026-08-06 의 출력인원이 0 → 1 로 바뀌어 있어야 합니다.
+
+-- 며칠 지켜본 뒤 문제없으면:
+-- DROP TABLE daily_reports_backup_20260809;
+
+
+-- ════════════════════════════════════════════════════════════════════════
+--  이하는 참고용 원본 (다른 선택을 하고 싶을 때)
+-- ════════════════════════════════════════════════════════════════════════
+
 -- ─── STEP 0. 컬럼 타입 확인 (옵션 B를 쓸 때만 필요) ────────────────────
 -- items/crew가 json인지 jsonb인지에 따라 아래 B-2 병합 구문이 달라집니다.
 --   jsonb 로 나오면 → 파일에 적힌 그대로 실행
@@ -47,8 +105,10 @@ WHERE table_name = 'daily_reports'
 -- 잘못 지웠을 때 되돌릴 수 있는 유일한 수단입니다. 정리가 끝나고 문제없다고
 -- 확인되면 그때 DROP TABLE로 지우세요.
 
-CREATE TABLE IF NOT EXISTS daily_reports_backup_20260809 AS
-SELECT * FROM daily_reports WHERE id LIKE '미지정\_%';
+-- (위 확정 블록 ①과 같은 구문이라 여기서는 주석 처리 — 파일을 통째로 붙여넣어도
+--  중복 실행되지 않게 함)
+-- CREATE TABLE IF NOT EXISTS daily_reports_backup_20260809 AS
+-- SELECT * FROM daily_reports WHERE id LIKE '미지정\_%';
 
 
 -- ─── STEP 2. 지금 상태 확인 ────────────────────────────────────────────
