@@ -303,6 +303,18 @@ function buildContinuationPages(tbmLog, tbmPhoto, photos){
   });
 }
 
+/* 그 일보를 쓴 팀의 팀원 이름 목록 — 사진의 sender와 대조해 다른 팀 사진을 걸러내는 데 쓴다.
+   조회 실패나 팀 미지정이면 빈 배열을 돌려주고, 호출부에서 필터를 걸지 않아(사진이 통째로
+   사라지는 것보다 낫다) 예전과 같은 동작으로 남는다. */
+async function getReportTeamNames(team){
+  if(!sbClient || !team) return [];
+  try{
+    var res = await sbClient.from('members').select('name').eq('team', team);
+    if(res.error || !res.data) return [];
+    return res.data.map(function(m){ return m.name; }).filter(Boolean);
+  }catch(e){ return []; }
+}
+
 async function renderReport(row){
   document.getElementById('docDate').textContent = row.date || '-';
   document.getElementById('docWriter').textContent = (localStorage.getItem('member_name')||'-') + ' (' + (row.team||'-') + ')';
@@ -355,10 +367,20 @@ async function renderReport(row){
   // (이 기능 이전에 저장된 것)만 예전처럼 공종+분류+기기번호로 느슨하게 매칭한다.
   var photoById = {};
   workPhotos.forEach(function(p){ photoById[p.id] = p; });
+  /* linkedPhotoId가 없는 예전 항목의 느슨한 매칭(공종+분류+기기번호)은 팀 구분이 없어서, 다른
+     팀이 같은 날 같은 분류·기기번호로 찍은 사진이 이 팀 일보에 실릴 수 있었다(index.html의
+     사진 자동 불러오기는 2026-08-02에 팀 스코핑으로 고쳤는데 PDF만 빠져 있었음). 로그인한
+     사람이 아니라 그 일보의 팀(row.team)으로 잡아야 관리자가 남의 팀 일보를 열어도 맞다.
+     linkedPhotoId로 정확히 연결된 사진은 id가 유일하므로 걸러내지 않는다 — 팀 이름 목록이
+     불완전할 때(팀 이동·개명 등) 제대로 연결된 사진까지 사라지는 게 더 나쁘기 때문이다. */
+  var teamNames = await getReportTeamNames(row.team);
+  var teamPhotos = teamNames.length
+    ? workPhotos.filter(function(p){ return teamNames.indexOf(p.sender)!==-1; })
+    : workPhotos;
   var itemPhotos = items.map(function(it){
     if(!it.photo) return [];
     if(it.linkedPhotoId!=null) return photoById[it.linkedPhotoId] ? [photoById[it.linkedPhotoId]] : [];
-    return workPhotos.filter(function(p){ return p.menu===it.menu && p.cat===it.cat && p.tag===it.tag; });
+    return teamPhotos.filter(function(p){ return p.menu===it.menu && p.cat===it.cat && p.tag===it.tag; });
   });
 
   document.getElementById('docBodyRows').innerHTML = items.length
