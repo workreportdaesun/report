@@ -143,6 +143,10 @@ function saveSession(m){
   localStorage.setItem('member_menu', m.menu || '');
   localStorage.setItem('member_cat', m.cat || '');
   localStorage.setItem('member_position', m.position || '');
+  /* 권한 3단계(2026-08-09) — worker(작업자, 출퇴근만) / manager(현장관리자, 일보 전체) /
+     admin(운영자, 전부). 값이 비어 있는 기존·신규 회원은 가장 낮은 worker로 본다.
+     운영자가 admin.html 회원관리에서 올려주기 전까지는 출퇴근체크만 쓸 수 있다. */
+  localStorage.setItem('member_role', m.role || 'worker');
   localStorage.setItem('member_is_leader', m.is_leader ? '1' : '0');
   localStorage.setItem('senderName', m.name);
 }

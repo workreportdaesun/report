@@ -10,6 +10,8 @@
 <meta name="theme-color" content="#1E3A5F"/>
 <meta name="apple-mobile-web-app-title" content="작업일보"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
+<!-- 작업일보는 현장관리자 이상만. 작업자(worker)는 출퇴근체크로 돌려보낸다. -->
+<script src="/report/role-gate.js" data-require="manager"></script>
 <style>
 :root{
   --brand-1:#1E3A5F; --brand-2:#2E5F9E;
@@ -206,7 +208,8 @@ textarea.f{resize:none; height:44px;}
   <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
     <button type="button" class="logout-btn" onclick="logout()">로그아웃</button>
     <button type="button" class="logout-btn" onclick="openCatModal()" aria-label="작업분류 선택 열기">⚙️ 설정</button>
-    <button type="button" class="logout-btn" onclick="location.href='admin.html'">🖥️ 관리자</button>
+    <!-- 관리자 화면은 운영자 전용 — 아래 스크립트가 등급을 보고 숨긴다(admin.html 자체에도 게이트가 있음) -->
+    <button type="button" class="logout-btn" id="hdrAdminBtn" style="display:none;" onclick="location.href='admin.html'">🖥️ 관리자</button>
     <div class="app-user" id="hdrUser" style="text-align:right;"></div>
   </div>
 </div>
@@ -451,6 +454,11 @@ textarea.f{resize:none; height:44px;}
         <div class="mycombo-list" id="modalCatComboList"></div>
       </div>
 
+      <!-- ▼ 여기부터는 운영자(admin) 전용. 현장관리자·작업자에게는 openCatModal()이 통째로 숨긴다.
+           위쪽 공종/작업분류 "선택"은 일보를 쓸 때 매일 쓰는 기능이라 현장관리자도 그대로 쓴다 —
+           이 모달이 "선택"과 "마스터 데이터 관리" 두 가지를 겸하고 있어서 버튼째 숨기면
+           현장관리자가 일보를 못 쓰게 된다(2026-08-09). -->
+      <div id="catModalAdminOnly">
       <div class="cat-modal-sublbl">분류 관리</div>
       <div class="chip-row" id="modalCatChips"></div>
       <div class="add-row">
@@ -508,6 +516,14 @@ textarea.f{resize:none; height:44px;}
       <select id="myPositionSelect" class="f"></select>
       <button type="button" class="sbtn sbtn-add" style="margin-top:8px;" onclick="saveMyMenuCat()">💾 내 정보 저장</button>
       <button type="button" class="sbtn" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.5);color:#E74C3C;" onclick="withdrawMember()">회원탈퇴</button>
+      </div><!-- /catModalAdminOnly -->
+
+      <!-- 현장관리자·작업자에게 보이는 안내. 계정 정보(공종/분류/소속/직책) 변경과 탈퇴는
+           운영자가 관리자 화면에서 처리하기로 함(2026-08-09, 사용자 결정). -->
+      <div id="catModalNonAdminNote" style="display:none; margin-top:14px; padding:12px 14px; background:var(--field-bg); border:1px dashed var(--card-bd); border-radius:10px; font-size:13px; color:var(--lbl); line-height:1.6;">
+        작업분류 목록·작업구역·규격·단위·소속 관리와 계정 정보 변경은 <b>운영자</b>가 담당합니다.<br>
+        바꿔야 할 내용이 있으면 운영자에게 요청해 주세요.
+      </div>
     </div>
   </div>
 </div>
@@ -526,6 +542,10 @@ if(!localStorage.getItem('member_id')){ location.href='login.html'; }
 (function(){
   var name = localStorage.getItem('member_name');
   document.getElementById('hdrUser').textContent = name ? name+'님' : '';
+  // 관리자 화면 버튼은 운영자에게만 보인다(role-gate.js가 wrRoleAtLeast를 제공).
+  if(typeof wrRoleAtLeast==='function' && wrRoleAtLeast('admin')){
+    document.getElementById('hdrAdminBtn').style.display='';
+  }
 })();
 (function(){
   var p=localStorage.getItem('member_project')||'';
@@ -534,7 +554,7 @@ if(!localStorage.getItem('member_id')){ location.href='login.html'; }
   if(c) document.getElementById('hdrCompany').textContent=c;
 })();
 function logout(){
-  ['member_id','member_name','member_company','member_project','member_phone','member_team','member_menu','member_cat','member_position','member_is_leader','senderName'].forEach(function(k){ localStorage.removeItem(k); });
+  ['member_id','member_name','member_company','member_project','member_phone','member_team','member_menu','member_cat','member_position','member_is_leader','member_role','senderName'].forEach(function(k){ localStorage.removeItem(k); });
   location.href='login.html';
 }
 
@@ -766,6 +786,12 @@ function openCatModal(){
   renderModalUnitChips();
   renderModalUnitCatSelect();
   renderMyMenuOptions();
+  /* 운영자만 마스터 데이터·계정 관리를 볼 수 있다. 현장관리자에게는 위쪽 공종/작업분류
+     "선택"만 남으므로 제목도 그에 맞게 바꾼다(2026-08-09). */
+  var isAdmin = (typeof wrRoleAtLeast==='function') ? wrRoleAtLeast('admin') : false;
+  document.getElementById('catModalAdminOnly').style.display = isAdmin ? '' : 'none';
+  document.getElementById('catModalNonAdminNote').style.display = isAdmin ? 'none' : '';
+  document.querySelector('#catModalPanel .cat-modal-head h3').textContent = isAdmin ? '설정' : '작업분류 선택';
   var overlay=document.getElementById('catModalOverlay'), panel=document.getElementById('catModalPanel');
   overlay.classList.add('show');
   // 항상 같은 기준선(헤더 바로 아래)에서 아래로 드롭다운 — 동적 콘텐츠(입력카드/목록 길이)에 영향받지 않음
@@ -3218,7 +3244,7 @@ async function withdrawMember(){
     try{ await sbClient.from('members').delete().eq('id',memberId); }
     catch(e){ showToast('회원 탈퇴 실패: '+(e.message||e), 'var(--err)'); return; }
   }
-  ['member_id','member_name','member_company','member_project','member_phone','member_team','member_menu','member_cat','member_position','member_is_leader','senderName'].forEach(function(k){localStorage.removeItem(k);});
+  ['member_id','member_name','member_company','member_project','member_phone','member_team','member_menu','member_cat','member_position','member_is_leader','member_role','senderName'].forEach(function(k){localStorage.removeItem(k);});
   location.href='login.html';
 }
 
@@ -3259,7 +3285,10 @@ async function withdrawMember(){
       loadTeamMembers();
     }catch(err){ showToast('탈퇴 처리 실패: '+(err.message||err), 'var(--err)'); }
   });
-  if(localStorage.getItem('member_is_leader')==='1'){
+  /* 팀원 강제탈퇴는 운영자 전용으로 일원화했다(2026-08-09, 사용자 결정: "계정 관리도 운영자가").
+     예전엔 member_is_leader==='1'인 팀장에게도 열어줬는데, 회원 관리 창구를 admin.html 한 곳으로
+     모으기로 하면서 여기서는 닫는다. is_leader 자체는 admin.html 회원관리의 팀 대표 표시용으로 남는다. */
+  if(typeof wrRoleAtLeast==='function' && wrRoleAtLeast('admin')){
     document.getElementById('teamLeaderCard').style.display='';
     loadTeamMembers();
   }
