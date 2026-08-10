@@ -3186,7 +3186,7 @@ loadPersonnelEquipmentData();
    화면(login.html)의 회원가입 항목과 내용이 어긋나 있던 걸 맞춤). 목록은 일보입력에서 쓰는
    catsByMenu/customPersonnel을 그대로 재사용(가입 화면과 같은 소스), 작업분류엔 "관리자",
    소속엔 "관리" 옵션을 로그인 화면과 동일하게 추가. */
-var POSITION_OPTIONS = ['현장소장','공무부장','공무과장','공사부장','공사차장','품질차장','품질과장','기사','팀장','계장공','전공','조공','결선공','케이블공','LOOP','비계공','화기감시자','유도원','신호수','계기교정','기타'];
+var POSITION_OPTIONS = ['운영관리자','현장소장','공무부장','공무과장','공사부장','공사차장','품질차장','품질과장','기사','팀장','계장공','전공','조공','결선공','케이블공','LOOP','비계공','화기감시자','유도원','신호수','계기교정','기타'];
 function renderMyMenuOptions(){
   var sel=document.getElementById('myMenuSelect');
   sel.innerHTML = MENUS.map(function(m){ return '<option>'+m+'</option>'; }).join('');
