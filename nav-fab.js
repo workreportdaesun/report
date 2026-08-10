@@ -5,7 +5,7 @@
    min은 role-gate.js의 data-require와 같은 값으로 맞춘다 — 목록에 띄워놓고
    눌렀더니 게이트가 도로 튕겨내는 상황을 막기 위해, 자기 등급으로 못 들어가는
    앱은 아예 목록에서 뺀다. */
-(function(){
+function wrBuildNavFab(){
   var ORDER = { worker:0, manager:1, admin:2 };
   var APPS = [
     { key:'checkin',  label:'출퇴근체크', icon:'🕒', url:'/checkin/index.html',    min:'worker'  },
@@ -77,4 +77,12 @@
   }
   btn.addEventListener('click', function(){ setOpen(!menu.classList.contains('wr-show')); });
   backdrop.addEventListener('click', function(){ setOpen(false); });
-})();
+}
+
+/* role-gate.js가 등급을 Supabase에서 받아오는 중이면(member_role이 없던 옛 세션) 그게
+   끝난 뒤에 그린다 — 안 그러면 아직 worker인 줄 알고 목록을 거의 다 빼버린다. */
+if (window.WR_ROLE_READY && typeof window.WR_ROLE_READY.then === 'function') {
+  window.WR_ROLE_READY.then(wrBuildNavFab, wrBuildNavFab);
+} else {
+  wrBuildNavFab();
+}
