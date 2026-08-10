@@ -1,17 +1,37 @@
-/* 4개 앱(report/gallery/shoot/progress) 어디서나 다른 앱으로 바로 이동하는 공용 플로팅 버튼.
-   이 파일 하나를 고치면 4개 앱 전체에 반영된다 — 각 페이지에는
-   <script src="/report/nav-fab.js"></script> 한 줄만 넣으면 됨. */
+/* 전체 앱 어디서나 다른 앱으로 바로 이동하는 공용 플로팅 버튼.
+   이 파일 하나를 고치면 전체 앱에 반영된다 — 각 페이지에는
+   <script src="/report/nav-fab.js"></script> 한 줄만 넣으면 됨.
+
+   min은 role-gate.js의 data-require와 같은 값으로 맞춘다 — 목록에 띄워놓고
+   눌렀더니 게이트가 도로 튕겨내는 상황을 막기 위해, 자기 등급으로 못 들어가는
+   앱은 아예 목록에서 뺀다. */
 (function(){
+  var ORDER = { worker:0, manager:1, admin:2 };
   var APPS = [
-    { key:'report',   label:'작업일보', icon:'📋', url:'/report/app/index.html' },
-    { key:'gallery',  label:'사진관리', icon:'🖼', url:'/gallery/index.html' },
-    { key:'shoot',    label:'작업사진', icon:'📷', url:'/shoot/index.html' },
-    { key:'progress', label:'공정관리', icon:'📈', url:'/progress/index.html' }
+    { key:'checkin',  label:'출퇴근체크', icon:'🕒', url:'/checkin/index.html',    min:'worker'  },
+    { key:'report',   label:'작업일보',   icon:'📋', url:'/report/app/index.html', min:'manager' },
+    { key:'gallery',  label:'사진관리',   icon:'🖼', url:'/gallery/index.html',    min:'manager' },
+    { key:'shoot',    label:'작업사진',   icon:'📷', url:'/shoot/index.html',      min:'manager' },
+    { key:'progress', label:'공정관리',   icon:'📈', url:'/progress/index.html',   min:'manager' },
+    { key:'status',   label:'인원현황',   icon:'👷', url:'/status/index.html',     min:'manager' },
+    { key:'material', label:'자재관리',   icon:'📦', url:'/material/index.html',   min:'manager' }
   ];
+
+  /* role-gate.js가 먼저 실행된 페이지면 그게 만들어둔 판정을 그대로 쓰고,
+     게이트를 안 붙인 페이지(checkin 등)에서는 같은 규칙으로 직접 계산한다. */
+  var atLeast = window.wrRoleAtLeast || function(min){
+    var r = ORDER[localStorage.getItem('member_role') || 'worker'];
+    return (r == null ? 0 : r) >= (ORDER[min] == null ? 0 : ORDER[min]);
+  };
+  APPS = APPS.filter(function(a){ return atLeast(a.min); });
+
   var current = null;
   for(var i=0;i<APPS.length;i++){
     if(location.pathname.indexOf('/'+APPS[i].key+'/')===0){ current = APPS[i]; break; }
   }
+
+  // 갈 수 있는 곳이 지금 화면뿐이면 버튼을 띄우지 않는다(작업자의 출퇴근체크 화면).
+  if(APPS.length <= 1) return;
 
   var style = document.createElement('style');
   style.textContent =
