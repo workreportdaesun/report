@@ -736,6 +736,7 @@ function applyRemoteSettings(data){
   }
   if(data.plan_qty && typeof window.setPlanQty==='function') window.setPlanQty(data.plan_qty);
   if(data.install_qty && typeof window.setInstallQty==='function') window.setInstallQty(data.install_qty);
+  if(data.cat_factor && typeof window.setCatFactor==='function') window.setCatFactor(data.cat_factor);
   if(typeof window.shootSyncCategory==='function') window.shootSyncCategory();
 }
 async function fetchSettingsFromSupabase(){
@@ -2825,7 +2826,7 @@ function buildPgItems(){
   });
   return list;
 }
-var PG_TODAY={}, PG_BEFORE={}, planQty={}, installQty={};
+var PG_TODAY={}, PG_BEFORE={}, planQty={}, installQty={}, catFactor={};
 function sumValues(obj){ return Object.keys(obj).reduce(function(s,k){ return s+obj[k]; },0); }
 /* 공정률 %의 실적 기준 — 엑셀로 업로드된 설치수량(app_settings.install_qty)이 그 분류에 있으면
    그 값을 우선 쓰고, 아직 업로드가 안 된 분류는 지금처럼 일보 실시간 누계(전일+금일)를 대신 쓴다.
@@ -2880,12 +2881,26 @@ async function loadProgressData(){
 }
 window.setPlanQty=function(obj){ planQty=obj||{}; renderPgList(); };
 window.setInstallQty=function(obj){ installQty=obj||{}; renderPgList(); };
+window.setCatFactor=function(obj){ catFactor=obj||{}; renderPgList(); };
 /* 계획수량/설치수량은 admin.html(웹관리자, PC 전용)에서만 입력하고 여기선 항상 숫자만 보여준다.
    관리자 화면(admin.html) "공종별 공정률" 표와 같은 열 순서로 한 줄씩 보여준다(2026-08-01). */
+/* 전체 공정률 — 관리자 화면(admin.html renderProcTable 합계행)·공정관리 앱과 같은
+   FACTOR 가중평균으로 계산한다(2026-08-10).
+   예전엔 계획을 전부 더하고 실적을 전부 더해서 나눴는데(단순합), 계획수량이 큰 분류
+   하나가 전체를 좌우해서 세 화면의 전체 공정률이 서로 달랐다(관리자 0.5% / 공정관리 0.9% /
+   여기 0%). 분류별 진도율을 먼저 내고 FACTOR(분류별 비중)로 가중평균해야 셋이 일치한다. */
+function pgTotalPct(){
+  var valid = buildPgItems().map(function(d){
+    var plan = planQty[d.item]||0;
+    var factor = (catFactor[d.item]!=null) ? catFactor[d.item] : 1;
+    return {pct: plan>0 ? Math.min(100, +(actualQty(d.item)/plan*100).toFixed(1)) : 0, plan:plan, factor:factor};
+  }).filter(function(d){ return d.plan>0 && d.factor>0; });
+  var wsum = valid.reduce(function(s,d){ return s+d.factor; },0);
+  return wsum>0 ? +(valid.reduce(function(s,d){ return s+d.pct*d.factor; },0)/wsum).toFixed(1) : 0;
+}
 function pgRowHtml(name,isTotal){
   var plan = isTotal ? sumValues(planQty) : (planQty[name]||0);
-  var actual = isTotal ? buildPgItems().reduce(function(s,d){ return s+actualQty(d.item); },0) : actualQty(name);
-  var pct = plan>0 ? Math.min(100, Math.round(actual/plan*100)) : 0;
+  var pct = isTotal ? pgTotalPct() : (plan>0 ? Math.min(100, Math.round(actualQty(name)/plan*100)) : 0);
   // "전체 공정률" 행은 계획/전일누계/금일/누계 숫자를 다 빼고 %만 크게 보여준다(2026-08-01) —
   // 개별 작업분류 행은 기존대로 전체 열을 다 보여줌.
   if(isTotal){
