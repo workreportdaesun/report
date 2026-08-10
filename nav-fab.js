@@ -30,8 +30,6 @@ function wrBuildNavFab(){
     if(location.pathname.indexOf('/'+APPS[i].key+'/')===0){ current = APPS[i]; break; }
   }
 
-  // 갈 수 있는 곳이 지금 화면뿐이면 버튼을 띄우지 않는다(작업자의 출퇴근체크 화면).
-  if(APPS.length <= 1) return;
 
   var style = document.createElement('style');
   style.textContent =
@@ -47,6 +45,7 @@ function wrBuildNavFab(){
       + 'border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,0.3);font-size:14px;font-weight:700;text-decoration:none;'
       + 'font-family:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;white-space:nowrap;}'
     + '#wr-nav-menu a.wr-current{opacity:0.55;pointer-events:none;background:#E8ECF1;}'
+    + '#wr-nav-menu a.wr-switch{background:#1E3A5F;color:#fff;margin-top:4px;}'
     + '#wr-nav-menu a .wr-nav-icon{font-size:18px;}'
     + '@media print{#wr-nav-fab,#wr-nav-backdrop,#wr-nav-menu{display:none !important;}}';
   document.head.appendChild(style);
@@ -61,8 +60,24 @@ function wrBuildNavFab(){
     var isCurrent = current && a.key===current.key;
     return '<a href="'+(isCurrent?'javascript:void(0)':a.url)+'"'+(isCurrent?' class="wr-current"':'')+'>'
       + '<span class="wr-nav-icon">'+a.icon+'</span>'+a.label+(isCurrent?' (현재)':'')+'</a>';
-  }).join('');
+  }).join('')
+  /* 사진관리·공정관리·인원현황·자재관리에는 로그아웃이 아예 없어서, 한 PC에서 다른 등급
+     계정으로 갈아타려면 로그아웃이 있는 앱까지 찾아가야 했다. 여기 하나 두면 어느 화면에서든
+     바로 바꿀 수 있다. localStorage는 오리진 단위라 한 브라우저에 한 사람만 로그인된다 —
+     여러 계정을 동시에 띄우려면 시크릿 창이나 다른 브라우저 프로필을 써야 한다. */
+    + '<a href="javascript:void(0)" class="wr-switch" id="wr-nav-switch">'
+    + '<span class="wr-nav-icon">🔄</span>계정 전환</a>';
   document.body.appendChild(menu);
+
+  var SESSION_KEYS = ['member_id','member_name','member_company','member_project','member_phone',
+    'member_team','member_menu','member_cat','member_category','member_position','member_is_leader',
+    'member_role','senderName'];
+  menu.querySelector('#wr-nav-switch').addEventListener('click', function(){
+    var who = localStorage.getItem('member_name') || '';
+    if(!confirm((who ? who+'님으로 로그인되어 있습니다.\n' : '') + '로그아웃하고 다른 계정으로 로그인할까요?')) return;
+    SESSION_KEYS.forEach(function(k){ localStorage.removeItem(k); });
+    location.href = '/report/app/login.html';
+  });
 
   var btn = document.createElement('button');
   btn.id = 'wr-nav-fab';
