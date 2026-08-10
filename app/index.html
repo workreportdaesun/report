@@ -411,10 +411,17 @@ textarea.f{resize:none; height:44px;}
     ⓘ 출력체크 기록을 실시간 집계합니다.
   </div>
 
+  <!-- 출력체크는 출퇴근체크 앱(/checkin/)으로 일원화했다(2026-08-10).
+       여기 버튼은 출근만 찍고 퇴근·연장이 없는 반쪽이라, 여기서 찍은 사람은 퇴근을
+       못 찍고 어디서 찍어야 하는지도 알 수 없었다. 같은 daily_reports.crew에 두 곳이
+       각자 쓰는 구조라 기록이 어긋날 소지도 있었다.
+       기능을 없애는 게 아니라 옮기는 것이므로, 버튼 자리에는 그 앱으로 가는 링크를 둔다. -->
   <div class="card" id="checkinCard">
     <div class="flbl" style="margin-top:0;">출력체크</div>
-    <div id="checkinStatus" style="font-size:13px;color:var(--lbl);margin-bottom:10px;">위치 확인 중...</div>
-    <button type="button" class="sbtn sbtn-add" id="checkinBtn" onclick="doCheckIn()" disabled>📍 출력체크</button>
+    <div style="font-size:13px;color:var(--lbl);margin-bottom:10px;line-height:1.6;">
+      출근·연장·퇴근 체크는 <b>출퇴근체크</b> 앱에서 합니다. 여기 집계는 그 기록을 그대로 읽습니다.
+    </div>
+    <a class="sbtn sbtn-add" href="/checkin/index.html" style="display:block;text-align:center;text-decoration:none;">🕒 출퇴근체크 열기</a>
   </div>
 
   <!-- 팀장 전용: 같은 팀 팀원 강제탈퇴. member_is_leader가 '1'일 때만 노출(loadTeamMembers) -->
@@ -645,8 +652,6 @@ var specsByCat = {
 function connectionQtyWeight(cat, spec){
   return (cat==='CONNECTION' && (spec==='FROM' || spec==='TO')) ? 0.5 : 1;
 }
-/* 출력체크 반경 게이트 — admin.html에서 설정한 현장 좌표/반경을 app_settings.site_lat/site_lng/geofence_m으로 읽어옴 */
-var SITE_LAT=null, SITE_LNG=null, GEOFENCE_M=1000, lastCheckDistance=null;
 
 var activeMenu='시공', activeCat=null, hasPhoto=false, items=[];
 document.getElementById('hdrActiveMenu').textContent = ' ('+activeMenu+')';
@@ -729,11 +734,6 @@ function applyRemoteSettings(data){
     ITEM_UNIT = data.item_unit;
     if(document.getElementById('catModalOverlay').classList.contains('show')) renderModalUnitCatSelect();
   }
-  if(typeof data.site_lat==='number' && typeof data.site_lng==='number'){
-    SITE_LAT = data.site_lat; SITE_LNG = data.site_lng;
-    if(typeof data.geofence_m==='number') GEOFENCE_M = data.geofence_m;
-    refreshCheckinDistance();
-  }
   if(data.plan_qty && typeof window.setPlanQty==='function') window.setPlanQty(data.plan_qty);
   if(data.install_qty && typeof window.setInstallQty==='function') window.setInstallQty(data.install_qty);
   if(typeof window.shootSyncCategory==='function') window.shootSyncCategory();
@@ -770,7 +770,6 @@ function showWorkerPane(p){
   if(p==='progress' && typeof window.loadProgressData==='function') window.loadProgressData();
   if(p==='personnel'){
     if(typeof window.loadPersonnelEquipmentData==='function') window.loadPersonnelEquipmentData();
-    refreshCheckinDistance();
   }
   if(p==='history') loadReportHistory();
 }
@@ -1472,79 +1471,9 @@ async function upsertDailyReport(patch){
   }
 }
 
-/* ── 출력체크(GPS 반경 게이트) — 현장 좌표는 admin.html에서 등록, SITE_LAT/SITE_LNG로 수신 ── */
-function haversineM(lat1,lng1,lat2,lng2){
-  var R=6371000;
-  var toRad=function(d){ return d*Math.PI/180; };
-  var dLat=toRad(lat2-lat1), dLng=toRad(lng2-lng1);
-  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)*Math.sin(dLng/2);
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-function formatDist(m){
-  return m>=1000 ? (m/1000).toFixed(1)+'km' : Math.round(m)+'m';
-}
-function refreshCheckinDistance(){
-  var statusEl=document.getElementById('checkinStatus'), btn=document.getElementById('checkinBtn');
-  if(!statusEl || !btn) return;
-  if(SITE_LAT==null || SITE_LNG==null){ statusEl.textContent='관리자가 아직 현장 좌표를 등록하지 않았습니다.'; btn.disabled=true; return; }
-  if(!navigator.geolocation){ statusEl.textContent='이 기기는 위치 확인을 지원하지 않습니다.'; btn.disabled=true; return; }
-  statusEl.textContent='위치 확인 중...';
-  navigator.geolocation.getCurrentPosition(function(pos){
-    var d=haversineM(pos.coords.latitude,pos.coords.longitude,SITE_LAT,SITE_LNG);
-    lastCheckDistance=d;
-    if(d<=GEOFENCE_M){ statusEl.textContent='현장까지 '+formatDist(d)+' · 출력체크 가능'; btn.disabled=false; }
-    else{ statusEl.textContent='현장까지 '+formatDist(d)+' · '+formatDist(GEOFENCE_M)+' 이내에서만 가능'; btn.disabled=true; }
-  }, function(err){
-    statusEl.textContent='위치 확인 실패: '+err.message;
-    btn.disabled=true;
-  }, {enableHighAccuracy:true, timeout:10000});
-}
-async function doCheckIn(){
-  if(!sbClient) return;
-  var memberId = localStorage.getItem('member_id');
-  var memberName = localStorage.getItem('member_name') || '이름없음';
-  if(!memberId){ showToast('로그인이 필요합니다', 'var(--err)'); return; }
-  var btn = document.getElementById('checkinBtn');
-  btn.disabled = true;
-  try{
-    var id = draftId();
-    var res = await sbClient.from('daily_reports').select('crew').eq('id',id).single();
-    var crew = (res.data && Array.isArray(res.data.crew)) ? res.data.crew.slice() : [];
-    if(crew.some(function(c){ return c.member_id===memberId; })){
-      showToast('이미 오늘 출력체크를 완료했습니다', 'var(--brand-2)');
-      return;
-    }
-    // 인원현황의 작업분류별 집계는 그날 작업일보에 어떤 분류가 등장했는지가 아니라, 이 사람이
-    // 가입·⚙️설정(내 공종/작업분류)에서 등록해둔 자기 분류를 그대로 쓴다(2026-08-06, 사용자
-    // 요청 — 한 사람이 여러 분류에 항목을 입력하면 그 분류마다 전체 출력인원이 중복 집계되던
-    // 문제 수정). loadPersonnelEquipmentData가 이 스냅샷(crew[].cat)을 그대로 씀.
-    // "공종별 투입인원(월간)"의 직책별 실적 집계도 이 스냅샷(crew[].position)을 그대로 쓴다
-    // (2026-08-06 추가) — 위 작업분류와 같은 이유로, 그날그날 다른 값이 아니라 체크인 시점의
-    // 등록 직책을 고정해서 남긴다.
-    var entry = {checkInAt:new Date().toISOString(), checkInDistanceM:Math.round(lastCheckDistance||0), menu: localStorage.getItem('member_menu')||'', cat: localStorage.getItem('member_cat')||'', position: localStorage.getItem('member_position')||''};
-
-    /* crew는 upsertDailyReport로 통째로 쓰지 않는다 — 그러면 위에서 읽은 배열이 기준이 되어,
-       그 사이에 다른 사람이 체크한 기록을 덮어써 지워버린다(같은 팀이 아침에 한꺼번에 찍는 게
-       정상 상황이라 실제로 터진다). 서버 함수가 행을 잠그고 내 항목만 병합하게 한다
-       — SUPABASE_CREW_UPSERT_RPC.sql(이 저장소 루트) 참고. */
-    var rpc = await sbClient.rpc('upsert_crew_entry', {
-      p_id:id, p_team:localStorage.getItem('member_team')||'미지정', p_date:todayStr(),
-      p_member_id:memberId, p_member_name:memberName, p_patch:entry
-    });
-    if(rpc.error){
-      // 함수가 아직 안 만들어진 동안(마이그레이션 전)만 예전 방식으로 물러선다.
-      if(!(rpc.error.code==='PGRST202' || /Could not find the function/i.test(rpc.error.message||''))){
-        showToast('출력체크 실패: '+rpc.error.message, 'var(--err)'); return;
-      }
-      crew.push(Object.assign({member_id:memberId, member_name:memberName}, entry));
-      await upsertDailyReport({crew:crew});
-    }
-    showToast('✅ 출력체크 완료', 'var(--ok)');
-    if(typeof window.loadPersonnelEquipmentData==='function') window.loadPersonnelEquipmentData();
-  }catch(e){ showToast('출력체크 실패: '+e.message, 'var(--err)'); }
-  finally{ refreshCheckinDistance(); }
-}
-window.refreshCheckinDistance=refreshCheckinDistance;
+/* 출력체크의 GPS 반경 게이트·체크인 함수는 여기서 걷어냈다(2026-08-10) — 출퇴근체크 앱
+   (/checkin/)으로 일원화했고, 이 탭은 그 결과를 집계해서 보여주기만 한다. 현장 좌표·반경
+   설정(app_settings.site_lat/site_lng/geofence_m)은 이제 그 앱이 읽는다. */
 
 /* ── TBM(안전 조회) 사진 — 팀+날짜 단위 1장만(daily_reports.tbm_photo, 2026-08-06).
    개별 작업 항목(공종/작업분류/기기번호)과 무관한 "그날 그 팀" 단위 기록이라 crew(출력체크)와

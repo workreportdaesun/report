@@ -314,7 +314,9 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
         <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">위도</label><input type="number" step="any" id="siteLatInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
         <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">경도</label><input type="number" step="any" id="siteLngInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
-        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">반경(m)</label><input type="number" id="geofenceInput" value="1000" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
+        <!-- 반경은 1km 고정(2026-08-06 "출퇴근 모두 반경 1km로 고정" 요청). 입력칸으로 열어두면
+             출퇴근체크 앱의 판정 기준이 조용히 바뀌므로 읽기 전용으로 잠근다(2026-08-10). -->
+        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">반경(m)</label><input type="number" id="geofenceInput" value="1000" readonly title="출퇴근체크 반경은 1km로 고정입니다" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);background:var(--field-bg);color:var(--lbl);cursor:not-allowed;"></div>
       </div>
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button type="button" onclick="useCurrentLocation()" style="flex:1;padding:8px;border:1px solid var(--card-bd);border-radius:8px;background:var(--field-bg);cursor:pointer;font-size:12px;color:var(--ink);">📍 현재 위치 사용</button>
@@ -1181,7 +1183,8 @@ async function loadSiteSettings(){
     if(res.error || !res.data) return;
     if(typeof res.data.site_lat==='number') document.getElementById('siteLatInput').value = res.data.site_lat;
     if(typeof res.data.site_lng==='number') document.getElementById('siteLngInput').value = res.data.site_lng;
-    if(typeof res.data.geofence_m==='number') document.getElementById('geofenceInput').value = res.data.geofence_m;
+    // 반경은 고정이라 DB 값을 그대로 되불러오지 않는다 — 예전에 다른 값이 저장돼 있어도
+    // 아래 saveSiteSettings가 다음 저장 때 1000으로 되돌려놓는다.
     if(res.data.overtime_date) document.getElementById('overtimeDateInput').value = res.data.overtime_date;
     if(res.data.overtime_end_time) document.getElementById('overtimeEndInput').value = res.data.overtime_end_time;
   }catch(e){ console.error('현장 좌표 불러오기 실패', e); }
@@ -1214,7 +1217,7 @@ async function saveSiteSettings(){
   if(!sbClient){ alert('Supabase 연결 실패'); return; }
   var lat = Number(document.getElementById('siteLatInput').value);
   var lng = Number(document.getElementById('siteLngInput').value);
-  var geo = Number(document.getElementById('geofenceInput').value) || 1000;
+  var geo = 1000;   // 반경 고정 — 화면 입력값을 쓰지 않는다(위 readonly 참고)
   if(!lat || !lng){ alert('위도/경도를 입력해주세요.'); return; }
   try{
     var res = await sbClient.from('app_settings').upsert({id:'global', site_lat:lat, site_lng:lng, geofence_m:geo, updated_at:new Date().toISOString()});
