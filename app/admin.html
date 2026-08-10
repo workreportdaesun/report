@@ -542,6 +542,14 @@ function todayStr(){
   var d=new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+/* ISO(UTC) 시각을 보는 사람의 현지시각 HH:MM으로. crew의 checkInAt/checkOutAt은
+   toISOString()으로 저장돼 있어서 문자열을 그대로 자르면 9시간 어긋난다. */
+function localHM(iso){
+  if(!iso) return '-';
+  var d=new Date(iso);
+  if(isNaN(d)) return '-';
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
 
 /* 계획수량 입력은 웹관리자(admin.html) 전용 — 그 중에서도 PC에서만 가능하게, 모바일에서 admin.html을
    열면(예: 관리자가 폰으로 확인) 다른 화면들과 동일하게 숫자만 보여주고 수정은 막는다. */
@@ -1145,7 +1153,9 @@ function openReportDetail(id){
       + '</table>'
     : '<div style="color:var(--lbl);font-size:13px;margin-bottom:14px;">입력된 항목이 없습니다.</div>';
   var crewHtml = crew.length
-    ? crew.map(function(c){ return (c.member_name||'-')+(c.checkInAt ? ' ('+c.checkInAt.slice(11,16)+' 출력)' : ''); }).join(', ')
+    /* checkInAt은 toISOString()으로 저장된 UTC — 문자열을 그대로 자르면 9시간 어긋난다.
+       출퇴근체크 앱의 fmtTime과 같은 방식으로 현지시각으로 바꿔서 보여준다(2026-08-10). */
+    ? crew.map(function(c){ return (c.member_name||'-')+(c.checkInAt ? ' ('+localHM(c.checkInAt)+' 출력)' : ''); }).join(', ')
     : '-';
   document.getElementById('rdBody').innerHTML =
     '<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;font-size:12px;color:var(--lbl);">'

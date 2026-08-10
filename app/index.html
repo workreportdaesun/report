@@ -1521,8 +1521,24 @@ async function doCheckIn(){
     // "공종별 투입인원(월간)"의 직책별 실적 집계도 이 스냅샷(crew[].position)을 그대로 쓴다
     // (2026-08-06 추가) — 위 작업분류와 같은 이유로, 그날그날 다른 값이 아니라 체크인 시점의
     // 등록 직책을 고정해서 남긴다.
-    crew.push({member_id:memberId, member_name:memberName, checkInAt:new Date().toISOString(), checkInDistanceM:Math.round(lastCheckDistance||0), menu: localStorage.getItem('member_menu')||'', cat: localStorage.getItem('member_cat')||'', position: localStorage.getItem('member_position')||''});
-    await upsertDailyReport({crew:crew});
+    var entry = {checkInAt:new Date().toISOString(), checkInDistanceM:Math.round(lastCheckDistance||0), menu: localStorage.getItem('member_menu')||'', cat: localStorage.getItem('member_cat')||'', position: localStorage.getItem('member_position')||''};
+
+    /* crew는 upsertDailyReport로 통째로 쓰지 않는다 — 그러면 위에서 읽은 배열이 기준이 되어,
+       그 사이에 다른 사람이 체크한 기록을 덮어써 지워버린다(같은 팀이 아침에 한꺼번에 찍는 게
+       정상 상황이라 실제로 터진다). 서버 함수가 행을 잠그고 내 항목만 병합하게 한다
+       — SUPABASE_CREW_UPSERT_RPC.sql(이 저장소 루트) 참고. */
+    var rpc = await sbClient.rpc('upsert_crew_entry', {
+      p_id:id, p_team:localStorage.getItem('member_team')||'미지정', p_date:todayStr(),
+      p_member_id:memberId, p_member_name:memberName, p_patch:entry
+    });
+    if(rpc.error){
+      // 함수가 아직 안 만들어진 동안(마이그레이션 전)만 예전 방식으로 물러선다.
+      if(!(rpc.error.code==='PGRST202' || /Could not find the function/i.test(rpc.error.message||''))){
+        showToast('출력체크 실패: '+rpc.error.message, 'var(--err)'); return;
+      }
+      crew.push(Object.assign({member_id:memberId, member_name:memberName}, entry));
+      await upsertDailyReport({crew:crew});
+    }
     showToast('✅ 출력체크 완료', 'var(--ok)');
     if(typeof window.loadPersonnelEquipmentData==='function') window.loadPersonnelEquipmentData();
   }catch(e){ showToast('출력체크 실패: '+e.message, 'var(--err)'); }
