@@ -11,7 +11,7 @@ function wrBuildNavFab(){
     { key:'checkin',  label:'출력일지',   icon:'🕒', url:'/checkin/index.html',    min:'worker'  },
     { key:'report',   label:'작업일보',   icon:'📋', url:'/report/app/index.html', min:'manager' },
     { key:'gallery',  label:'사진관리',   icon:'🖼', url:'/gallery/index.html',    min:'manager' },
-    { key:'shoot',    label:'작업사진',   icon:'📷', url:'/shoot/index.html',      min:'manager' },
+    { key:'shoot',    label:'작업사진',   icon:'📷', url:'/shoot/index.html',      min:'worker'  },
     { key:'progress', label:'공정관리',   icon:'📈', url:'/progress/index.html',   min:'manager' },
     { key:'status',   label:'인원현황',   icon:'👷', url:'/status/index.html',     min:'manager' },
     { key:'material', label:'자재관리',   icon:'📦', url:'/material/index.html',   min:'manager' }
