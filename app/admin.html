@@ -1226,20 +1226,45 @@ async function saveSiteSettings(){
    해마다 날짜가 바뀌는 음력 기반(설날/추석/부처님오신날)·대체공휴일만 app_settings.holidays_extra
    (연도별 배열)에 한 해에 한 번 추가해두면 된다. 컬럼이 아직 없으면(순차 배포) 위 site_lat 등과
    같은 방식으로 화면엔 기본값(2026년 실제 날짜)만 보이고 저장 시 에러 토스트로 안내한다. */
+// 제헌절(7/17)은 2026-03-10 관공서 공휴일 규정 개정으로 공휴일 재지정 — 국경일이라 대체공휴일 대상이기도 하다.
 var FIXED_HOLIDAYS = [
   {md:'01-01', name:'신정'}, {md:'03-01', name:'3·1절'}, {md:'05-05', name:'어린이날'},
-  {md:'06-06', name:'현충일'}, {md:'08-15', name:'광복절'}, {md:'10-03', name:'개천절'},
-  {md:'10-09', name:'한글날'}, {md:'12-25', name:'크리스마스'}
+  {md:'06-06', name:'현충일'}, {md:'07-17', name:'제헌절'}, {md:'08-15', name:'광복절'},
+  {md:'10-03', name:'개천절'}, {md:'10-09', name:'한글날'}, {md:'12-25', name:'크리스마스'}
 ];
-// 2026년은 실제 날짜로 미리 채워둠(사용자 제공 자료 기준) — 다른 연도는 관리자가 그 해 초에 추가.
+/* 음력 명절·부처님오신날·대체공휴일·선거일처럼 해마다 날짜가 바뀌는 것들의 기본값.
+   2026-08-12: 2027·2028년 추가 — 여기가 비어 있으면 그 해는 설날·추석이 통째로 평일로 잡혀
+   출퇴근체크(work-checkin-daesun)와 인원투입계획/실투입(work-status-daesun)의 주/월차 자동계산이
+   조용히 틀어진다. 세 앱이 같은 app_settings.holidays_extra를 공유하므로 기본값도 같아야 한다.
+   대체공휴일 대상: 3·1절/제헌절/광복절/개천절/한글날/어린이날/부처님오신날/성탄절 + 설날·추석
+   연휴. 신정과 현충일은 대상이 아니다(2027-06-06 현충일은 일요일이지만 대체공휴일 없음). */
 var holidaysExtra = {
   '2026': [
     {date:'2026-02-16',name:'설날'}, {date:'2026-02-17',name:'설날'}, {date:'2026-02-18',name:'설날'},
-    {date:'2026-03-02',name:'대체공휴일'},
-    {date:'2026-05-24',name:'부처님오신날'}, {date:'2026-05-25',name:'대체공휴일'},
-    {date:'2026-08-17',name:'대체공휴일'},
+    {date:'2026-03-02',name:'대체공휴일(3·1절)'},
+    {date:'2026-05-24',name:'부처님오신날'}, {date:'2026-05-25',name:'대체공휴일(부처님오신날)'},
+    {date:'2026-06-03',name:'지방선거'},
+    {date:'2026-08-17',name:'대체공휴일(광복절)'},
     {date:'2026-09-24',name:'추석'}, {date:'2026-09-25',name:'추석'}, {date:'2026-09-26',name:'추석'},
-    {date:'2026-10-05',name:'대체공휴일'}
+    {date:'2026-10-05',name:'대체공휴일(개천절)'}
+  ],
+  '2027': [
+    {date:'2027-02-06',name:'설날'}, {date:'2027-02-07',name:'설날'}, {date:'2027-02-08',name:'설날'},
+    {date:'2027-02-09',name:'대체공휴일(설날)'},
+    {date:'2027-05-13',name:'부처님오신날'},
+    {date:'2027-07-19',name:'대체공휴일(제헌절)'},
+    {date:'2027-08-16',name:'대체공휴일(광복절)'},
+    {date:'2027-09-14',name:'추석'}, {date:'2027-09-15',name:'추석'}, {date:'2027-09-16',name:'추석'},
+    {date:'2027-10-04',name:'대체공휴일(개천절)'},
+    {date:'2027-10-11',name:'대체공휴일(한글날)'},
+    {date:'2027-12-27',name:'대체공휴일(성탄절)'}
+  ],
+  '2028': [
+    {date:'2028-01-26',name:'설날'}, {date:'2028-01-27',name:'설날'}, {date:'2028-01-28',name:'설날'},
+    {date:'2028-04-12',name:'국회의원선거'},
+    {date:'2028-05-02',name:'부처님오신날'},
+    {date:'2028-10-02',name:'추석'}, {date:'2028-10-03',name:'추석'}, {date:'2028-10-04',name:'추석'},
+    {date:'2028-10-05',name:'대체공휴일(개천절)'}
   ]
 };
 function fixedHolidaysForYear(year){
@@ -1314,10 +1339,17 @@ async function loadHolidaySettings(){
   if(sbClient){
     try{
       var res = await sbClient.from('app_settings').select('holidays_extra').eq('id','global').single();
-      if(!res.error && res.data && res.data.holidays_extra && Object.keys(res.data.holidays_extra).length){
-        holidaysExtra = res.data.holidays_extra;
-        Object.keys(holidaysExtra).forEach(ensureHolidayYearOption);
+      /* 서버 값으로 통째 교체하면, 서버에 2026년만 저장돼 있을 때 위 기본값의 2027·2028년이
+         사라지고 그 상태로 저장까지 되어 두 해가 영영 비게 된다(같은 테이블을 보는 checkin·
+         status의 주/월차 자동계산이 조용히 틀어짐). 연도 단위로 병합하고, 서버에 있는 해만
+         서버 값을 쓴다(관리자가 그 해를 직접 고쳤다는 뜻이므로 기본값보다 우선). 2026-08-12 */
+      var saved = (!res.error && res.data && res.data.holidays_extra) || null;
+      if(saved){
+        Object.keys(saved).forEach(function(y){
+          if(Array.isArray(saved[y])) holidaysExtra[y] = saved[y];
+        });
       }
+      Object.keys(holidaysExtra).forEach(ensureHolidayYearOption);
     }catch(e){ console.error('공휴일 불러오기 실패', e); }
   }
   renderHolidayTable();
