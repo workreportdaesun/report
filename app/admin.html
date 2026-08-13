@@ -336,29 +336,6 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
       <button type="button" onclick="saveOvertimeSettings()" style="width:100%;margin-top:10px;padding:8px;border:none;border-radius:8px;background:var(--brand-2);color:#fff;cursor:pointer;font-size:12px;font-weight:700;">저장</button>
     </div>
 
-    <!-- 공휴일 자동계산 — 양력 고정일은 매년 자동 계산, 설날/추석 등 음력 기반+대체공휴일만
-         한 해에 한 번 아래에서 추가해두면 그 다음부터 자동으로 같이 표시됨(2026-08-06). -->
-    <div style="background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px; margin-bottom:16px;">
-      <div style="font-size:13px;font-weight:800;color:var(--brand-1);margin-bottom:8px;">공휴일 (작업일수 계산 기준)</div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
-        <label style="font-size:11px;color:var(--lbl);">연도</label>
-        <select id="holidayYearSelect" onchange="renderHolidayTable()" style="padding:5px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);font-size:12px;"></select>
-        <span style="font-size:11px;color:var(--lbl);">— 신정·3·1절·어린이날·현충일·광복절·개천절·한글날·크리스마스는 자동 계산됩니다</span>
-      </div>
-      <div style="max-height:260px;overflow-y:auto;border-radius:10px;">
-        <table class="dtable">
-          <tr><th>날짜</th><th>명칭</th><th style="width:60px;"></th></tr>
-          <tbody id="holidayTableRows"></tbody>
-        </table>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:10px;">
-        <input type="date" id="holidayNewDate" style="flex:1;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);font-size:12px;">
-        <input type="text" id="holidayNewName" placeholder="명칭 (예: 설날, 대체공휴일)" style="flex:1;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
-        <button type="button" onclick="addCustomHoliday()" style="padding:6px 14px;border:none;border-radius:6px;background:var(--brand-2);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">+ 추가</button>
-      </div>
-      <div style="font-size:11px;color:var(--lbl);margin-top:6px;">설날·추석·부처님오신날·대체공휴일처럼 해마다 날짜가 바뀌는 음력 기반 휴일만 연초에 한 번 추가해두면 됩니다. 2026년은 미리 채워져 있습니다.</div>
-    </div>
-
     <div class="out-grid" id="outGrid"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
     <div class="scroll-frame"><div class="scroll-body">
     <table class="dtable">
@@ -368,34 +345,6 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     </div></div>
     <div style="font-size:11px;color:var(--lbl);margin-top:8px;">작업자 앱의 "출력체크"(GPS 반경 체크인) 기록을 오늘 날짜 기준으로 팀별 집계한 것입니다.</div>
 
-    <!-- 출력일지 — 사람별 월간 출근/연장 요약(2026-08-06). daily_reports.crew[]의 checkInAt/
-         overtimeCheckAt를 그대로 세므로 별도 조회 없이 loadDashboardData가 이미 받아온
-         행(dashAllReportRows)을 재사용한다. -->
-    <div style="font-size:13px;font-weight:800;color:var(--brand-1);margin:22px 0 8px;">출력일지 (사람별 월간 요약)</div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-      <input type="month" id="attMonthInput" style="padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);font-size:12px;" onchange="renderAttendanceSummary();renderPositionSummary();">
-    </div>
-    <div class="scroll-frame"><div class="scroll-body">
-    <table class="dtable">
-      <tr class="dtable-head-row"><th>성명</th><th>직책</th><th>소속</th><th>작업분류</th><th>기본(일)</th><th>연장(일)</th><th>합계(일)</th></tr>
-      <tbody id="attTableRows"><tr><td colspan="7" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
-    </table>
-    </div></div>
-    <div style="font-size:11px;color:var(--lbl);margin-top:8px;">기본(일)은 그달 출근체크한 날수, 연장(일)은 그중 연장근무를 신청한 날수입니다. 직책은 현재 등록된 값(과거 기록에 스냅샷되지 않음)을 표시합니다.</div>
-
-    <!-- 공종별 투입인원(월간) — 원본 엑셀의 "공종별 투입 인원"(계획 대비 실적) 시트를 1개월
-         단위 웹 화면으로(2026-08-06). 계획은 관리자가 그 달 직책별 계획인원(M/D, 연인원)을
-         입력해두고, 실적은 crew[].position 스냅샷을 그대로 세서 자동 계산한다. 위 출력일지와
-         같은 월 선택(attMonthInput)을 공유해서 두 표가 항상 같은 달을 본다. -->
-    <div style="font-size:13px;font-weight:800;color:var(--brand-1);margin:22px 0 8px;">공종별 투입인원 (직책별 월간 계획 대비 실적)</div>
-    <div class="scroll-frame"><div class="scroll-body">
-    <table class="dtable">
-      <tr class="dtable-head-row"><th>직책</th><th>계획인원(M/D)</th><th>실적인원(M/D)</th><th>달성률</th></tr>
-      <tbody id="posTableRows"><tr><td colspan="4" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
-    </table>
-    </div></div>
-    <button type="button" onclick="savePositionPlan()" style="width:100%;margin-top:10px;padding:8px;border:none;border-radius:8px;background:var(--brand-2);color:#fff;cursor:pointer;font-size:12px;font-weight:700;">💾 계획인원 저장</button>
-    <div style="font-size:11px;color:var(--lbl);margin-top:8px;">계획인원(M/D)은 그 달 직책별로 필요한 연인원(관리자가 입력). 실적인원(M/D)은 그 달 출근체크 중 그 직책으로 체크인한 날수를 합산한 값입니다.</div>
   </div>
 
   <!-- 작업일보 전체내용 — 검색/필터 + 클릭 시 상세보기 모달 -->
@@ -592,7 +541,7 @@ async function upsertAppSettingsResilient(payload){
    있었음, 여기서 같이 고침(2026-08-01). */
 var dashCatToday={}, dashCatBefore={}, dashCatMenu={}, dashPlanQty={}, dashInstallQty={}, dashFactor={};
 var dashCatTodaySikong={}, dashCatBeforeSikong={};
-var dashAllReportRows=[], dashMembersById={}, dashMembersLoaded=false;
+
 /* 공정률 % 색상 구간 — work-progress-daesun(PC 공정관리 앱)과 동일한 기준(100/70/40) */
 function pctColor(p){ return p>=100?'var(--ok)':p>=70?'var(--brand-2)':p>=40?'#B9770E':'#E74C3C'; }
 /* 공정률 %의 실적 기준 — report/app/index.html의 actualQty()와 동일한 규칙(엑셀로 올라온
@@ -702,14 +651,6 @@ async function loadDashboardData(){
     var settingsRes = await sbClient.from('app_settings').select('plan_qty,install_qty,personnel,cat_factor').eq('id','global').single();
     if(reportsRes.error || !reportsRes.data) return;
     var rows = reportsRes.data;
-    dashAllReportRows = rows; // 출력일지(사람별 월간 요약)가 재사용 — 별도 조회 없이 여기서 받은 걸 그대로 씀
-    if(!dashMembersLoaded){
-      dashMembersLoaded = true;
-      try{
-        var membersRes = await sbClient.from('members').select('id,name,position');
-        if(!membersRes.error && membersRes.data) membersRes.data.forEach(function(m){ dashMembersById[m.id]=m; });
-      }catch(e){ console.error('직책 정보 불러오기 실패', e); }
-    }
     var planQty = (settingsRes.data && settingsRes.data.plan_qty) || {};
     var installQty = (settingsRes.data && settingsRes.data.install_qty) || {};
     var registeredTeams = (settingsRes.data && settingsRes.data.personnel) || [];
@@ -736,9 +677,6 @@ async function loadDashboardData(){
     renderProcTable(vol.catTodaySikong,vol.catBeforeSikong,planQty,installQty,'procTableRows','procTableFoot');
     renderOutGrid(todayCrewByTeam,registeredTeams);
     renderOutTable(todayCrewByTeam,todayNamesByTeam);
-    renderAttendanceSummary();
-    await loadPositionPlan();
-    renderPositionSummary();
   }catch(e){ console.error('대시보드 데이터 불러오기 실패', e); }
 }
 function renderProcGrid(catToday,catBefore,catMenu,planQty,installQty,gridId){
@@ -952,109 +890,6 @@ function renderOutTable(todayCrewByTeam,todayNamesByTeam){
   }).join('');
 }
 
-/* 출력일지(사람별 월간 출근/연장 요약, 2026-08-06) — daily_reports.crew[]의 checkInAt(출근)·
-   overtimeCheckAt(연장신청)를 그 사람(member_id) 기준으로 날짜별 1건씩 센다. 같은 날 크루
-   기록은 하루 1건만 있으므로(출퇴근체크 앱이 중복 체크인을 막음) 그대로 세면 중복 없음.
-   직책은 과거 기록에 스냅샷된 값이 없어 members 테이블의 현재 값을 그대로 붙인다. */
-function renderAttendanceSummary(){
-  var wrap = document.getElementById('attTableRows');
-  var monthInput = document.getElementById('attMonthInput');
-  if(!monthInput.value) monthInput.value = todayStr().slice(0,7);
-  var ym = monthInput.value;
-  var byMember = {};
-  dashAllReportRows.forEach(function(row){
-    if(!row.date || row.date.slice(0,7)!==ym) return;
-    var crew = Array.isArray(row.crew) ? row.crew : [];
-    crew.forEach(function(c){
-      if(!c || !c.member_id) return;
-      var rec = byMember[c.member_id];
-      if(!rec) rec = byMember[c.member_id] = {name:c.member_name||'이름없음', team:'', cat:'', base:0, ot:0};
-      if(row.team) rec.team = row.team;
-      if(c.cat) rec.cat = c.cat;
-      if(c.checkInAt) rec.base++;
-      if(c.overtimeCheckAt) rec.ot++;
-    });
-  });
-  var memberIds = Object.keys(byMember);
-  if(!memberIds.length){ wrap.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--lbl);">이 달에 출력체크 기록이 없습니다</td></tr>'; return; }
-  memberIds.sort(function(a,b){
-    var ta=byMember[a].team, tb=byMember[b].team;
-    if(ta!==tb) return ta<tb?-1:1;
-    return byMember[a].name<byMember[b].name?-1:1;
-  });
-  var totalBase=0, totalOt=0;
-  var rowsHtml = memberIds.map(function(id){
-    var r = byMember[id];
-    var position = (dashMembersById[id] && dashMembersById[id].position) || '-';
-    totalBase += r.base; totalOt += r.ot;
-    return '<tr><td>'+r.name+'</td><td>'+position+'</td><td>'+(r.team||'-')+'</td><td>'+(r.cat||'-')+'</td>'
-      +'<td class="mono">'+r.base+'</td><td class="mono">'+r.ot+'</td><td class="mono">'+(r.base+r.ot)+'</td></tr>';
-  }).join('');
-  rowsHtml += '<tr style="font-weight:800;"><td colspan="4" style="text-align:right;">합계 ('+memberIds.length+'명)</td>'
-    +'<td class="mono">'+totalBase+'</td><td class="mono">'+totalOt+'</td><td class="mono">'+(totalBase+totalOt)+'</td></tr>';
-  wrap.innerHTML = rowsHtml;
-}
-
-/* 공종별 투입인원(직책별 월간 계획 대비 실적, 2026-08-06) — 원본 엑셀 "공종별 투입 인원"
-   시트의 계획(P)/실적(A/F) 개념을 1개월 단위로 단순화. 계획은 app_settings.position_plan_qty
-   (연월별 {직책:계획인원}) 에 관리자가 입력, 실적은 crew[].position 스냅샷을 그 달 기준으로
-   센다(renderAttendanceSummary와 같은 dashAllReportRows 재사용, 별도 조회 없음). */
-var positionPlanQty = {}, positionPlanLoaded = false;
-async function loadPositionPlan(){
-  if(positionPlanLoaded || !sbClient) return;
-  positionPlanLoaded = true;
-  try{
-    var res = await sbClient.from('app_settings').select('position_plan_qty').eq('id','global').single();
-    if(!res.error && res.data && res.data.position_plan_qty) positionPlanQty = res.data.position_plan_qty;
-  }catch(e){ console.error('직책별 계획인원 불러오기 실패', e); }
-}
-function renderPositionSummary(){
-  var monthInput = document.getElementById('attMonthInput');
-  if(!monthInput.value) monthInput.value = todayStr().slice(0,7);
-  var ym = monthInput.value;
-  var actualByPosition = {};
-  dashAllReportRows.forEach(function(row){
-    if(!row.date || row.date.slice(0,7)!==ym) return;
-    var crew = Array.isArray(row.crew) ? row.crew : [];
-    crew.forEach(function(c){
-      if(c && c.position && c.checkInAt) actualByPosition[c.position] = (actualByPosition[c.position]||0)+1;
-    });
-  });
-  var planForMonth = positionPlanQty[ym] || {};
-  var wrap = document.getElementById('posTableRows');
-  wrap.innerHTML = POSITION_OPTIONS.map(function(p){
-    var actual = actualByPosition[p] || 0;
-    var plan = planForMonth[p] || 0;
-    var pct = plan>0 ? Math.round(actual/plan*100)+'%' : '-';
-    return '<tr><td>'+p+'</td>'
-      +'<td><input type="number" min="0" class="posPlanInput" data-position="'+p+'" value="'+(plan||'')+'" style="width:70px;padding:4px 6px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);font-size:12px;"></td>'
-      +'<td class="mono">'+actual+'</td><td class="mono">'+pct+'</td></tr>';
-  }).join('');
-}
-async function savePositionPlan(){
-  if(!sbClient){ alert('Supabase 연결 실패'); return; }
-  var ym = document.getElementById('attMonthInput').value;
-  if(!ym){ alert('월을 먼저 선택해주세요.'); return; }
-  var planForMonth = {};
-  document.querySelectorAll('.posPlanInput').forEach(function(inp){
-    var v = Number(inp.value)||0;
-    if(v>0) planForMonth[inp.getAttribute('data-position')] = v;
-  });
-  positionPlanQty[ym] = planForMonth;
-  var payload = {id:'global', position_plan_qty:positionPlanQty, updated_at:new Date().toISOString()};
-  for(var attempt=0; attempt<3; attempt++){
-    var res = await sbClient.from('app_settings').upsert(payload);
-    if(!res.error){ alert('계획인원이 저장되었습니다.'); renderPositionSummary(); return; }
-    var m = /Could not find the '([^']+)' column/.exec(res.error.message||'');
-    if(m && m[1]==='position_plan_qty'){
-      alert('저장 실패 — Supabase에 position_plan_qty 컬럼이 아직 없습니다.\nSQL Editor에서 다음을 실행해주세요:\nALTER TABLE app_settings ADD COLUMN IF NOT EXISTS position_plan_qty jsonb DEFAULT \'{}\'::jsonb;');
-      return;
-    }
-    alert('저장 실패: '+res.error.message);
-    return;
-  }
-}
-
 var reportsLoaded = false, reportsRows = [];
 async function loadAllReports(){
   if(reportsLoaded) return; // 관리자가 탭을 다시 눌러도 매번 새로 안 불러옴(간단한 1회 캐시) — 새로고침하면 최신화됨
@@ -1221,143 +1056,6 @@ async function saveSiteSettings(){
     alert('현장 좌표가 저장되었습니다.');
   }catch(e){ alert('저장 실패: '+e.message); }
 }
-
-/* ── 공휴일 자동계산(2026-08-06) — 매년 날짜가 고정인 양력 공휴일은 계산으로 자동 생성하고,
-   해마다 날짜가 바뀌는 음력 기반(설날/추석/부처님오신날)·대체공휴일만 app_settings.holidays_extra
-   (연도별 배열)에 한 해에 한 번 추가해두면 된다. 컬럼이 아직 없으면(순차 배포) 위 site_lat 등과
-   같은 방식으로 화면엔 기본값(2026년 실제 날짜)만 보이고 저장 시 에러 토스트로 안내한다. */
-// 제헌절(7/17)은 2026-03-10 관공서 공휴일 규정 개정으로 공휴일 재지정 — 국경일이라 대체공휴일 대상이기도 하다.
-var FIXED_HOLIDAYS = [
-  {md:'01-01', name:'신정'}, {md:'03-01', name:'3·1절'},
-  /* 근로자의 날(5/1)은 관공서 공휴일이 아니라 근로기준법상 근로자 휴일이라 대체공휴일이 붙지
-     않는다 — 다만 현장은 쉬므로 근무일 계산에서는 빼야 한다(2026-08-12 사용자 확인). */
-  {md:'05-01', name:'근로자의 날'}, {md:'05-05', name:'어린이날'},
-  {md:'06-06', name:'현충일'}, {md:'07-17', name:'제헌절'}, {md:'08-15', name:'광복절'},
-  {md:'10-03', name:'개천절'}, {md:'10-09', name:'한글날'}, {md:'12-25', name:'크리스마스'}
-];
-/* 음력 명절·부처님오신날·대체공휴일·선거일처럼 해마다 날짜가 바뀌는 것들의 기본값.
-   2026-08-12: 2027·2028년 추가 — 여기가 비어 있으면 그 해는 설날·추석이 통째로 평일로 잡혀
-   출퇴근체크(work-checkin-daesun)와 인원투입계획/실투입(work-status-daesun)의 주/월차 자동계산이
-   조용히 틀어진다. 세 앱이 같은 app_settings.holidays_extra를 공유하므로 기본값도 같아야 한다.
-   대체공휴일 대상: 3·1절/제헌절/광복절/개천절/한글날/어린이날/부처님오신날/성탄절 + 설날·추석
-   연휴. 신정과 현충일은 대상이 아니다(2027-06-06 현충일은 일요일이지만 대체공휴일 없음). */
-var holidaysExtra = {
-  '2026': [
-    {date:'2026-02-16',name:'설날'}, {date:'2026-02-17',name:'설날'}, {date:'2026-02-18',name:'설날'},
-    {date:'2026-03-02',name:'대체공휴일(3·1절)'},
-    {date:'2026-05-24',name:'부처님오신날'}, {date:'2026-05-25',name:'대체공휴일(부처님오신날)'},
-    {date:'2026-06-03',name:'지방선거'},
-    {date:'2026-08-17',name:'대체공휴일(광복절)'},
-    {date:'2026-09-24',name:'추석'}, {date:'2026-09-25',name:'추석'}, {date:'2026-09-26',name:'추석'},
-    {date:'2026-10-05',name:'대체공휴일(개천절)'}
-  ],
-  '2027': [
-    {date:'2027-02-06',name:'설날'}, {date:'2027-02-07',name:'설날'}, {date:'2027-02-08',name:'설날'},
-    {date:'2027-02-09',name:'대체공휴일(설날)'},
-    {date:'2027-05-13',name:'부처님오신날'},
-    {date:'2027-07-19',name:'대체공휴일(제헌절)'},
-    {date:'2027-08-16',name:'대체공휴일(광복절)'},
-    {date:'2027-09-14',name:'추석'}, {date:'2027-09-15',name:'추석'}, {date:'2027-09-16',name:'추석'},
-    {date:'2027-10-04',name:'대체공휴일(개천절)'},
-    {date:'2027-10-11',name:'대체공휴일(한글날)'},
-    {date:'2027-12-27',name:'대체공휴일(성탄절)'}
-  ],
-  '2028': [
-    {date:'2028-01-26',name:'설날'}, {date:'2028-01-27',name:'설날'}, {date:'2028-01-28',name:'설날'},
-    {date:'2028-04-12',name:'국회의원선거'},
-    {date:'2028-05-02',name:'부처님오신날'},
-    {date:'2028-10-02',name:'추석'}, {date:'2028-10-03',name:'추석'}, {date:'2028-10-04',name:'추석'},
-    {date:'2028-10-05',name:'대체공휴일(개천절)'}
-  ]
-};
-function fixedHolidaysForYear(year){
-  return FIXED_HOLIDAYS.map(function(h){ return {date:year+'-'+h.md, name:h.name, fixed:true}; });
-}
-function getHolidaysForYear(year){
-  var extra = holidaysExtra[year] || [];
-  var all = fixedHolidaysForYear(year).concat(extra.map(function(h){ return {date:h.date, name:h.name, fixed:false}; }));
-  all.sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:0); });
-  return all;
-}
-function renderHolidayTable(){
-  var year = document.getElementById('holidayYearSelect').value;
-  var rows = getHolidaysForYear(year);
-  document.getElementById('holidayTableRows').innerHTML = rows.map(function(h){
-    return '<tr><td class="mono">'+h.date+'</td><td>'+h.name+(h.fixed?' <span style="color:var(--lbl);font-size:10.5px;">(자동)</span>':'')+'</td>'
-      + '<td>'+(h.fixed?'' : '<button type="button" class="holDelBtn" data-year="'+year+'" data-date="'+h.date+'" data-name="'+h.name+'" style="border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.1);color:#E74C3C;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">삭제</button>')+'</td></tr>';
-  }).join('');
-}
-async function saveHolidaysExtra(){
-  if(!sbClient) return;
-  var payload = {id:'global', holidays_extra:holidaysExtra, updated_at:new Date().toISOString()};
-  for(var attempt=0; attempt<3; attempt++){
-    var res = await sbClient.from('app_settings').upsert(payload);
-    if(!res.error) return true;
-    var m = /Could not find the '([^']+)' column/.exec(res.error.message||'');
-    if(m && m[1]==='holidays_extra'){
-      alert('공휴일 저장 실패 — Supabase에 holidays_extra 컬럼이 아직 없습니다.\nSQL Editor에서 다음을 실행해주세요:\nALTER TABLE app_settings ADD COLUMN IF NOT EXISTS holidays_extra jsonb DEFAULT \'{}\'::jsonb;');
-      return false;
-    }
-    break;
-  }
-  return false;
-}
-function addCustomHoliday(){
-  var date = document.getElementById('holidayNewDate').value;
-  var name = document.getElementById('holidayNewName').value.trim();
-  if(!date || !name){ alert('날짜와 명칭을 모두 입력해주세요.'); return; }
-  var year = date.slice(0,4);
-  holidaysExtra[year] = holidaysExtra[year] || [];
-  if(holidaysExtra[year].some(function(h){ return h.date===date && h.name===name; })){ alert('이미 등록된 날짜·명칭입니다.'); return; }
-  holidaysExtra[year].push({date:date, name:name});
-  document.getElementById('holidayNewDate').value = '';
-  document.getElementById('holidayNewName').value = '';
-  ensureHolidayYearOption(year);
-  document.getElementById('holidayYearSelect').value = year;
-  renderHolidayTable();
-  saveHolidaysExtra();
-}
-function ensureHolidayYearOption(year){
-  var sel = document.getElementById('holidayYearSelect');
-  if(!sel.querySelector('option[value="'+year+'"]')){
-    var opt = document.createElement('option');
-    opt.value = year; opt.textContent = year+'년';
-    sel.appendChild(opt);
-  }
-}
-document.getElementById('holidayTableRows').addEventListener('click', function(e){
-  var btn = e.target.closest('.holDelBtn');
-  if(!btn) return;
-  var year = btn.getAttribute('data-year'), date = btn.getAttribute('data-date'), name = btn.getAttribute('data-name');
-  if(!confirm(date+' '+name+'을(를) 삭제할까요?')) return;
-  holidaysExtra[year] = (holidaysExtra[year]||[]).filter(function(h){ return !(h.date===date && h.name===name); });
-  renderHolidayTable();
-  saveHolidaysExtra();
-});
-async function loadHolidaySettings(){
-  var thisYear = new Date().getFullYear();
-  var sel = document.getElementById('holidayYearSelect');
-  [thisYear-1, thisYear, thisYear+1, thisYear+2].forEach(function(y){ ensureHolidayYearOption(String(y)); });
-  sel.value = String(thisYear);
-  if(sbClient){
-    try{
-      var res = await sbClient.from('app_settings').select('holidays_extra').eq('id','global').single();
-      /* 서버 값으로 통째 교체하면, 서버에 2026년만 저장돼 있을 때 위 기본값의 2027·2028년이
-         사라지고 그 상태로 저장까지 되어 두 해가 영영 비게 된다(같은 테이블을 보는 checkin·
-         status의 주/월차 자동계산이 조용히 틀어짐). 연도 단위로 병합하고, 서버에 있는 해만
-         서버 값을 쓴다(관리자가 그 해를 직접 고쳤다는 뜻이므로 기본값보다 우선). 2026-08-12 */
-      var saved = (!res.error && res.data && res.data.holidays_extra) || null;
-      if(saved){
-        Object.keys(saved).forEach(function(y){
-          if(Array.isArray(saved[y])) holidaysExtra[y] = saved[y];
-        });
-      }
-      Object.keys(holidaysExtra).forEach(ensureHolidayYearOption);
-    }catch(e){ console.error('공휴일 불러오기 실패', e); }
-  }
-  renderHolidayTable();
-}
-loadHolidaySettings();
 
 if(admIsMobile){
   var _psb=document.getElementById('planSettingsBtn'); if(_psb) _psb.style.display='none';
