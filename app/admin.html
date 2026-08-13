@@ -208,7 +208,8 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .factor-inp{width:56px; height:100%; box-sizing:border-box; background:var(--field-bg); border:1px solid var(--card-bd); border-radius:6px; color:var(--ink); font-size:12px; padding:4px 6px; text-align:center; font-family:var(--font-mono);}
 .factor-inp:focus{outline:none; border-color:var(--brand-2);}
 
-.out-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px;}
+/* 2026-08-13: PC도 모바일과 같은 2칸으로. 예전엔 PC 4칸 / 모바일 2칸으로 갈라져 있었다. */
+.out-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:18px;}
 .out-card{background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px; text-align:center;}
 .out-card .num{font-size:28px; font-weight:800; color:var(--brand-1); font-family:var(--font-mono);}
 .out-card .lbl{font-size:11px; color:var(--lbl); margin-top:4px;}
@@ -234,7 +235,8 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
   .dtable td{padding:6px 10px; height:32px;}
   .scroll-frame .dtable-head-row th, .scroll-frame .dtable-head-row td{height:37px;}
 
-  .out-grid{grid-template-columns:repeat(2,1fr);}
+  /* .out-grid 2칸 규칙은 2026-08-13에 기본값이 되어 여기서 뺐다 — 같은 값을 두 곳에 두면
+     나중에 한쪽만 고쳐진다. */
 }
 </style>
 </head>
