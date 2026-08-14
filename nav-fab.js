@@ -14,9 +14,9 @@ function wrBuildNavFab(){
     { key:'shoot',    label:'작업사진',   icon:'📷', url:'/shoot/index.html',      min:'worker'  },
     { key:'progress', label:'공정관리',   icon:'📈', url:'/progress/index.html',   min:'manager' },
     { key:'status',   label:'인원현황',   icon:'👷', url:'/status/index.html',     min:'manager' },
-    { key:'material', label:'자재관리',   icon:'📦', url:'/material/index.html',   min:'manager' },
-    /* 계약단가·기성금액을 다루므로 admin 전용. payment/index.html 의 data-require 와 같은 값이어야 한다. */
-    { key:'payment',  label:'기성관리',   icon:'💰', url:'/payment/index.html',    min:'admin'   }
+    { key:'material', label:'자재관리',   icon:'📦', url:'/material/index.html',   min:'manager' }
+    /* 기성관리(/payment/)는 여기에 넣지 않는다 — 계정 연동을 하지 않는 독립 앱이라
+       등급으로 걸러지는 이 목록의 규칙이 적용되지 않는다. 공무가 주소로 직접 들어간다. */
   ];
 
   /* role-gate.js가 먼저 실행된 페이지면 그게 만들어둔 판정을 그대로 쓰고,
