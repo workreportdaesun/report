@@ -1216,7 +1216,7 @@ function openCardForCat(menu, cat){
         });
         renderItemList();
         document.getElementById('sendBtn').disabled = items.length===0;
-        upsertDailyReport({items:items, status:computeReportStatus(items)});
+        saveReportItems();
       }
     }
   }
@@ -1237,7 +1237,11 @@ function openCardForCat(menu, cat){
   var pulled = [];
   for(var i=items.length-1;i>=0;i--){
     if(items[i].autoImported && items[i].menu===menu && items[i].cat===cat && !items[i].submitted){
-      pulled.unshift(items.splice(i,1)[0]);
+      var _removed = items.splice(i,1)[0];
+      pulled.unshift(_removed);
+      /* 입력칸으로 되가져온 항목은 저장목록에서 빠지므로 서버에서도 지운다.
+         다시 저장하면 saveReportItems()가 새로 넣는다. */
+      deleteReportItem(_removed);
     }
   }
   if(pulled.length || preservedRows.length){
@@ -1248,7 +1252,7 @@ function openCardForCat(menu, cat){
     if(pulled.length){
       renderItemList();
       document.getElementById('sendBtn').disabled = items.length===0;
-      upsertDailyReport({items:items, status:computeReportStatus(items)});
+      saveReportItems();
     }
   } else {
     document.getElementById('noteInput').value = '';
@@ -1369,9 +1373,7 @@ async function saveEntryRows(){
   if(!saved){ if(!dupTags.length) showToast('⚠️ 저장할 항목이 없습니다', 'var(--err)'); return; }
   renderItemList();
   document.getElementById('sendBtn').disabled = items.length===0;
-  await upsertDailyReport({
-    items:items,
-    status:computeReportStatus(items),
+  await saveReportItems({
     next_day_plan: document.getElementById('nextDayPlanInput').value.trim(),
     special_notes: buildTbmLogJson()
   });
@@ -1390,6 +1392,9 @@ function editItem(idx){
   if(!it) return;
   if(it.submitted){ showToast('⚠️ 이미 제출된 항목은 수정할 수 없습니다', 'var(--err)'); return; }
   items.splice(idx, 1);
+  /* 항목 단위 저장으로 바뀌었으므로 삭제도 서버에 알려야 한다.
+     안 그러면 다음 저장 때 서버에 남아 있던 항목이 그대로 되살아난다. */
+  deleteReportItem(it);
   renderItemList();
   document.getElementById('sendBtn').disabled = items.length===0;
   openCardForCat(it.menu, it.cat);
@@ -1430,6 +1435,83 @@ function draftId(){
    update()로 갱신한다 — 다른 필드는 건드리지 않으므로 서로 다른 필드를 patch하는
    호출끼리 더 이상 서로를 덮어쓰지 않는다. 오늘 이 팀의 첫 저장(행이 아직 없음)일
    때만 기본값과 함께 새로 insert한다. */
+/* ══════════════════════════════════════════════════════════════════════
+   items 저장 — 배열 통째 덮어쓰기를 항목 단위로 바꾼다 (2026-08-14)
+
+   예전에는 upsertDailyReport({items:items}) 로 클라이언트가 들고 있는 배열을
+   서버에 통째로 써넣었다. 같은 팀 두 사람이 같은 날 일보를 동시에 편집하면
+   나중 저장이 먼저 저장을 지운다. 일보 id 는 (team_date) 단위라 실제로 일어난다.
+   출퇴근(crew)에서 이미 같은 사고가 나서 upsert_crew_entry 로 고쳤던 것과 같은 구조다.
+
+   이제 항목마다 upsert_report_item 을 부른다. 서버는 (menu,cat,tag,spec) 로 찾아
+   그 항목만 바꾸므로, 다른 사람이 그 사이에 넣은 항목은 그대로 남는다.
+
+   ★ 삭제는 반드시 명시적으로 해야 한다
+     항목별 upsert 만 하면 "내 배열에 없는 것"이 서버에서 안 지워진다.
+     그래서 items.splice() 하는 두 곳(editItem / openCardForCat 의 pulled)에서
+     deleteReportItem() 을 같이 부른다. 이걸 빼먹으면 지운 항목이 되살아난다.
+
+   RPC 가 아직 없으면(PGRST202) 예전 통째 저장으로 물러선다 — crew 때와 같은 폴백.
+   ══════════════════════════════════════════════════════════════════════ */
+var itemRpcMissing = false;      // 한 번 없다고 확인되면 계속 옛 경로를 쓴다
+
+function itemKeyOf(it){
+  return [it&&it.menu||'', it&&it.cat||'', it&&it.tag||'', it&&it.spec||''].join('|');
+}
+
+/* 항목 하나 저장. 성공하면 true, RPC가 없으면 false(=폴백 필요) */
+async function upsertReportItemRpc(it){
+  if(!sbClient || itemRpcMissing) return false;
+  var res = await sbClient.rpc('upsert_report_item', {
+    p_id: draftId(),
+    p_team: localStorage.getItem('member_team') || '미지정',
+    p_date: todayStr(),
+    p_item: it
+  });
+  if(res.error){
+    if(res.error.code === 'PGRST202'){ itemRpcMissing = true; return false; }
+    console.error('항목 저장 실패', res.error.message);
+    showToast('⚠️ 항목 저장 실패: ' + res.error.message, 'var(--err)');
+    return false;
+  }
+  return true;
+}
+
+/* 항목 하나 삭제 — items.splice() 와 짝을 이룬다 */
+async function deleteReportItem(it){
+  if(!sbClient || itemRpcMissing || !it) return false;
+  var res = await sbClient.rpc('delete_report_item', {
+    p_id: draftId(), p_menu: it.menu||'', p_cat: it.cat||'',
+    p_tag: it.tag||'', p_spec: it.spec||''
+  });
+  if(res.error){
+    if(res.error.code === 'PGRST202'){ itemRpcMissing = true; return false; }
+    /* 일보 자체가 아직 없으면 지울 것도 없다 — 오류로 보지 않는다 */
+    if(!/일보 없음/.test(res.error.message||'')) console.error('항목 삭제 실패', res.error.message);
+    return false;
+  }
+  return true;
+}
+
+/* items 전체를 항목 단위로 저장하고, status 등 나머지 필드는 한 번에 갱신한다.
+   RPC 가 없으면 예전처럼 items 를 통째로 넘긴다. */
+async function saveReportItems(extraPatch){
+  var patch = Object.assign({status: computeReportStatus(items)}, extraPatch||{});
+  if(!sbClient) return null;
+
+  if(!itemRpcMissing && items.length){
+    /* 같은 행을 여러 요청이 잠그므로 한꺼번에 던지지 않고 나눠 보낸다 */
+    var CHUNK = 5, allOk = true;
+    for(var s=0; s<items.length; s+=CHUNK){
+      var res = await Promise.all(items.slice(s, s+CHUNK).map(upsertReportItemRpc));
+      if(res.some(function(v){ return v===false; })){ allOk = false; break; }
+    }
+    if(allOk) return upsertDailyReport(patch);      // items 는 이미 저장됨
+  }
+  /* 폴백 — 예전 통째 저장 */
+  return upsertDailyReport(Object.assign({items: items}, patch));
+}
+
 async function upsertDailyReport(patch){
   if(!sbClient) return null;
   try{
@@ -1712,7 +1794,7 @@ async function refreshPhotoLinkage(manual){
       renderItemList();
       document.getElementById('sendBtn').disabled = items.length===0;
     }
-    if(linked || autoAdded) upsertDailyReport({items:items, status:computeReportStatus(items)});
+    if(linked || autoAdded) saveReportItems();
     if(filled){
       showToast('📷 촬영된 기기번호가 입력칸에 채워졌습니다 — 수량을 확인하고 저장하세요', 'var(--brand-2)');
     } else if(linked || autoAdded){
@@ -1781,9 +1863,7 @@ function savePendingEntryState(){
 async function previewReport(){
   if(!items.length) return;
   savePendingEntryState();
-  await upsertDailyReport({
-    items:items,
-    status:computeReportStatus(items),
+  await saveReportItems({
     next_day_plan: document.getElementById('nextDayPlanInput').value.trim(),
     special_notes: buildTbmLogJson()
   });
