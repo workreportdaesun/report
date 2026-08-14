@@ -1881,11 +1881,31 @@ function terminalStatusOf(status){
    며칠 전 다른 날 잠긴 기기번호는 걸러내지 못했다 — 전체 팀·전체 날짜의 daily_reports를
    훑어서 잠금 이력을 "작업분류|기기번호|완료상태" 키로 따로 캐싱해둔다(loadProgressData/
    syncProgressChecklist와 같은 방식으로 date 필터 없이 전체 조회). */
+/* ── 일보 전체 조회는 반드시 이 함수를 거친다 (2026-08-14) ──
+   Supabase 는 한 번에 최대 1000행만 돌려주고, 넘으면 오류 없이 조용히 잘린다.
+   완료TAG 판정·진도 누계·체크리스트 세 곳은 설계상 전 기간이 필요해서 기간 필터를
+   걸 수 없으므로, 페이지로 나눠 끝까지 받아온다.
+   지금은 일보가 15건이라 티가 안 나지만 팀×날짜로 쌓이므로 1년이면 1000행을 넘고,
+   그 순간부터 완료 TAG 가 누락돼 이미 끝난 기기에 다시 입력이 되기 시작한다. */
+async function fetchAllDailyReports(cols){
+  var PAGE = 1000, from = 0, out = [];
+  for(;;){
+    var res = await sbClient.from('daily_reports').select(cols)
+      .order('date', {ascending:true}).range(from, from + PAGE - 1);
+    if(res.error || !res.data) return {error: res.error, data: null};
+    out = out.concat(res.data);
+    if(res.data.length < PAGE) break;      // 마지막 페이지
+    from += PAGE;
+    if(from > 200000){ console.warn('일보 조회 상한 도달 — 20만행에서 중단'); break; }
+  }
+  return {error: null, data: out};
+}
+
 var terminalTagKeys = {};
 async function loadCompletedTagKeys(){
   if(!sbClient) return;
   try{
-    var res = await sbClient.from('daily_reports').select('items');
+    var res = await fetchAllDailyReports('items');
     if(res.error || !res.data) return;
     var keys = {};
     res.data.forEach(function(row){
@@ -2837,7 +2857,7 @@ function actualQty(name){
 async function loadProgressData(){
   if(!sbClient) return;
   try{
-    var res = await sbClient.from('daily_reports').select('date,items');
+    var res = await fetchAllDailyReports('date,items');
     if(res.error || !res.data) return;
     var today = todayStr();
     var t={}, b={};
@@ -2948,7 +2968,7 @@ loadProgressData();
 async function syncProgressChecklist(){
   if(!sbClient) return;
   try{
-    var res = await sbClient.from('daily_reports').select('date,items');
+    var res = await fetchAllDailyReports('date,items');
     if(res.error || !res.data) return;
     var byKey = {};
     res.data.forEach(function(row){
