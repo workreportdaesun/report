@@ -197,6 +197,16 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .pill-ok{background:#EAF7EE; color:var(--ok);}
 .pill-draft{background:#FDF3E3; color:#B9770E;}
 .pill-pdf{background:#EAF0F8; color:var(--brand-2); cursor:pointer; text-decoration:none;}
+/* 승인상태 — daily_reports.approval (status와 별개 컬럼) */
+.pill-appr{background:#E7F0FB; color:#1B5E9E;}
+.pill-pend{background:#F0F1F3; color:#6B7280;}
+.pill-rej{background:#FCEAEA; color:#B03A2E;}
+.pill-lock{background:#EFEAF7; color:#6B4FA3;}
+.appr-btn{border:1px solid var(--card-bd); background:var(--field-bg); color:var(--txt); border-radius:6px; padding:5px 14px; font-size:12px; font-weight:700; cursor:pointer;}
+.appr-btn.on{background:#1B5E9E; color:#fff; border-color:#1B5E9E;}
+.appr-btn.rej{background:#B03A2E; color:#fff; border-color:#B03A2E;}
+.appr-btn:disabled{opacity:.45; cursor:not-allowed;}
+/* 계약내역·기성은 별도 앱(/payment/)으로 분리했다(2026-08-14). 관련 CSS·JS·탭은 여기서 제거함. */
 .dtable tr.clickable{cursor:pointer;}
 .dtable tr.clickable:hover{background:var(--field-bg);}
 .pbar-wrap{display:flex; align-items:center; gap:6px;}
@@ -264,165 +274,6 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <button class="admin-tab" onclick="showAdminTab(this,'out')">출력현황</button>
     <button class="admin-tab" onclick="showAdminTab(this,'members')">회원관리</button>
   </div>
-  </div>
-
-  <!-- 공정률 -->
-  <div class="admin-pane active" id="pane-proc">
-    <!-- 2026-08-06: 예전엔 수량공정(기기번호 개수 기반)/물량공정(daily_reports qty 합산) 두 가지를
-         탭으로 나눠서 보여줬는데, 수량공정을 완전히 없애고 물량공정 하나로 통합했다(사용자 요청 —
-         work-progress-daesun의 "작업수량" 탭 연동도 물량 방식을 그대로 복제해 쓰고 있어서 수량공정
-         쪽엔 아무 의존성이 없었음, index.html:402 참고). 설치물량 탭과 같은 위치(필터/카드 한 줄 →
-         표)가 되도록 탭 버튼 행을 없앴다.
-         2026-08-06 추가: 이 줄의 박스 스타일(배경/테두리/패딩/margin-bottom)을 체크리스트·설치물량·
-         작업일보의 필터바와 완전히 동일하게 맞춤 — 네 표 전부 fitScrollFrames()가 이 줄 높이만큼
-         아래에서 시작해 표 높이(max-height)를 계산하므로, 이 줄의 높이가 다르면 표마다 스크롤
-         시작 위치·창높이가 미묘하게 달라져 보였음. -->
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
-      <div class="proc-grid" id="procGrid"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
-      <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="margin-left:auto;flex-shrink:0;border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
-    </div>
-
-    <div class="scroll-frame"><div class="scroll-body">
-      <table class="dtable">
-        <tr class="dtable-head-row"><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
-        <tbody id="procTableRows"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
-        <tfoot id="procTableFoot"></tfoot>
-      </table>
-    </div></div>
-  </div>
-
-  <!-- 계획수량 설정 모달 — 웹관리자가 PC에서만 열 수 있고(⚙️ 버튼 자체를 모바일에선 숨김),
-       여기 들어오기 전까지 표/카드는 항상 보여주기 전용이다 -->
-  <div id="planModalOverlay" onclick="if(event.target===this) closePlanSettings()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9990;align-items:center;justify-content:center;">
-    <div style="background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.3);margin:0 14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h3 style="font-size:16px;font-weight:800;color:var(--brand-1);margin:0;">계획/설치수량 설정</h3>
-        <button type="button" onclick="closePlanSettings()" style="border:none;background:var(--field-bg);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px;color:var(--lbl);">✕</button>
-      </div>
-      <label style="display:block;text-align:center;border:1.5px dashed var(--brand-2);background:var(--field-bg);color:var(--brand-2);border-radius:8px;padding:9px;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:4px;">
-        📤 엑셀로 설치수량 일괄 입력(작업분류별 계획/설치수량 업로드 서식 v3)
-        <input type="file" id="planExcelInput" accept=".xlsx,.xls" style="display:none;" onchange="handlePlanExcelUpload(this)">
-      </label>
-      <div style="font-size:11px;color:var(--lbl);text-align:center;margin-bottom:12px;">계획수량은 엑셀로 반영되지 않습니다 — 아래 목록에서 직접 입력하세요.</div>
-      <div id="planModalRows"></div>
-      <button type="button" onclick="savePlanSettings()" style="width:100%;margin-top:14px;background:var(--brand-2);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:800;cursor:pointer;">저장</button>
-    </div>
-  </div>
-
-  <!-- 출력현황 -->
-  <div class="admin-pane" id="pane-out">
-    <div style="background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px; margin-bottom:16px;">
-      <div style="font-size:13px;font-weight:800;color:var(--brand-1);margin-bottom:8px;">현장 좌표 설정 (작업자 앱 출력체크 반경 기준)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">위도</label><input type="number" step="any" id="siteLatInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
-        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">경도</label><input type="number" step="any" id="siteLngInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
-        <!-- 반경은 1km 고정(2026-08-06 "출퇴근 모두 반경 1km로 고정" 요청). 입력칸으로 열어두면
-             출퇴근체크 앱의 판정 기준이 조용히 바뀌므로 읽기 전용으로 잠근다(2026-08-10). -->
-        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">반경(m)</label><input type="number" id="geofenceInput" value="1000" readonly title="출력일지 반경은 1km로 고정입니다" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);background:var(--field-bg);color:var(--lbl);cursor:not-allowed;"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <button type="button" onclick="useCurrentLocation()" style="flex:1;padding:8px;border:1px solid var(--card-bd);border-radius:8px;background:var(--field-bg);cursor:pointer;font-size:12px;color:var(--ink);">📍 현재 위치 사용</button>
-        <button type="button" onclick="saveSiteSettings()" style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--brand-2);color:#fff;cursor:pointer;font-size:12px;font-weight:700;">저장</button>
-      </div>
-    </div>
-
-    <!-- 연장근무 종료시간 — 출퇴근체크 앱(work-checkin-daesun)의 퇴근체크 게이트 기준(2026-08-06).
-         오늘 날짜에만 유효하도록 날짜를 같이 저장해서, 어제 입력값이 오늘까지 남아있는 실수를 막는다. -->
-    <div style="background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px; margin-bottom:16px;">
-      <div style="font-size:13px;font-weight:800;color:var(--brand-1);margin-bottom:8px;">연장근무 종료시간 (오늘만 적용)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">날짜</label><input type="date" id="overtimeDateInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
-        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">종료시간</label><input type="time" id="overtimeEndInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
-      </div>
-      <div style="font-size:11px;color:var(--lbl);margin-top:8px;">연장근무를 신청한 근로자는 이 시간+5분부터 퇴근체크가 가능합니다. 연장근무가 없는 날은 비워두거나 지난 날짜로 두면 됩니다(오늘 날짜가 아니면 자동으로 무시됨).</div>
-      <button type="button" onclick="saveOvertimeSettings()" style="width:100%;margin-top:10px;padding:8px;border:none;border-radius:8px;background:var(--brand-2);color:#fff;cursor:pointer;font-size:12px;font-weight:700;">저장</button>
-    </div>
-
-    <div class="out-grid" id="outGrid"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
-    <div class="scroll-frame"><div class="scroll-body">
-    <table class="dtable">
-      <tr class="dtable-head-row"><th>팀명</th><th>출력인원</th><th>체크인 성명</th></tr>
-      <tbody id="outTableRows"><tr><td colspan="3" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
-    </table>
-    </div></div>
-    <div style="font-size:11px;color:var(--lbl);margin-top:8px;">작업자 앱의 "출력체크"(GPS 반경 체크인) 기록을 오늘 날짜 기준으로 팀별 집계한 것입니다.</div>
-
-  </div>
-
-  <!-- 작업일보 전체내용 — 검색/필터 + 클릭 시 상세보기 모달 -->
-  <div class="admin-pane" id="pane-reports">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
-      <select id="rpMenuFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
-      <select id="rpAreaFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 구역</option></select>
-      <select id="rpTeamFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 팀</option></select>
-      <select id="rpStatusFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
-        <option value="">전체 상태</option>
-        <option value="submitted">제출완료</option>
-        <option value="draft">작성중</option>
-      </select>
-      <input type="date" id="rpDateFrom" onchange="renderReportsTable()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
-      <span style="color:var(--lbl);font-size:12px;">~</span>
-      <input type="date" id="rpDateTo" onchange="renderReportsTable()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
-      <input type="text" id="rpKeyword" oninput="renderReportsTable()" placeholder="기기번호/비고/TBM 위험요인 검색" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:180px;">
-      <button type="button" onclick="resetReportsFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">초기화</button>
-      <span id="rpSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
-    </div>
-    <div class="scroll-frame"><div class="scroll-body">
-    <table class="dtable">
-      <tr class="dtable-head-row"><th style="width:110px;">날짜</th><th>공종</th><th>구역</th><th>팀명</th><th>항목수</th><th>PDF</th><th>상태</th></tr>
-      <tbody id="reportsRows"><tr><td colspan="7" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
-    </table>
-    </div></div>
-    <div style="font-size:11px;color:var(--lbl);margin-top:8px;">행을 클릭하면 그 날짜·팀 일보의 전체 입력 내용을 볼 수 있습니다.</div>
-  </div>
-
-  <!-- 작업일보 상세보기 모달 -->
-  <div id="reportDetailOverlay" onclick="if(event.target===this) closeReportDetail()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9990;align-items:center;justify-content:center;">
-    <div style="background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:640px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.3);margin:0 14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h3 id="rdTitle" style="font-size:16px;font-weight:800;color:var(--brand-1);margin:0;">작업일보 상세</h3>
-        <button type="button" onclick="closeReportDetail()" style="border:none;background:var(--field-bg);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px;color:var(--lbl);">✕</button>
-      </div>
-      <div id="rdBody"></div>
-    </div>
-  </div>
-
-  <!-- Check List: TAG NO.×작업분류 그리드. progress_checklist(daily_reports에서 자동 집계됨, report/app/index.html의
-       syncProgressChecklist 참고)를 읽기 전용으로 조회만 함. 2026-08-06: 작업수량(완료일자 표시)/
-       작업물량(수량 표시) 두 탭이 있었는데 작업물량을 없애고 작업수량으로 통합(사용자 요청) —
-       데이터(progress_checklist)는 두 필드 다 그대로 쌓이므로 화면 표시만 단순화한 것. 설치물량
-       탭과 같은 위치(필터바 한 줄 → 표)가 되도록 탭 버튼 행을 없앴다. -->
-  <div class="admin-pane" id="pane-cl">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
-      <input type="text" id="clTagFilter" oninput="renderChecklist()" placeholder="TAG 검색" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
-      <button type="button" onclick="resetClFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">초기화</button>
-      <span id="clSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
-    </div>
-    <div class="scroll-frame"><div class="scroll-body">
-      <table class="dtable" id="clTable"><tr><td style="text-align:center;color:var(--lbl);padding:20px;">불러오는 중...</td></tr></table>
-    </div></div>
-  </div>
-
-  <!-- 설치물량(2026-08-13 개명, 옛 이름 "물량관리"): work_log(일보를 행 단위로 펼친 백업 로그, report/app/index.html의 syncWorkLog 참고)를
-       공종/작업분류/TAG/날짜로 검색·조회. work_log 테이블이 없으면(사용자가 SQL 실행 전) 안내만 뜬다. -->
-  <div class="admin-pane" id="pane-wl">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
-      <select id="wlMenuFilter" onchange="renderWorkLog()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
-      <select id="wlCatFilter" onchange="renderWorkLog()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 작업분류</option></select>
-      <select id="wlAreaFilter" onchange="renderWorkLog()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 구역</option></select>
-      <input type="date" id="wlDateFrom" onchange="renderWorkLog()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
-      <span style="color:var(--lbl);font-size:12px;">~</span>
-      <input type="date" id="wlDateTo" onchange="renderWorkLog()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
-      <input type="text" id="wlTagFilter" oninput="renderWorkLog()" placeholder="TAG 검색" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
-      <button type="button" onclick="resetWlFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">초기화</button>
-      <span id="wlSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
-    </div>
-    <div class="scroll-frame"><div class="scroll-body">
-      <table class="dtable">
-        <tr class="dtable-head-row"><th style="width:110px;">날짜</th><th>공종</th><th>작업분류</th><th>구역</th><th>TAG</th><th>규격</th><th>수량</th><th>상태</th><th style="width:74px;">신규/수정</th><th>팀</th></tr>
-        <tbody id="wlRows"><tr><td colspan="10" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
-      </table>
-    </div></div>
   </div>
 
   <!-- 회원관리: 팀별로 그룹핑, 리더는 헤더로 표시. 리더 지정/해제·강제탈퇴는 관리자만 -->
@@ -896,13 +747,13 @@ var reportsLoaded = false, reportsRows = [];
 async function loadAllReports(){
   if(reportsLoaded) return; // 관리자가 탭을 다시 눌러도 매번 새로 안 불러옴(간단한 1회 캐시) — 새로고침하면 최신화됨
   var wrap = document.getElementById('reportsRows');
-  if(!sbClient){ wrap.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--lbl);">연결 실패</td></tr>'; return; }
+  if(!sbClient){ wrap.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--lbl);">연결 실패</td></tr>'; return; }
   try{
     var res = await sbClient.from('daily_reports').select('*').order('date',{ascending:false});
-    if(res.error || !res.data){ wrap.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; return; }
+    if(res.error || !res.data){ wrap.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; return; }
     reportsRows = res.data;
     reportsLoaded = true;
-    if(!reportsRows.length){ wrap.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--lbl);">작업일보가 아직 없습니다</td></tr>'; return; }
+    if(!reportsRows.length){ wrap.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--lbl);">작업일보가 아직 없습니다</td></tr>'; return; }
     var teams={}, menus={}, areas={};
     reportsRows.forEach(function(r){
       if(r.team) teams[r.team]=1;
@@ -913,10 +764,10 @@ async function loadAllReports(){
     Object.keys(menus).sort().forEach(function(m){ menuSel.insertAdjacentHTML('beforeend','<option value="'+m+'">'+m+'</option>'); });
     Object.keys(areas).sort().forEach(function(a){ areaSel.insertAdjacentHTML('beforeend','<option value="'+a+'">'+a+'</option>'); });
     renderReportsTable();
-  }catch(e){ wrap.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; }
+  }catch(e){ wrap.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--lbl);">불러오기 실패</td></tr>'; }
 }
 function resetReportsFilters(){
-  ['rpTeamFilter','rpMenuFilter','rpAreaFilter','rpStatusFilter'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['rpTeamFilter','rpMenuFilter','rpAreaFilter','rpStatusFilter','rpApprovalFilter'].forEach(function(id){ document.getElementById(id).value=''; });
   document.getElementById('rpDateFrom').value='';
   document.getElementById('rpDateTo').value='';
   document.getElementById('rpKeyword').value='';
@@ -933,17 +784,19 @@ function reportMatchesKeyword(r, kw){
 }
 function renderReportsTable(){
   var wrap = document.getElementById('reportsRows');
-  if(!reportsRows.length){ wrap.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--lbl);">작업일보가 아직 없습니다</td></tr>'; document.getElementById('rpSummary').textContent=''; return; }
+  if(!reportsRows.length){ wrap.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--lbl);">작업일보가 아직 없습니다</td></tr>'; document.getElementById('rpSummary').textContent=''; return; }
   var team=document.getElementById('rpTeamFilter').value;
   var menu=document.getElementById('rpMenuFilter').value;
   var area=document.getElementById('rpAreaFilter').value;
   var status=document.getElementById('rpStatusFilter').value;
+  var approval=document.getElementById('rpApprovalFilter').value;
   var from=document.getElementById('rpDateFrom').value;
   var to=document.getElementById('rpDateTo').value;
   var kw=document.getElementById('rpKeyword').value.trim();
   var filtered = reportsRows.filter(function(r){
     if(team && r.team!==team) return false;
     if(status && r.status!==status) return false;
+    if(approval && approvalOf(r)!==approval) return false;
     if(from && r.date<from) return false;
     if(to && r.date>to) return false;
     var items = Array.isArray(r.items) ? r.items : [];
@@ -953,7 +806,7 @@ function renderReportsTable(){
     return true;
   });
   if(!filtered.length){
-    wrap.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--lbl);">조건에 맞는 작업일보가 없습니다</td></tr>';
+    wrap.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--lbl);">조건에 맞는 작업일보가 없습니다</td></tr>';
     document.getElementById('rpSummary').textContent='';
     return;
   }
@@ -970,6 +823,7 @@ function renderReportsTable(){
       +'<td class="mono">'+items.length+'</td>'
       +'<td><a class="pill pill-pdf" href="report-pdf.html?id='+encodeURIComponent(r.id)+'" target="_blank" onclick="event.stopPropagation()">📄 열기</a></td>'
       +'<td>'+(isSub ? '<span class="pill pill-ok">제출완료</span>' : '<span class="pill pill-draft">작성중</span>')+'</td>'
+      +'<td>'+approvalPill(r)+'</td>'
     +'</tr>';
   }).join('');
   document.getElementById('rpSummary').textContent = filtered.length+'건';
@@ -995,8 +849,10 @@ function openReportDetail(id){
   document.getElementById('rdBody').innerHTML =
     '<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;font-size:12px;color:var(--lbl);">'
       +'<span>'+(r.status==='submitted' ? '<span class="pill pill-ok">제출완료</span>' : '<span class="pill pill-draft">작성중</span>')+'</span>'
+      +'<span>'+approvalPill(r)+'</span>'
       +(r.status==='submitted' ? '<a class="pill pill-pdf" href="report-pdf.html?id='+encodeURIComponent(r.id)+'" target="_blank">📄 PDF 열기</a>' : '')
     +'</div>'
+    + approvalBarHtml(r)
     + itemsHtml
     + (r.tbm_photo ? '<div style="font-size:13px;margin-bottom:8px;"><b>TBM(안전 조회) 사진</b><br><img src="'+r.tbm_photo+'" alt="TBM 사진" style="max-width:220px;border-radius:10px;border:1px solid var(--card-bd);margin-top:6px;display:block;"></div>' : '')
     + '<div style="font-size:13px;margin-bottom:8px;"><b>출력 인원</b> ('+crew.length+'명): '+crewHtml+'</div>'
@@ -1006,6 +862,98 @@ function openReportDetail(id){
 }
 function closeReportDetail(){
   document.getElementById('reportDetailOverlay').style.display='none';
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   일보 승인/반려 — daily_reports.approval (status와 별개 컬럼)
+
+   status  = 작성 진행상태 (draft | submitted)          ← 기존, 손대지 않음
+   approval= 승인 상태     (pending | approved | rejected)
+
+   status 에 'approved' 를 새 값으로 넣지 않은 이유: 이 파일 964·997·998행과
+   index.html 1921행, report-pdf.html 433행이 status==='submitted' 를 정확 비교해서
+   승인하는 순간 "제출완료"가 "작성중"으로 뒤바뀌고 PDF 버튼이 사라진다.
+
+   SQL: SUPABASE_REPORT_APPROVAL.sql (아직 실행 전이면 approval 컬럼이 없어
+        approvalOf()가 'pending'으로 떨어지고 버튼은 안내만 띄우고 멈춘다)
+   ══════════════════════════════════════════════════════════════════════ */
+/* 반려사유·승인자명은 사용자가 입력한 값이라 그대로 innerHTML에 넣으면 안 된다 */
+function escHtml(v){
+  return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+var APPROVAL_LABEL = {pending:'승인대기', approved:'승인완료', rejected:'반려'};
+var APPROVAL_PILL  = {pending:'pill-pend', approved:'pill-appr', rejected:'pill-rej'};
+
+function approvalOf(r){
+  var a = r && r.approval;
+  return (a==='approved' || a==='rejected') ? a : 'pending';
+}
+function approvalPill(r){
+  var a = approvalOf(r);
+  var html = '<span class="pill '+APPROVAL_PILL[a]+'">'+APPROVAL_LABEL[a]+'</span>';
+  if(r && r.locked) html += ' <span class="pill pill-lock" title="기성 마감된 일보">🔒</span>';
+  return html;
+}
+/* 상세 모달 상단의 승인/반려 조작 영역 */
+function approvalBarHtml(r){
+  var a = approvalOf(r);
+  var meta = '';
+  if(a==='approved' && r.approved_by) meta = '<span style="color:var(--lbl);">'+escHtml(r.approved_by)+' 승인'+(r.approved_at?' · '+localHM(r.approved_at):'')+'</span>';
+  if(a==='rejected' && r.reject_reason) meta = '<span style="color:#B03A2E;">반려사유: '+escHtml(r.reject_reason)+'</span>';
+
+  if(r.locked){
+    return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--field-bg);border:1px solid var(--card-bd);border-radius:8px;padding:9px 12px;margin-bottom:12px;font-size:12px;">'
+      +'<b>🔒 기성 마감된 일보</b><span style="color:var(--lbl);">마감을 해제해야 승인상태를 바꿀 수 있습니다.</span>'+meta+'</div>';
+  }
+  if(r.status!=='submitted'){
+    return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--field-bg);border:1px solid var(--card-bd);border-radius:8px;padding:9px 12px;margin-bottom:12px;font-size:12px;color:var(--lbl);">'
+      +'작성중인 일보는 승인할 수 없습니다. 제출 완료 후 처리하세요.</div>';
+  }
+  return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--field-bg);border:1px solid var(--card-bd);border-radius:8px;padding:9px 12px;margin-bottom:12px;font-size:12px;">'
+    +'<b>승인 처리</b>'
+    +'<button type="button" class="appr-btn'+(a==='approved'?' on':'')+'" onclick="setReportApproval(\''+r.id+'\',\'approved\')"'+(a==='approved'?' disabled':'')+'>✔ 승인</button>'
+    +'<button type="button" class="appr-btn'+(a==='rejected'?' rej':'')+'" onclick="setReportApproval(\''+r.id+'\',\'rejected\')"'+(a==='rejected'?' disabled':'')+'>✕ 반려</button>'
+    + (a!=='pending' ? '<button type="button" class="appr-btn" onclick="setReportApproval(\''+r.id+'\',\'pending\')">↺ 대기로</button>' : '')
+    + meta
+    +'</div>';
+}
+
+async function setReportApproval(id, approval){
+  if(!sbClient){ alert('서버에 연결되어 있지 않습니다.'); return; }
+  var actorId = localStorage.getItem('member_id');
+  if(!actorId){ alert('로그인 정보가 없습니다. 다시 로그인해 주세요.'); return; }
+
+  var reason = null;
+  if(approval==='rejected'){
+    reason = prompt('반려 사유를 입력하세요 (작성자에게 전달됩니다)');
+    if(reason===null) return;                 // 취소
+    if(!reason.trim()){ alert('반려 사유는 반드시 입력해야 합니다.'); return; }
+  }else if(approval==='approved'){
+    if(!confirm('이 일보를 승인하시겠습니까?\n승인된 일보만 공정률·기성 계산에 반영됩니다.')) return;
+  }
+
+  try{
+    var res = await sbClient.rpc('set_report_approval', {
+      p_id: id, p_approval: approval, p_actor_id: actorId, p_reason: reason
+    });
+    if(res.error){
+      /* PGRST202 = 함수 없음 → SUPABASE_REPORT_APPROVAL.sql 미실행 상태 */
+      if(res.error.code==='PGRST202'){
+        alert('승인 기능이 아직 서버에 설치되지 않았습니다.\nSUPABASE_REPORT_APPROVAL.sql 을 먼저 실행해 주세요.');
+      }else{
+        alert('승인 처리 실패: '+res.error.message);
+      }
+      return;
+    }
+    var row = Array.isArray(res.data) ? res.data[0] : res.data;
+    var idx = reportsRows.findIndex(function(x){ return x.id===id; });
+    if(idx>=0 && row) reportsRows[idx] = row;
+    renderReportsTable();
+    openReportDetail(id);                     // 모달 내용 갱신
+  }catch(e){
+    alert('승인 처리 실패: '+(e && e.message ? e.message : e));
+  }
 }
 
 /* ── 현장 좌표 설정 — 작업자 앱(index.html)의 출력체크 반경 게이트 기준값 (app_settings.site_lat/site_lng/geofence_m) ── */
