@@ -15,9 +15,9 @@
 <style>
 :root{
   --brand-1:#1E3A5F; --brand-2:#2E5F9E;
-  --bg:#F0F4F8; --card:#fff; --card-bd:#D1DCE8; --ink:#1A2332; --lbl:#5A7A9A;
-  --field-bg:#F7FAFC; --ok:#27AE60; --head-bg:#DCE6F2;
-  --m-시공:#2E5F9E; --m-품질:#27AE60; --m-자재:#A0703A; --m-안전:#F39C12; --m-화기:#C0392B;
+  --bg:#F0F4F8; --card:#fff; --card-bd:#D1DCE8; --ink:#1A2332; --lbl:#4A6B8A;
+  --field-bg:#F7FAFC; --ok:#1B7A43; --head-bg:#DCE6F2;
+  --m-시공:#2E5F9E; --m-품질:#1B7A43; --m-자재:#A0703A; --m-안전:#A05A18; --m-화기:#C0392B;
   --font-body:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   --font-mono:"SFMono-Regular",Consolas,Menlo,monospace;
 }
@@ -1079,7 +1079,7 @@ function memberRowHtml(m,isLeader){
     +'<div style="display:flex;gap:6px;">'
     +'<button type="button" class="memberLeaderBtn" data-id="'+m.id+'" data-cur="'+(isLeader?'1':'0')+'" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--brand-2);border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">'+(isLeader?'리더 해제':'리더 지정')+'</button>'
     +'<button type="button" class="memberActiveBtn" data-id="'+m.id+'" data-cur="'+(inactive?'0':'1')+'" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">'+(inactive?'근무 재개':'퇴사 처리')+'</button>'
-    +'<button type="button" class="memberDelBtn" data-id="'+m.id+'" style="border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.1);color:#E74C3C;border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">탈퇴</button>'
+    +'<button type="button" class="memberDelBtn" data-id="'+m.id+'" style="border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.1);color:#C0392B;border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">탈퇴</button>'
     +'</div></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-top:6px;">'
     +roleSelectHtml(m.id, m.role)

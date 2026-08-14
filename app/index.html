@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>작업일보</title>
 <link rel="icon" type="image/png" href="icon-192.png"/>
 <link rel="apple-touch-icon" href="icon-180.png"/>
@@ -15,13 +15,13 @@
 <style>
 :root{
   --brand-1:#1E3A5F; --brand-2:#2E5F9E;
-  --bg:#F0F4F8; --card:#fff; --card-bd:#D1DCE8; --ink:#1A2332; --lbl:#5A7A9A;
-  --field-bg:#F7FAFC; --field-bd:#C8D8E8; --muted:#A0BBD4;
-  --ok:#27AE60; --err:#E74C3C;
+  --bg:#F0F4F8; --card:#fff; --card-bd:#D1DCE8; --ink:#1A2332; --lbl:#4A6B8A;
+  --field-bg:#F7FAFC; --field-bd:#C8D8E8; --muted:#54708F;
+  --ok:#1B7A43; --err:#C0392B;
   --m-시공:#2E5F9E; --m-시공-bd:#C8D8E8;
-  --m-품질:#27AE60; --m-품질-bd:#A3E4C1;
+  --m-품질:#1B7A43; --m-품질-bd:#A3E4C1;
   --m-자재:#A0703A; --m-자재-bd:#D6B98C;
-  --m-안전:#F39C12; --m-안전-bd:#F8D386;
+  --m-안전:#A05A18; --m-안전-bd:#F8D386;
   --m-화기:#C0392B; --m-화기-bd:#F1B0A8;
   --font-body:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
 }
@@ -39,7 +39,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
 .card{background:var(--card); border:1px solid var(--card-bd); border-radius:12px; padding:12px; margin-bottom:10px; box-shadow:0 2px 6px rgba(0,0,0,0.06);}
 .flbl{font-size:13px; font-weight:700; color:var(--lbl); letter-spacing:.5px; text-transform:uppercase; margin:8px 0 4px;}
 .flbl:first-child{margin-top:0;}
-.f{width:100%; background:var(--field-bg); border:1.5px solid var(--field-bd); border-radius:8px; padding:9px 11px; color:var(--ink); font-size:17px; font-family:var(--font-body);}
+.f{width:100%; min-height:48px; background:var(--field-bg); border:1.5px solid var(--field-bd); border-radius:8px; padding:11px 11px; color:var(--ink); font-size:17px; font-family:var(--font-body);}
 
 .tbm-log-table{width:100%; border-collapse:collapse; margin-bottom:4px; table-layout:fixed;}
 .tbm-log-table th{background:var(--field-bg); border:1px solid var(--field-bd); padding:5px 4px; font-size:12px; font-weight:700; color:var(--lbl);}
@@ -63,7 +63,7 @@ textarea.f{resize:none; height:44px;}
 .ec-spec{width:64px; flex-shrink:0;}
 .ec-qty{width:40px; flex-shrink:0;}
 .ec-status{width:60px; flex-shrink:0;}
-.entry-row{display:flex; gap:6px; align-items:center; padding:5px 8px; border-bottom:1px solid var(--field-bd);}
+.entry-row{display:flex; gap:6px; align-items:center; min-height:52px; padding:8px; border-bottom:1px solid var(--field-bd);}
 .entry-row:last-child{border-bottom:none;}
 .entry-cell{width:100%; background:var(--card); border:1.5px solid var(--field-bd); border-radius:6px; padding:6px 3px; font-size:14px; color:var(--ink); font-family:var(--font-body);}
 .entry-del{border:none; background:none; color:var(--muted); font-size:15px; cursor:pointer; padding:2px 1px; line-height:1; width:20px; flex-shrink:0; text-align:center;}
@@ -93,7 +93,7 @@ textarea.f{resize:none; height:44px;}
 .bl{bottom:8px; left:8px; border-bottom:3px solid var(--brand-2); border-left:3px solid var(--brand-2); border-radius:0 0 0 3px;}
 .br{bottom:8px; right:8px; border-bottom:3px solid var(--brand-2); border-right:3px solid var(--brand-2); border-radius:0 0 3px 0;}
 
-.sbtn{width:100%; padding:12px; border:none; border-radius:10px; font-size:16px; font-weight:800; cursor:pointer; margin-top:8px; font-family:var(--font-body);}
+.sbtn{width:100%; min-height:48px; padding:13px; border:none; border-radius:10px; font-size:16px; font-weight:800; cursor:pointer; margin-top:8px; font-family:var(--font-body);}
 .sbtn-add{background:var(--brand-2); color:#fff;}
 .sbtn-send{background:linear-gradient(135deg,var(--brand-2),var(--brand-1)); color:#fff;}
 .sbtn-send:disabled{background:#BDC3C7; cursor:not-allowed;}
@@ -175,8 +175,8 @@ textarea.f{resize:none; height:44px;}
 
 /* 분류/구역 관리 칩(⚙️작업분류 헤더 모달과 예전 작업사진 설정 모달이 공용으로 쓰던 스타일) */
 .chip-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;}
-.chip{display:flex; align-items:center; gap:5px; background:var(--field-bg); border:1.5px solid var(--field-bd); border-radius:14px; padding:4px 6px 4px 12px; font-size:15px; color:var(--ink);}
-.chip button{background:none; border:none; color:var(--muted); font-size:13px; cursor:pointer; padding:2px 6px;}
+.chip{display:flex; align-items:center; gap:6px; min-height:44px; background:var(--field-bg); border:1.5px solid var(--field-bd); border-radius:22px; padding:8px 10px 8px 16px; font-size:15px; color:var(--ink);}
+.chip button{background:none; border:none; color:var(--muted); font-size:15px; cursor:pointer; padding:8px; min-width:36px; min-height:36px;}
 .chip button.chip-del:hover{color:var(--err);}
 .chip button.chip-edit:hover{color:var(--brand-2);}
 .add-row{display:flex; gap:6px;}
@@ -522,7 +522,7 @@ textarea.f{resize:none; height:44px;}
       <div class="flbl">내 직책</div>
       <select id="myPositionSelect" class="f"></select>
       <button type="button" class="sbtn sbtn-add" style="margin-top:8px;" onclick="saveMyMenuCat()">💾 내 정보 저장</button>
-      <button type="button" class="sbtn" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.5);color:#E74C3C;" onclick="withdrawMember()">회원탈퇴</button>
+      <button type="button" class="sbtn" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.5);color:#C0392B;" onclick="withdrawMember()">회원탈퇴</button>
       </div><!-- /catModalAdminOnly -->
 
       <!-- 현장관리자·작업자에게 보이는 안내. 계정 정보(공종/분류/소속/직책) 변경과 탈퇴는
@@ -3359,7 +3359,7 @@ async function withdrawMember(){
     wrap.innerHTML=lastTeamMembers.map(function(m){
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--field-bg);">'
         +'<span style="font-size:14px;color:var(--ink);">'+m.name+'</span>'
-        +'<button type="button" class="teamRemoveBtn" data-id="'+m.id+'" style="border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.1);color:#E74C3C;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">탈퇴</button>'
+        +'<button type="button" class="teamRemoveBtn" data-id="'+m.id+'" style="border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.1);color:#C0392B;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">탈퇴</button>'
       +'</div>';
     }).join('');
   }
