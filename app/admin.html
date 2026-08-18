@@ -272,7 +272,7 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     <button class="admin-tab" onclick="showAdminTab(this,'wl')">설치물량</button>
     <button class="admin-tab" onclick="showAdminTab(this,'reports')">작업일보</button>
     <button class="admin-tab" onclick="showAdminTab(this,'out')">출력현황</button>
-    <button class="admin-tab" onclick="showAdminTab(this,'members')">회원관리</button>
+    <button class="admin-tab" id="tabBtnMembers" onclick="showAdminTab(this,'members')">회원관리</button>
   </div>
   </div>
 
@@ -441,9 +441,12 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
     </div></div>
   </div>
 
-  <!-- 회원관리: 팀별로 그룹핑, 리더는 헤더로 표시. 리더 지정/해제·강제탈퇴는 관리자만 -->
-  <!-- 회원관리: 팀별로 그룹핑, 리더는 헤더로 표시. 리더 지정/해제·강제탈퇴는 관리자만 -->
+  <!-- 회원관리: 팀별로 그룹핑, 리더는 헤더로 표시. 리더 지정/해제·강제탈퇴는 관리자만.
+       등업승인제(2026-08-17): 별도 approved 컬럼 없이 기존 role 3단계에 흡수 — 신규 가입자는
+       role이 비어있거나 worker라서 checkin만 쓸 수 있는 상태 자체가 "승인 대기"다.
+       위쪽에 승인 대기 전용 섹션을 두어 눈에 띄게 하고, 승인=manager로 승격 / 거절=탈퇴로 처리한다. -->
   <div class="admin-pane" id="pane-members">
+    <div id="pendingList"></div>
     <div id="membersList"><div style="text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
   </div>
 </div>
@@ -1181,6 +1184,7 @@ loadDashboardData();
 loadSettingsCatList();
 subscribeAdminSettingsRealtime();
 fitScrollFrames();
+loadPendingBadge();
 
 /* ── 회원관리: members를 team으로 그룹핑, is_leader=true인 사람을 헤더로 ──
    is_leader 컬럼이 아직 없으면 select('*')는 에러 없이 그냥 undefined로 오므로
@@ -1254,8 +1258,62 @@ function memberRowHtml(m,isLeader){
     +'<input type="text" class="memberFieldInput" data-id="'+m.id+'" data-field="cat" placeholder="작업분류" value="'+escAttr(m.cat)+'" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
     +'</div></div>';
 }
+/* 등업승인제(2026-08-17): role이 비어있거나 worker인(=checkin만 쓸 수 있는) 회원을
+   "승인 대기"로 본다. 퇴사 처리(active:false)된 사람은 승인 대상이 아니므로 제외. */
+function renderPending(){
+  var wrap=document.getElementById('pendingList');
+  var pending=lastMembers.filter(function(m){ return (!m.role || m.role==='worker') && m.active!==false; });
+  if(!pending.length){ wrap.innerHTML=''; return; }
+  var html='<div style="background:#FFF7E6;border:1.5px solid #F2C94C;border-radius:10px;padding:14px;margin-bottom:12px;">';
+  html+='<div style="font-size:13px;font-weight:800;color:#B8860B;margin-bottom:8px;">🔔 승인 대기 ('+pending.length+'명) — 작업자(worker) 등급은 출퇴근체크만 가능합니다</div>';
+  pending.forEach(function(m){
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-top:1px solid rgba(184,134,11,0.18);flex-wrap:wrap;">'
+      +'<div style="font-size:12.5px;color:var(--ink);"><b>'+m.name+'</b> · '+(m.team||'미지정')+' · '+(m.position||'-')+' · '+(m.phone||'')+'</div>'
+      +'<div style="display:flex;gap:6px;">'
+      +'<button type="button" class="memberApproveBtn" data-id="'+m.id+'" style="border:none;background:var(--brand-2);color:#fff;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">승인(현장관리자로)</button>'
+      +'<button type="button" class="memberRejectBtn" data-id="'+m.id+'" style="border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.1);color:#E74C3C;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">거절(탈퇴)</button>'
+      +'</div></div>';
+  });
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+document.getElementById('pendingList').addEventListener('click', async function(e){
+  var apBtn=e.target.closest('.memberApproveBtn');
+  if(apBtn){
+    var id=apBtn.getAttribute('data-id');
+    var res=await updateMemberResilient(id, {role:'manager'});
+    if(res.error){ alert('승인 실패: '+res.error.message); return; }
+    membersLoaded=false; loadMembers(); loadPendingBadge();
+    return;
+  }
+  var rjBtn=e.target.closest('.memberRejectBtn');
+  if(rjBtn){
+    var id2=rjBtn.getAttribute('data-id');
+    var row=lastMembers.find(function(m){ return String(m.id)===String(id2); });
+    if(!row) return;
+    if(!confirm(row.name+' 님의 가입을 거절(탈퇴 처리)하시겠습니까?')) return;
+    try{
+      var res2=await sbClient.from('members').delete().eq('id',id2);
+      if(res2.error){ alert('거절 처리 실패: '+res2.error.message); return; }
+    }catch(err2){ alert('거절 처리 실패: '+(err2.message||err2)); return; }
+    membersLoaded=false; loadMembers(); loadPendingBadge();
+  }
+});
+/* 회원관리 탭을 열지 않아도 승인 대기 인원이 있는지 눈에 띄게 — 탭 라벨에 뱃지로 표시.
+   전체 회원을 다시 불러오는 대신 role/active만 가볍게 조회한다. */
+async function loadPendingBadge(){
+  if(!sbClient) return;
+  try{
+    var res=await sbClient.from('members').select('role,active');
+    if(res.error||!res.data) return;
+    var n=res.data.filter(function(m){ return (!m.role||m.role==='worker') && m.active!==false; }).length;
+    var tab=document.getElementById('tabBtnMembers');
+    if(tab) tab.textContent = n>0 ? '회원관리 🔔'+n : '회원관리';
+  }catch(e){}
+}
 function renderMembers(){
   var wrap=document.getElementById('membersList');
+  renderPending();
   if(!lastMembers.length){ wrap.innerHTML='<div style="text-align:center;color:var(--lbl);font-size:12px;padding:20px;">등록된 회원이 없습니다</div>'; return; }
   var byTeam={};
   lastMembers.forEach(function(m){ var t=m.team||'미지정'; (byTeam[t]=byTeam[t]||[]).push(m); });
