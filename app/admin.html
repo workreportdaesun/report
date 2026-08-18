@@ -276,6 +276,172 @@ body{background:var(--bg); color:var(--ink); font-family:var(--font-body); min-h
   </div>
   </div>
 
+  <!-- 공정률 -->
+  <div class="admin-pane active" id="pane-proc">
+    <!-- 2026-08-06: 예전엔 수량공정(기기번호 개수 기반)/물량공정(daily_reports qty 합산) 두 가지를
+         탭으로 나눠서 보여줬는데, 수량공정을 완전히 없애고 물량공정 하나로 통합했다(사용자 요청 —
+         work-progress-daesun의 "작업수량" 탭 연동도 물량 방식을 그대로 복제해 쓰고 있어서 수량공정
+         쪽엔 아무 의존성이 없었음, index.html:402 참고). 설치물량 탭과 같은 위치(필터/카드 한 줄 →
+         표)가 되도록 탭 버튼 행을 없앴다.
+         2026-08-06 추가: 이 줄의 박스 스타일(배경/테두리/패딩/margin-bottom)을 체크리스트·설치물량·
+         작업일보의 필터바와 완전히 동일하게 맞춤 — 네 표 전부 fitScrollFrames()가 이 줄 높이만큼
+         아래에서 시작해 표 높이(max-height)를 계산하므로, 이 줄의 높이가 다르면 표마다 스크롤
+         시작 위치·창높이가 미묘하게 달라져 보였음. -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
+      <div class="proc-grid" id="procGrid"><div style="color:var(--lbl);font-size:12px;">불러오는 중...</div></div>
+      <button type="button" id="planSettingsBtn" onclick="openPlanSettings()" style="margin-left:auto;flex-shrink:0;border:1px solid var(--card-bd);background:var(--card);color:var(--brand-2);border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;">⚙️ 계획수량 설정</button>
+    </div>
+
+    <div class="scroll-frame"><div class="scroll-body">
+      <table class="dtable">
+        <tr class="dtable-head-row"><th>작업분류</th><th>단위</th><th>계획</th><th>전일누계</th><th>금일</th><th>누계</th><th>설치(엑셀)</th><th>FACTOR</th><th>공정률</th></tr>
+        <tbody id="procTableRows"><tr><td colspan="9" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+        <tfoot id="procTableFoot"></tfoot>
+      </table>
+    </div></div>
+  </div>
+
+  <!-- 계획수량 설정 모달 — 웹관리자가 PC에서만 열 수 있고(⚙️ 버튼 자체를 모바일에선 숨김),
+       여기 들어오기 전까지 표/카드는 항상 보여주기 전용이다 -->
+  <div id="planModalOverlay" onclick="if(event.target===this) closePlanSettings()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9990;align-items:center;justify-content:center;">
+    <div style="background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.3);margin:0 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="font-size:16px;font-weight:800;color:var(--brand-1);margin:0;">계획/설치수량 설정</h3>
+        <button type="button" onclick="closePlanSettings()" style="border:none;background:var(--field-bg);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px;color:var(--lbl);">✕</button>
+      </div>
+      <label style="display:block;text-align:center;border:1.5px dashed var(--brand-2);background:var(--field-bg);color:var(--brand-2);border-radius:8px;padding:9px;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:4px;">
+        📤 엑셀로 설치수량 일괄 입력(작업분류별 계획/설치수량 업로드 서식 v3)
+        <input type="file" id="planExcelInput" accept=".xlsx,.xls" style="display:none;" onchange="handlePlanExcelUpload(this)">
+      </label>
+      <div style="font-size:11px;color:var(--lbl);text-align:center;margin-bottom:12px;">계획수량은 엑셀로 반영되지 않습니다 — 아래 목록에서 직접 입력하세요.</div>
+      <div id="planModalRows"></div>
+      <button type="button" onclick="savePlanSettings()" style="width:100%;margin-top:14px;background:var(--brand-2);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:800;cursor:pointer;">저장</button>
+    </div>
+  </div>
+
+  <!-- 출력현황 -->
+  <div class="admin-pane" id="pane-out">
+    <div style="background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px; margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:800;color:var(--brand-1);margin-bottom:8px;">현장 좌표 설정 (작업자 앱 출력체크 반경 기준)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">위도</label><input type="number" step="any" id="siteLatInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
+        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">경도</label><input type="number" step="any" id="siteLngInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
+        <!-- 반경은 1km 고정(2026-08-06 "출퇴근 모두 반경 1km로 고정" 요청). 입력칸으로 열어두면
+             출퇴근체크 앱의 판정 기준이 조용히 바뀌므로 읽기 전용으로 잠근다(2026-08-10). -->
+        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">반경(m)</label><input type="number" id="geofenceInput" value="1000" readonly title="출력일지 반경은 1km로 고정입니다" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);background:var(--field-bg);color:var(--lbl);cursor:not-allowed;"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button type="button" onclick="useCurrentLocation()" style="flex:1;padding:8px;border:1px solid var(--card-bd);border-radius:8px;background:var(--field-bg);cursor:pointer;font-size:12px;color:var(--ink);">📍 현재 위치 사용</button>
+        <button type="button" onclick="saveSiteSettings()" style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--brand-2);color:#fff;cursor:pointer;font-size:12px;font-weight:700;">저장</button>
+      </div>
+    </div>
+
+    <!-- 연장근무 종료시간 — 출퇴근체크 앱(work-checkin-daesun)의 퇴근체크 게이트 기준(2026-08-06).
+         오늘 날짜에만 유효하도록 날짜를 같이 저장해서, 어제 입력값이 오늘까지 남아있는 실수를 막는다. -->
+    <div style="background:var(--card); border:1px solid var(--card-bd); border-radius:10px; padding:14px; margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:800;color:var(--brand-1);margin-bottom:8px;">연장근무 종료시간 (오늘만 적용)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">날짜</label><input type="date" id="overtimeDateInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
+        <div><label style="font-size:11px;color:var(--lbl);display:block;margin-bottom:2px;">종료시간</label><input type="time" id="overtimeEndInput" style="width:100%;padding:6px 8px;border:1px solid var(--card-bd);border-radius:6px;font-family:var(--font-mono);"></div>
+      </div>
+      <div style="font-size:11px;color:var(--lbl);margin-top:8px;">연장근무를 신청한 근로자는 이 시간+5분부터 퇴근체크가 가능합니다. 연장근무가 없는 날은 비워두거나 지난 날짜로 두면 됩니다(오늘 날짜가 아니면 자동으로 무시됨).</div>
+      <button type="button" onclick="saveOvertimeSettings()" style="width:100%;margin-top:10px;padding:8px;border:none;border-radius:8px;background:var(--brand-2);color:#fff;cursor:pointer;font-size:12px;font-weight:700;">저장</button>
+    </div>
+
+    <div class="out-grid" id="outGrid"><div style="grid-column:1/-1;text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
+    <div class="scroll-frame"><div class="scroll-body">
+    <table class="dtable">
+      <tr class="dtable-head-row"><th>팀명</th><th>출력인원</th><th>체크인 성명</th></tr>
+      <tbody id="outTableRows"><tr><td colspan="3" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+    </table>
+    </div></div>
+    <div style="font-size:11px;color:var(--lbl);margin-top:8px;">작업자 앱의 "출력체크"(GPS 반경 체크인) 기록을 오늘 날짜 기준으로 팀별 집계한 것입니다.</div>
+
+  </div>
+
+  <!-- 작업일보 전체내용 — 검색/필터 + 클릭 시 상세보기 모달 -->
+  <div class="admin-pane" id="pane-reports">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
+      <select id="rpMenuFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
+      <select id="rpAreaFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 구역</option></select>
+      <select id="rpTeamFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 팀</option></select>
+      <select id="rpStatusFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+        <option value="">전체 상태</option>
+        <option value="submitted">제출완료</option>
+        <option value="draft">작성중</option>
+      </select>
+      <select id="rpApprovalFilter" onchange="renderReportsTable()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+        <option value="">전체 승인</option>
+        <option value="pending">승인대기</option>
+        <option value="approved">승인완료</option>
+        <option value="rejected">반려</option>
+      </select>
+      <input type="date" id="rpDateFrom" onchange="renderReportsTable()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <span style="color:var(--lbl);font-size:12px;">~</span>
+      <input type="date" id="rpDateTo" onchange="renderReportsTable()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <input type="text" id="rpKeyword" oninput="renderReportsTable()" placeholder="기기번호/비고/TBM 위험요인 검색" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:180px;">
+      <button type="button" onclick="resetReportsFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">초기화</button>
+      <span id="rpSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
+    </div>
+    <div class="scroll-frame"><div class="scroll-body">
+    <table class="dtable">
+      <tr class="dtable-head-row"><th style="width:110px;">날짜</th><th>공종</th><th>구역</th><th>팀명</th><th>항목수</th><th>PDF</th><th>상태</th><th style="width:90px;">승인</th></tr>
+      <tbody id="reportsRows"><tr><td colspan="8" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+    </table>
+    </div></div>
+    <div style="font-size:11px;color:var(--lbl);margin-top:8px;">행을 클릭하면 그 날짜·팀 일보의 전체 입력 내용을 볼 수 있습니다.</div>
+  </div>
+
+  <!-- 작업일보 상세보기 모달 -->
+  <div id="reportDetailOverlay" onclick="if(event.target===this) closeReportDetail()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9990;align-items:center;justify-content:center;">
+    <div style="background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:640px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.3);margin:0 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 id="rdTitle" style="font-size:16px;font-weight:800;color:var(--brand-1);margin:0;">작업일보 상세</h3>
+        <button type="button" onclick="closeReportDetail()" style="border:none;background:var(--field-bg);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px;color:var(--lbl);">✕</button>
+      </div>
+      <div id="rdBody"></div>
+    </div>
+  </div>
+
+  <!-- Check List: TAG NO.×작업분류 그리드. progress_checklist(daily_reports에서 자동 집계됨, report/app/index.html의
+       syncProgressChecklist 참고)를 읽기 전용으로 조회만 함. 2026-08-06: 작업수량(완료일자 표시)/
+       작업물량(수량 표시) 두 탭이 있었는데 작업물량을 없애고 작업수량으로 통합(사용자 요청) —
+       데이터(progress_checklist)는 두 필드 다 그대로 쌓이므로 화면 표시만 단순화한 것. 설치물량
+       탭과 같은 위치(필터바 한 줄 → 표)가 되도록 탭 버튼 행을 없앴다. -->
+  <div class="admin-pane" id="pane-cl">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
+      <input type="text" id="clTagFilter" oninput="renderChecklist()" placeholder="TAG 검색" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
+      <button type="button" onclick="resetClFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">초기화</button>
+      <span id="clSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
+    </div>
+    <div class="scroll-frame"><div class="scroll-body">
+      <table class="dtable" id="clTable"><tr><td style="text-align:center;color:var(--lbl);padding:20px;">불러오는 중...</td></tr></table>
+    </div></div>
+  </div>
+
+  <!-- 설치물량(2026-08-13 개명, 옛 이름 "물량관리"): work_log(일보를 행 단위로 펼친 백업 로그, report/app/index.html의 syncWorkLog 참고)를
+       공종/작업분류/TAG/날짜로 검색·조회. work_log 테이블이 없으면(사용자가 SQL 실행 전) 안내만 뜬다. -->
+  <div class="admin-pane" id="pane-wl">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--card-bd);border-radius:10px;padding:10px 12px;margin-bottom:5px;">
+      <select id="wlMenuFilter" onchange="renderWorkLog()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 공종</option></select>
+      <select id="wlCatFilter" onchange="renderWorkLog()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 작업분류</option></select>
+      <select id="wlAreaFilter" onchange="renderWorkLog()" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;"><option value="">전체 구역</option></select>
+      <input type="date" id="wlDateFrom" onchange="renderWorkLog()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <span style="color:var(--lbl);font-size:12px;">~</span>
+      <input type="date" id="wlDateTo" onchange="renderWorkLog()" style="padding:4px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">
+      <input type="text" id="wlTagFilter" oninput="renderWorkLog()" placeholder="TAG 검색" style="padding:4px 8px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;width:120px;">
+      <button type="button" onclick="resetWlFilters()" style="border:1px solid var(--card-bd);background:var(--field-bg);color:var(--lbl);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">초기화</button>
+      <span id="wlSummary" style="margin-left:auto;font-size:12px;color:var(--lbl);"></span>
+    </div>
+    <div class="scroll-frame"><div class="scroll-body">
+      <table class="dtable">
+        <tr class="dtable-head-row"><th style="width:110px;">날짜</th><th>공종</th><th>작업분류</th><th>구역</th><th>TAG</th><th>규격</th><th>수량</th><th>상태</th><th style="width:74px;">신규/수정</th><th>팀</th></tr>
+        <tbody id="wlRows"><tr><td colspan="10" style="text-align:center;color:var(--lbl);">불러오는 중...</td></tr></tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <!-- 회원관리: 팀별로 그룹핑, 리더는 헤더로 표시. 리더 지정/해제·강제탈퇴는 관리자만 -->
   <!-- 회원관리: 팀별로 그룹핑, 리더는 헤더로 표시. 리더 지정/해제·강제탈퇴는 관리자만 -->
   <div class="admin-pane" id="pane-members">
     <div id="membersList"><div style="text-align:center;color:var(--lbl);font-size:12px;padding:20px;">불러오는 중...</div></div>
@@ -396,7 +562,7 @@ var dashCatToday={}, dashCatBefore={}, dashCatMenu={}, dashPlanQty={}, dashInsta
 var dashCatTodaySikong={}, dashCatBeforeSikong={};
 
 /* 공정률 % 색상 구간 — work-progress-daesun(PC 공정관리 앱)과 동일한 기준(100/70/40) */
-function pctColor(p){ return p>=100?'var(--ok)':p>=70?'var(--brand-2)':p>=40?'#B9770E':'#E74C3C'; }
+function pctColor(p){ return p>=100?'var(--ok)':p>=70?'var(--brand-2)':p>=40?'#B9770E':'#C0392B'; }
 /* 공정률 %의 실적 기준 — report/app/index.html의 actualQty()와 동일한 규칙(엑셀로 올라온
    설치수량이 있으면 그 값 우선, 없으면 일보 실시간 누계로 대체). */
 function actualFor(cat, catToday, catBefore, installQty){
