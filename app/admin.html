@@ -507,8 +507,10 @@ if(window.ResizeObserver){
   new ResizeObserver(function(){ fitScrollFrames(); }).observe(document.body);
 }
 
-var SUPABASE_URL='https://feymoykefzfwucbrqoja.supabase.co';
-var SUPABASE_KEY='sb_publishable_ANT6G7_ka3IPHRk_4vLtBg_7G9NWW7i';
+// 2026-08-22: 다른 현장/회사가 각자 다른 Supabase에 연결해 쓸 수 있도록, site-setup.html에서
+// 저장한 값이 있으면 그걸 우선 쓰고 없으면 이 현장(대선이엔씨) 기본값을 그대로 쓴다.
+var SUPABASE_URL=localStorage.getItem('site_supabase_url')||'https://feymoykefzfwucbrqoja.supabase.co';
+var SUPABASE_KEY=localStorage.getItem('site_supabase_key')||'sb_publishable_ANT6G7_ka3IPHRk_4vLtBg_7G9NWW7i';
 var sbClient = (typeof supabase!=='undefined') ? supabase.createClient(SUPABASE_URL,SUPABASE_KEY) : null;
 
 function todayStr(){

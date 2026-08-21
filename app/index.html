@@ -540,8 +540,10 @@ textarea.f{resize:none; height:44px;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/2.0.0-beta.8/piexif.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-var SUPABASE_URL='https://feymoykefzfwucbrqoja.supabase.co';
-var SUPABASE_KEY='sb_publishable_ANT6G7_ka3IPHRk_4vLtBg_7G9NWW7i';
+// 2026-08-22: 다른 현장/회사가 각자 다른 Supabase에 연결해 쓸 수 있도록, site-setup.html에서
+// 저장한 값이 있으면 그걸 우선 쓰고 없으면 이 현장(대선이엔씨) 기본값을 그대로 쓴다.
+var SUPABASE_URL=localStorage.getItem('site_supabase_url')||'https://feymoykefzfwucbrqoja.supabase.co';
+var SUPABASE_KEY=localStorage.getItem('site_supabase_key')||'sb_publishable_ANT6G7_ka3IPHRk_4vLtBg_7G9NWW7i';
 var sbClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 /* ── 로그인 가드: work-shoot과 동일한 localStorage 키(member_id) 사용 ── */
