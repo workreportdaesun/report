@@ -20,8 +20,11 @@
 (function () {
   var ORDER = { worker: 0, manager: 1, admin: 2 };
   var WORKER_HOME = '/checkin/index.html';
-  var SB_URL = 'https://feymoykefzfwucbrqoja.supabase.co';
-  var SB_KEY = 'sb_publishable_ANT6G7_ka3IPHRk_4vLtBg_7G9NWW7i';
+  // 2026-08-22: 다른 현장/회사가 site-setup.html로 자체 Supabase에 연결했으면 그 값을 써야
+  // 등급 조회가 그 현장 데이터를 보게 된다 — 여기만 하드코딩돼 있어서 role-gate가 항상 대선
+  // 기본 프로젝트를 보는 문제가 있었음(다른 파일들은 이미 이 fallback 패턴 적용됨).
+  var SB_URL = localStorage.getItem('site_supabase_url') || 'https://feymoykefzfwucbrqoja.supabase.co';
+  var SB_KEY = localStorage.getItem('site_supabase_key') || 'sb_publishable_ANT6G7_ka3IPHRk_4vLtBg_7G9NWW7i';
 
   var script = document.currentScript;
   var need = (script && script.getAttribute('data-require')) || 'worker';

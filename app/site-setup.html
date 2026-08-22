@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>현장 관리 — 작업일보</title>
+<style>
+:root{
+  --brand-1:#1E3A5F; --brand-2:#2E5F9E;
+  --bg:#F0F4F8; --card:#fff; --card-bd:#D1DCE8; --ink:#1A2332; --lbl:#4A6B8A;
+  --field-bg:#F7FAFC; --field-bd:#C8D8E8;
+  --ok-bg:#EAF8F0; --ok-ink:#1E8449; --ok-bd:#A9DFBF;
+  --err-bg:#FDEDEC; --err-ink:#C0392B; --err-bd:#F5B7B1;
+  --font-body:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);font-family:var(--font-body);color:var(--ink);min-height:100vh;padding:24px 16px;font-size:16px;}
+.wrap{max-width:460px;margin:0 auto;}
+.app-header{background:linear-gradient(135deg,var(--brand-1),var(--brand-2));border-radius:12px;
+  padding:14px 18px;margin-bottom:16px;color:#fff;}
+.app-title{font-size:22px;font-weight:800;letter-spacing:1px;}
+.app-sub{font-size:11px;opacity:0.75;margin-top:2px;}
+.card{background:var(--card);border:1px solid var(--card-bd);border-radius:12px;
+  padding:16px;box-shadow:0 2px 6px rgba(0,0,0,0.06);margin-bottom:14px;}
+.card-title{font-size:15px;font-weight:800;color:var(--ink);margin-bottom:10px;}
+.flbl{font-size:11px;font-weight:700;color:var(--lbl);letter-spacing:0.5px;
+  text-transform:uppercase;margin-bottom:5px;margin-top:12px;}
+.flbl:first-child{margin-top:0;}
+.f{width:100%;background:var(--field-bg);border:1.5px solid var(--field-bd);border-radius:8px;
+  padding:11px;color:var(--ink);font-size:15px;outline:none;font-family:var(--font-body);}
+.f:focus{border-color:var(--brand-2);background:#fff;}
+.hint{font-size:12px;color:var(--lbl);line-height:1.6;margin-top:4px;}
+.warn{font-size:12px;color:var(--err-ink);line-height:1.6;margin-top:8px;background:var(--err-bg);
+  border:1px solid var(--err-bd);border-radius:8px;padding:8px 10px;}
+.btn{display:block;width:100%;padding:12px;border:none;border-radius:10px;font-size:14px;
+  font-weight:800;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;font-family:var(--font-body);}
+.btn-primary{background:linear-gradient(135deg,#2980B9,#1A5276);color:#fff;}
+.btn-secondary{background:var(--field-bg);border:1.5px solid var(--field-bd);color:var(--brand-2);}
+.btn-danger-outline{background:#fff;border:1.5px solid var(--err-bd);color:var(--err-ink);}
+.btn+.btn{margin-top:8px;}
+.status-box{margin-top:10px;padding:10px 12px;border-radius:8px;font-size:13px;line-height:1.6;display:none;}
+.status-ok{background:var(--ok-bg);color:var(--ok-ink);border:1px solid var(--ok-bd);}
+.status-err{background:var(--err-bg);color:var(--err-ink);border:1px solid var(--err-bd);}
+.cur-site{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.cur-site-name{font-size:15px;font-weight:800;color:var(--ink);}
+.cur-site-badge{font-size:11px;font-weight:800;padding:3px 8px;border-radius:6px;}
+.badge-default{background:#EAF0F8;color:var(--brand-2);}
+.badge-custom{background:var(--ok-bg);color:var(--ok-ink);}
+#qrBox{display:flex;justify-content:center;margin:12px 0;}
+#qrBox img,canvas{border-radius:8px;}
+.linkbox{display:flex;gap:6px;margin-top:8px;}
+.linkbox input{flex:1;font-size:12px;}
+.back-link{display:block;text-align:center;font-size:13px;color:var(--lbl);margin-top:6px;text-decoration:underline;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="app-header">
+    <div class="app-title">현장 관리</div>
+    <div class="app-sub">작업일보 — 다른 회사/현장을 이 앱에 연결합니다</div>
+  </div>
+
+  <!-- 현재 연결 상태 -->
+  <div class="card">
+    <div class="card-title">현재 연결된 현장</div>
+    <div class="cur-site">
+      <div class="cur-site-name" id="curSiteName">-</div>
+      <div class="cur-site-badge" id="curSiteBadge">-</div>
+    </div>
+    <div class="hint" id="curSiteHint"></div>
+    <button class="btn btn-danger-outline" id="resetBtn" style="display:none;margin-top:10px;" onclick="resetToDefault()">기본 현장으로 되돌리기</button>
+  </div>
+
+  <!-- 다른 현장에 연결 -->
+  <div class="card">
+    <div class="card-title">🏗️ 다른 현장(회사)에 연결하기</div>
+    <div class="hint">
+      이미 별도로 준비해둔 Supabase 프로젝트가 있다면 여기에 연결해서, 그 현장만의
+      회원·일보·사진 데이터로 이 앱을 쓸 수 있습니다.
+    </div>
+    <div class="warn">
+      ⚠️ 이 앱은 members·daily_reports·app_settings 등 여러 테이블과 전용 함수를 함께 쓰는
+      구조라, 새 Supabase 프로젝트에 필요한 테이블이 미리 준비돼 있어야 정상 동작합니다.
+      준비 없이 연결하면 로그인은 되어도 화면 곳곳에서 오류가 날 수 있습니다.
+      최초 운영자(관리자화면 접근 권한)는 가입 후 Supabase 대시보드에서
+      <b>members.role</b> 값을 <b>admin</b>으로 직접 바꿔줘야 합니다(자동 승격 없음).
+    </div>
+
+    <div class="flbl">현장 이름 (구분용, 아무 값이나 가능)</div>
+    <input type="text" id="siteName" class="f" placeholder="예: OO건설 XX현장"/>
+
+    <div class="flbl">Supabase 프로젝트 URL</div>
+    <input type="text" id="siteUrl" class="f" placeholder="https://xxxxxxxx.supabase.co"/>
+
+    <div class="flbl">Supabase anon(publishable) key</div>
+    <input type="text" id="siteKey" class="f" placeholder="sb_publishable_..."/>
+
+    <button class="btn btn-primary" onclick="testAndSave()" id="testBtn" style="margin-top:14px;">연결 확인하고 이 현장으로 전환하기</button>
+    <div class="status-box" id="setupStatus"></div>
+  </div>
+
+  <!-- 직원 초대 링크 -->
+  <div class="card" id="inviteCard" style="display:none;">
+    <div class="card-title">👥 직원 초대 링크</div>
+    <div class="hint">
+      아래 링크(또는 QR코드)를 직원에게 카톡 등으로 보내면, 그 직원 폰의 앱이
+      자동으로 지금 이 현장에 연결됩니다. Supabase 정보를 직접 입력할 필요가 없습니다.
+    </div>
+    <button class="btn btn-primary" onclick="generateInvite()">초대 링크 만들기</button>
+    <div class="linkbox" id="linkBox" style="display:none;">
+      <input type="text" id="inviteLinkInput" class="f" readonly/>
+      <button class="btn btn-secondary" style="width:auto;padding:11px 14px;" onclick="copyInviteLink()">복사</button>
+    </div>
+    <div id="qrBox"></div>
+    <button class="btn btn-secondary" id="kakaoShareBtn" style="display:none;" onclick="shareInviteLink()">💬 카톡으로 공유</button>
+  </div>
+
+  <a class="back-link" href="login.html">← 로그인 화면으로 돌아가기</a>
+</div>
+
+<script>
+// 기본(대선이엔씨) 현장 — report/app/login.html·index.html·admin.html·report-pdf.html의
+// 기본값과 반드시 동일하게 유지할 것.
+var DEFAULT_SUPABASE_URL='https://feymoykefzfwucbrqoja.supabase.co';
+var DEFAULT_SUPABASE_KEY='sb_publishable_ANT6G7_ka3IPHRk_4vLtBg_7G9NWW7i';
+
+// 현장 전환 시 지워야 하는 로그인/세션 관련 localStorage 키 전부
+// (report/app/login.html의 saveSession, shoot/login.html의 saveSession 기준으로 취합)
+var SESSION_KEYS=['member_id','member_name','member_company','member_project','member_phone',
+  'member_team','member_menu','member_cat','member_position','member_role','member_is_leader',
+  'member_category','senderName'];
+
+function refreshCurrentSiteUI(){
+  var url=localStorage.getItem('site_supabase_url');
+  var name=localStorage.getItem('site_name');
+  var isCustom=!!url;
+  document.getElementById('curSiteName').textContent=isCustom?(name||'이름 없는 현장'):'기본 현장 (대선이엔씨)';
+  var badge=document.getElementById('curSiteBadge');
+  badge.textContent=isCustom?'커스텀':'기본';
+  badge.className='cur-site-badge '+(isCustom?'badge-custom':'badge-default');
+  document.getElementById('curSiteHint').textContent=isCustom?url:'';
+  document.getElementById('resetBtn').style.display=isCustom?'block':'none';
+  document.getElementById('inviteCard').style.display=isCustom?'block':'none';
+}
+refreshCurrentSiteUI();
+
+function resetToDefault(){
+  if(!confirm('기본 현장으로 되돌릴까요? (이 기기에서만 적용됩니다)'))return;
+  ['site_supabase_url','site_supabase_key','site_name'].concat(SESSION_KEYS).forEach(function(k){localStorage.removeItem(k);});
+  refreshCurrentSiteUI();
+  alert('기본 현장으로 되돌렸습니다.');
+}
+
+function extractProjectRef(url){
+  var m=String(url||'').trim().match(/^https?:\/\/([a-z0-9-]+)\.supabase\.co/i);
+  return m?m[1]:null;
+}
+
+function showStatus(type,msg){
+  var el=document.getElementById('setupStatus');
+  el.className='status-box '+(type==='ok'?'status-ok':'status-err');
+  el.textContent=msg;
+  el.style.display='block';
+}
+
+async function testAndSave(){
+  var name=document.getElementById('siteName').value.trim();
+  var url=document.getElementById('siteUrl').value.trim();
+  var key=document.getElementById('siteKey').value.trim();
+  if(!url||!key){showStatus('err','Supabase URL과 key를 모두 입력해 주세요.');return;}
+  if(!extractProjectRef(url)){showStatus('err','URL 형식이 올바르지 않습니다. https://xxxx.supabase.co 형태여야 합니다.');return;}
+  var btn=document.getElementById('testBtn');
+  btn.disabled=true;btn.textContent='확인 중...';
+  try{
+    var testClient=supabase.createClient(url,key);
+    var res=await testClient.from('members').select('id').limit(1);
+    if(res.error){
+      var msg=res.error.message||'';
+      if(msg.toLowerCase().includes('relation')&&msg.toLowerCase().includes('does not exist')){
+        showStatus('err','이 프로젝트에 members 테이블이 없습니다. 이 앱이 쓰는 테이블들을 먼저 준비해 주세요.');
+      }else{
+        showStatus('err','연결 실패: '+msg);
+      }
+      return;
+    }
+    // 현장을 전환하는 것이므로 이전 현장의 로그인 세션은 지운다. 자동 운영자 승격은 없다 —
+    // 최초 운영자는 가입 후 Supabase 대시보드에서 직접 role을 admin으로 바꿔야 한다.
+    SESSION_KEYS.forEach(function(k){localStorage.removeItem(k);});
+    localStorage.setItem('site_supabase_url',url);
+    localStorage.setItem('site_supabase_key',key);
+    if(name)localStorage.setItem('site_name',name);
+    else localStorage.removeItem('site_name');
+    showStatus('ok','연결 확인 완료! 이 현장으로 전환되었습니다. 잠시 후 로그인 화면으로 이동합니다.');
+    refreshCurrentSiteUI();
+    setTimeout(function(){location.href='login.html';},1500);
+  }catch(e){
+    showStatus('err','연결 실패: URL을 다시 확인해 주세요.');
+  }finally{
+    btn.disabled=false;btn.textContent='연결 확인하고 이 현장으로 전환하기';
+  }
+}
+
+// ── 직원 초대 링크 ──
+var currentInviteLink=null;
+function b64urlEncode(str){
+  return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function generateInvite(){
+  var url=localStorage.getItem('site_supabase_url');
+  var key=localStorage.getItem('site_supabase_key');
+  var name=localStorage.getItem('site_name')||'';
+  if(!url||!key){alert('먼저 다른 현장에 연결해 주세요.');return;}
+  var payload=b64urlEncode(JSON.stringify({u:url,k:key,n:name}));
+  currentInviteLink=location.href.replace(/site-setup\.html.*$/,'')+'login.html?site='+payload;
+  document.getElementById('inviteLinkInput').value=currentInviteLink;
+  document.getElementById('linkBox').style.display='flex';
+  document.getElementById('kakaoShareBtn').style.display=navigator.share?'block':'none';
+  var qrBox=document.getElementById('qrBox');
+  qrBox.innerHTML='';
+  if(window.QRCode){
+    new QRCode(qrBox,{text:currentInviteLink,width:180,height:180});
+  }
+}
+function copyInviteLink(){
+  if(!currentInviteLink)return;
+  navigator.clipboard.writeText(currentInviteLink).then(function(){
+    alert('링크를 복사했습니다.');
+  });
+}
+async function shareInviteLink(){
+  if(!currentInviteLink||!navigator.share)return;
+  try{
+    await navigator.share({title:'작업일보 - 현장 초대',text:'아래 링크로 접속하면 우리 현장 앱에 바로 연결됩니다.',url:currentInviteLink});
+  }catch(e){}
+}
+</script>
+</body>
+</html>
