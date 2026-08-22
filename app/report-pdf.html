@@ -450,6 +450,13 @@ async function doSubmitReport(){
   // index.html이 같은 (공종,분류,기기번호)를 또 저장하려 할 때 중복임을 알아챌 수 있게 한다.
   // 이후 새로 입력해서 다시 전송하면 그 새 항목들만 추가로 봉인된다.
   var curRes = await sbClient.from('daily_reports').select('items,special_notes').eq('id', id).single();
+  // 2026-08-23: 이 조회가 네트워크 실패 등으로 에러여도 예전엔 확인 안 하고 그냥 items=[]로
+  // 넘어갔다 — 그 결과 아래 TBM 검사에 걸려 "TBM 활동일지 내용이 없다"는, 실제 원인(통신
+  // 실패)과 무관한 오해의 소지가 큰 메시지가 떴다. 여기서 먼저 걸러 정확한 안내를 보여준다.
+  if(curRes.error){
+    showToast('❌ 일보를 불러오지 못해 전송할 수 없습니다: '+curRes.error.message, 'var(--brand-2)');
+    return;
+  }
   var curItems = Array.isArray(curRes.data && curRes.data.items) ? curRes.data.items : [];
   // 사진 없이는 전송을 막는다(2026-08-06, 사용자 요청) — 이미 전송된(submitted:true) 항목은
   // 이 규칙이 생기기 전 것일 수 있어 건드리지 않고, 이번에 새로 전송되는 항목만 검사한다.
@@ -468,17 +475,46 @@ async function doSubmitReport(){
     showToast('❌ TBM 활동일지 내용이 없어 전송할 수 없습니다 — 위험요인을 1건 이상 입력해주세요', 'var(--brand-2)');
     return;
   }
-  curItems.forEach(function(it){ it.submitted = true; });
+  /* 2026-08-23: 예전엔 여기서 curItems 전체를 submitted:true로 바꾼 뒤 items를 통째로
+     update()에 실어 되써넣었다. 방금 select()한 시점과 이 update() 사이(짧아도 팀원이
+     동시에 항목을 저장하거나 사진 자동입력이 백그라운드로 저장하면 실제로 벌어진다) 새로
+     들어온 항목이 있으면 그 통째 쓰기에 덮여 사라졌다 — index.html의 항목 저장은 이미
+     2026-08-14에 upsert_report_item(항목별 병합) RPC로 이 문제를 고쳤는데, 제출 경로만
+     옛 통째 방식이 남아 있었다. 여기도 같은 RPC로 "제출 안 된 항목"만 하나씩
+     submitted:true로 병합한다 — 그 사이 새로 들어온 항목은 건드리지 않으므로 안전하고,
+     도중에 실패해도(오프라인 등) 이미 봉인된 항목은 그대로 남아 다음 전송 시도가 이어서
+     처리한다(hasUnsubmitted가 이미 그 재시도 흐름을 지원한다). */
+  var team = localStorage.getItem('member_team') || '미지정';
+  var date = todayStr();
+  var toSubmit = curItems.filter(function(it){ return !it.submitted; });
+  var itemRpcMissing = false;
+  for(var i=0; i<toSubmit.length; i++){
+    var it = toSubmit[i];
+    var res = await sbClient.rpc('upsert_report_item', {
+      p_id:id, p_team:team, p_date:date,
+      p_item:{menu:it.menu, cat:it.cat, tag:it.tag, spec:it.spec, submitted:true}
+    });
+    if(res.error){
+      if(res.error.code==='PGRST202'){ itemRpcMissing = true; break; } // RPC 마이그레이션 전 DB — 옛 방식으로 물러선다
+      showToast('❌ 전송 실패: '+res.error.message, 'var(--brand-2)');
+      return;
+    }
+  }
   /* 작성자를 여기서 기록한다(2026-08-09). 행을 처음 만든 사람이 아니라 "제출한 사람"인 이유는,
      출퇴근체크(checkin) 앱이 출근체크만으로도 그날 행을 먼저 만들 수 있어서 행 생성자가
      작성자와 다를 수 있기 때문이다. 인쇄해서 제출하는 문서의 책임 소재는 제출자가 맞다.
      예전엔 PDF가 이 값을 안 쓰고 "지금 로그인한 사람"을 그대로 찍어서, 관리자가 남의 팀
      일보를 열면 작성자가 자기 이름으로 바뀌어 보였다. */
   var submitPatch = {
-    items:curItems, status:'submitted', submitted_at:new Date().toISOString(),
+    status:'submitted', submitted_at:new Date().toISOString(),
     writer_name: localStorage.getItem('member_name')||'',
     writer_id: localStorage.getItem('member_id')||''
   };
+  if(itemRpcMissing){
+    // RPC가 아직 없는(마이그레이션 전) DB — index.html의 폴백과 같은 자리, 옛 통째 방식.
+    curItems.forEach(function(it){ it.submitted = true; });
+    submitPatch.items = curItems;
+  }
   var up;
   // writer_name/writer_id 컬럼이 아직 없어도 전송 자체는 되게 한다(index.html의 컬럼 누락
   // 재시도와 같은 패턴) — 컬럼을 추가하기 전/후 어느 쪽으로 배포돼도 안전하다.
