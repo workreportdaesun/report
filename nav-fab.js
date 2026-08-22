@@ -7,17 +7,20 @@
    앱은 아예 목록에서 뺀다. */
 function wrBuildNavFab(){
   var ORDER = { worker:0, manager:1, admin:2 };
-  var APPS = [
-    { key:'checkin',  label:'출력일지',   icon:'🕒', url:'/checkin/index.html',    min:'worker'  },
-    { key:'report',   label:'작업일보',   icon:'📋', url:'/report/app/index.html', min:'manager' },
-    { key:'gallery',  label:'사진관리',   icon:'🖼', url:'/gallery/index.html',    min:'manager' },
-    { key:'shoot',    label:'작업사진',   icon:'📷', url:'/shoot/index.html',      min:'worker'  },
-    { key:'progress', label:'공정관리',   icon:'📈', url:'/progress/index.html',   min:'manager' },
-    { key:'status',   label:'인원현황',   icon:'👷', url:'/status/index.html',     min:'manager' },
-    { key:'material', label:'자재관리',   icon:'📦', url:'/material/index.html',   min:'manager' }
+  var APPS_ALL = [
+    { key:'checkin',  label:'출력일지',   icon:'🕒', url:'/checkin/index.html',    min:'worker'  , login:'/checkin/login.html'   },
+    { key:'report',   label:'작업일보',   icon:'📋', url:'/report/app/index.html', min:'manager' , login:'/report/app/login.html'},
+    { key:'gallery',  label:'사진관리',   icon:'🖼', url:'/gallery/index.html',    min:'manager'                                 },
+    { key:'shoot',    label:'작업사진',   icon:'📷', url:'/shoot/index.html',      min:'worker'  , login:'/shoot/login.html'     },
+    { key:'progress', label:'공정관리',   icon:'📈', url:'/progress/index.html',   min:'manager'                                 },
+    { key:'status',   label:'인원현황',   icon:'👷', url:'/status/index.html',     min:'manager' , login:'/status/login.html'    },
+    { key:'material', label:'자재관리',   icon:'📦', url:'/material/index.html',   min:'manager'                                 }
     /* 기성관리(/payment/)는 여기에 넣지 않는다 — 계정 연동을 하지 않는 독립 앱이라
-       등급으로 걸러지는 이 목록의 규칙이 적용되지 않는다. 공무가 주소로 직접 들어간다. */
+       등급으로 걸러지는 이 목록의 규칙이 적용되지 않는다. 공무가 주소로 직접 들어간다.
+       gallery/progress/material은 자체 로그인 화면이 없어(login 미지정) 계정 전환 시
+       report 로그인으로 보낸다 — 아래 SWITCH_FALLBACK_LOGIN 참고. */
   ];
+  var SWITCH_FALLBACK_LOGIN = '/report/app/login.html';
 
   /* role-gate.js가 먼저 실행된 페이지면 그게 만들어둔 판정을 그대로 쓰고,
      게이트를 안 붙인 페이지(checkin 등)에서는 같은 규칙으로 직접 계산한다. */
@@ -25,8 +28,14 @@ function wrBuildNavFab(){
     var r = ORDER[localStorage.getItem('member_role') || 'worker'];
     return (r == null ? 0 : r) >= (ORDER[min] == null ? 0 : ORDER[min]);
   };
-  APPS = APPS.filter(function(a){ return atLeast(a.min); });
+  var APPS = APPS_ALL.filter(function(a){ return atLeast(a.min); });
 
+  /* 지금 있는 화면이 어느 앱인지는 등급 필터와 무관하게(=목록에서 빠졌어도) 찾는다 —
+     "현재 위치"와 "계정 전환 시 돌아갈 로그인 화면"은 메뉴 노출 여부와 다른 문제라서다. */
+  var currentAll = null;
+  for(var j=0;j<APPS_ALL.length;j++){
+    if(location.pathname.indexOf('/'+APPS_ALL[j].key+'/')===0){ currentAll = APPS_ALL[j]; break; }
+  }
   var current = null;
   for(var i=0;i<APPS.length;i++){
     if(location.pathname.indexOf('/'+APPS[i].key+'/')===0){ current = APPS[i]; break; }
@@ -78,7 +87,10 @@ function wrBuildNavFab(){
     var who = localStorage.getItem('member_name') || '';
     if(!confirm((who ? who+'님으로 로그인되어 있습니다.\n' : '') + '로그아웃하고 다른 계정으로 로그인할까요?')) return;
     SESSION_KEYS.forEach(function(k){ localStorage.removeItem(k); });
-    location.href = '/report/app/login.html';
+    /* 예전엔 항상 report 로그인으로 보내서, checkin/status 등에서 전환한 작업자는
+       report(관리자 이상)에 role-gate로 튕겨났다가 다시 checkin으로 돌아오는 왕복이
+       있었다(2026-08-23). 지금 있던 앱 고유 로그인 화면이 있으면 그리로 보낸다. */
+    location.href = (currentAll && currentAll.login) || SWITCH_FALLBACK_LOGIN;
   });
 
   var btn = document.createElement('button');

@@ -76,13 +76,21 @@
   var stored = localStorage.getItem('member_role');
 
   if (stored) {
-    /* 평소 경로 — 저장된 등급으로 즉시 판정하고, 등급이 바뀌었을 수 있으니 뒤에서 갱신만 해둔다.
-       (운영자가 admin.html에서 등급을 올려줘도 예전엔 재로그인해야 반영됐다.) */
+    /* 평소 경로 — 저장된 등급으로 먼저 즉시 판정해서 화면이 안 깜빡이게 하고,
+       뒤에서 최신 등급을 받아와 바뀌었으면 다시 판정한다.
+       (운영자가 admin.html에서 등급을 올려줘도 예전엔 재로그인해야 반영됐다.)
+       2026-08-23: 예전엔 뒤에서 받아온 최신 등급을 localStorage에 저장만 하고 그 자리에서
+       다시 enforce하지 않았다 — 등급을 낮췄는데도 이미 열려있던 탭은 다음에 새로 열 때까지
+       계속 그 화면을 쓸 수 있었다. 이제 등급이 바뀌면 그 자리에서 다시 publish+enforce한다
+       (높아진 경우도 다시 publish해서 그 세션에서 바로 새 버튼이 보이게 한다). */
     publish(stored);
     window.WR_ROLE_READY = Promise.resolve(stored);
     enforce(stored);
     fetchRole().then(function (fresh) {
-      if (fresh && fresh !== stored) localStorage.setItem('member_role', fresh);
+      if (!fresh || fresh === stored) return;
+      localStorage.setItem('member_role', fresh);
+      publish(fresh);
+      enforce(fresh);
     });
     return;
   }
