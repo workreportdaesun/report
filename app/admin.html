@@ -1258,6 +1258,12 @@ function memberRowHtml(m,isLeader){
     +positionSelectHtml(m.id, m.position)
     +'<input type="text" class="memberFieldInput" data-id="'+m.id+'" data-field="area" placeholder="AREA" value="'+escAttr(m.area)+'" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
     +'<input type="text" class="memberFieldInput" data-id="'+m.id+'" data-field="cat" placeholder="작업분류" value="'+escAttr(m.cat)+'" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
+    +'</div>'
+    /* 전화번호 변경(2026-08-23) — 폰을 분실하거나 번호가 바뀌면 그동안은 재가입할 수밖에
+       없었고, 그러면 새 회원(id)이 생겨 등급·근태 이력이 예전 계정에 묶인 채 끊겼다.
+       여기서 바로 고치면 같은 회원 행(id)이 유지되어 등급·이력이 전부 보존된다. */
+    +'<div style="margin-top:6px;">'
+    +'<input type="tel" class="memberFieldInput" data-id="'+m.id+'" data-field="phone" placeholder="전화번호(숫자만)" value="'+escAttr(m.phone)+'" style="width:100%;box-sizing:border-box;padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
     +'</div></div>';
 }
 /* 등업승인제(2026-08-17): role이 비어있거나 worker인(=checkin만 쓸 수 있는) 회원을
@@ -1373,6 +1379,8 @@ document.getElementById('membersList').addEventListener('click', async function(
     membersLoaded=false; loadMembers();
   }
 });
+function normPhone(v){ return String(v||'').replace(/\D/g,''); }
+
 document.getElementById('membersList').addEventListener('change', async function(e){
   var inp=e.target.closest('.memberFieldInput');
   if(!inp) return;
@@ -1388,10 +1396,35 @@ document.getElementById('membersList').addEventListener('change', async function
     }
   }
 
+  /* 전화번호 변경(2026-08-23) — 이 번호로 로그인하니 잘못 고치면 그 사람이 로그인을
+     못 하게 된다. 숫자만 남기고, 자릿수와 실수 여부를 한 번 더 확인한다. */
+  if(field==='phone'){
+    patch.phone = normPhone(patch.phone);
+    if(patch.phone.length < 10){
+      alert('전화번호는 숫자 10자리 이상이어야 합니다.');
+      membersLoaded=false; loadMembers();
+      return;
+    }
+    var row0=lastMembers.find(function(m){ return String(m.id)===String(id); });
+    if(!confirm((row0?row0.name+'님의 ':'이 회원의 ')+'전화번호를 '+patch.phone+'(으)로 변경합니까?\n이 번호로 로그인하게 되니 정확히 확인해주세요.')){
+      membersLoaded=false; loadMembers();
+      return;
+    }
+  }
+
   var res=await updateMemberResilient(id, patch);
-  var FIELD_LABELS = {position:'직책', area:'AREA', cat:'작업분류', role:'권한 등급'};
+  var FIELD_LABELS = {position:'직책', area:'AREA', cat:'작업분류', role:'권한 등급', phone:'전화번호'};
   var label = FIELD_LABELS[field] || field;
-  if(res.error){ alert(label+' 저장 실패: '+res.error.message); return; }
+  if(res.error){
+    var msg = res.error.message || '';
+    if(field==='phone' && (msg.includes('unique') || msg.includes('duplicate'))){
+      alert('전화번호 저장 실패: 이미 다른 회원이 쓰고 있는 번호입니다.');
+    } else {
+      alert(label+' 저장 실패: '+msg);
+    }
+    membersLoaded=false; loadMembers();
+    return;
+  }
   var row=lastMembers.find(function(m){ return String(m.id)===String(id); });
   if(row) row[field]=patch[field];
   // 등급은 글자색으로도 구분하므로 바로 다시 그려준다.
