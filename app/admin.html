@@ -1261,9 +1261,14 @@ function memberRowHtml(m,isLeader){
     +'</div>'
     /* 전화번호 변경(2026-08-23) — 폰을 분실하거나 번호가 바뀌면 그동안은 재가입할 수밖에
        없었고, 그러면 새 회원(id)이 생겨 등급·근태 이력이 예전 계정에 묶인 채 끊겼다.
-       여기서 바로 고치면 같은 회원 행(id)이 유지되어 등급·이력이 전부 보존된다. */
-    +'<div style="margin-top:6px;">'
-    +'<input type="tel" class="memberFieldInput" data-id="'+m.id+'" data-field="phone" placeholder="전화번호(숫자만)" value="'+escAttr(m.phone)+'" style="width:100%;box-sizing:border-box;padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
+       여기서 바로 고치면 같은 회원 행(id)이 유지되어 등급·이력이 전부 보존된다.
+       이메일(2026-08-23)은 특히 운영자에게 중요하다 — 유일한 운영자가 폰+번호를 통째로
+       잃어버리면 admin.html에 아무도 못 들어가서 앱 안에서 등급을 되돌릴 방법이 없는데,
+       이메일을 등록해두면 소유자가 "이 사람이 맞다"를 이메일로 확인하고 이 전화번호 칸을
+       고쳐 같은 계정을 그대로 되살릴 수 있다. 로그인 수단이 아니라 본인 확인용 기록이다. */
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">'
+    +'<input type="tel" class="memberFieldInput" data-id="'+m.id+'" data-field="phone" placeholder="전화번호(숫자만)" value="'+escAttr(m.phone)+'" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
+    +'<input type="email" class="memberFieldInput" data-id="'+m.id+'" data-field="email" placeholder="이메일(선택, 본인확인용)" value="'+escAttr(m.email)+'" style="padding:5px 7px;border:1px solid var(--card-bd);border-radius:6px;font-size:12px;">'
     +'</div></div>';
 }
 /* 등업승인제(2026-08-17): role이 비어있거나 worker인(=checkin만 쓸 수 있는) 회원을
@@ -1412,8 +1417,15 @@ document.getElementById('membersList').addEventListener('change', async function
     }
   }
 
+  // 이메일은 선택 입력이라 비워도 되지만, 적었으면 형식은 맞아야 한다(2026-08-23).
+  if(field==='email' && patch.email && !/^\S+@\S+\.\S+$/.test(patch.email)){
+    alert('이메일 형식이 올바르지 않습니다.');
+    membersLoaded=false; loadMembers();
+    return;
+  }
+
   var res=await updateMemberResilient(id, patch);
-  var FIELD_LABELS = {position:'직책', area:'AREA', cat:'작업분류', role:'권한 등급', phone:'전화번호'};
+  var FIELD_LABELS = {position:'직책', area:'AREA', cat:'작업분류', role:'권한 등급', phone:'전화번호', email:'이메일'};
   var label = FIELD_LABELS[field] || field;
   if(res.error){
     var msg = res.error.message || '';

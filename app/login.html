@@ -100,6 +100,8 @@ body{background:var(--bg); font-family:var(--font-body); color:var(--ink); min-h
         </optgroup>
         <option>기타</option>
       </select>
+      <div class="flbl">이메일 (선택 — 운영자만, 폰 분실 시 본인 확인용)</div>
+      <input type="email" id="regEmail" class="f" placeholder="example@email.com">
       <button class="sbtn" onclick="doSignup()">가입하기</button>
     </div>
   </div>
@@ -195,9 +197,14 @@ async function doSignup(){
   var menu = document.getElementById('regMenu').value;
   var cat = document.getElementById('regCat').value;
   var position = document.getElementById('regPosition').value;
+  var email = document.getElementById('regEmail').value.trim();
   if(!name || phone.length < 10){ showToast('⚠️ 이름과 전화번호를 입력해 주세요', 'var(--err)'); return; }
+  // 이메일은 선택 입력이라 비워도 되지만, 적었으면 형식은 맞아야 한다(2026-08-23 — 운영자가
+  // 폰을 잃어버렸을 때 본인 확인용으로 쓴다. 로그인 수단이 아니라 "이 사람이 맞는지
+  // 확인하는 연락처" 용도로만 쓴다).
+  if(email && !/^\S+@\S+\.\S+$/.test(email)){ showToast('⚠️ 이메일 형식이 올바르지 않습니다', 'var(--err)'); return; }
   showToast('가입 중...', 'var(--brand-2)');
-  var full = {company:company, project:project, name:name, phone:phone, team:team, menu:menu, cat:cat, position:position, is_leader:false};
+  var full = {company:company, project:project, name:name, phone:phone, team:team, menu:menu, cat:cat, position:position, email:email, is_leader:false};
   var payload = Object.assign({}, full);
   var stripped = [];
   var res;
