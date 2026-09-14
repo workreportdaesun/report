@@ -1949,17 +1949,7 @@ function showToast(msg, color){
   t._timer=setTimeout(function(){t.classList.remove('show');}, 2400);
 }
 
-fetchSettingsFromSupabase().then(function(){
-  /* 자재관리(material)의 "⚙️ 항목·규격 설정" 버튼으로 넘어온 경우 — 별도 편집 화면을 material에
-     새로 만드는 대신, 같은 app_settings를 쓰는 이 설정창을 규격 관리까지 스크롤해서 바로 띄운다
-     (2026-09-14). 운영자가 아니면 openCatModal이 알아서 읽기 전용 안내만 보여준다. */
-  if(new URLSearchParams(location.search).get('open')==='material'){
-    activeMenu='시공';   // openCatModal()이 modalMenu=activeMenu로 초기화하므로 여기서 미리 맞춰둔다
-    openCatModal();
-    var specSel=document.getElementById('modalSpecCatSelect');
-    if(specSel) specSel.scrollIntoView({block:'center'});
-  }
-});
+fetchSettingsFromSupabase();
 subscribeSettingsRealtime();
 
 /* 미리보기 갔다가 전송 없이 돌아온 경우: 저장 안 하고 있던 입력칸 내용을 그대로 복원 */
