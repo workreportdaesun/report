@@ -13,7 +13,7 @@ function wrBuildNavFab(){
     { key:'gallery',  label:'사진관리',   icon:'🖼', url:'/gallery/index.html',    min:'manager'                                 },
     { key:'shoot',    label:'작업사진',   icon:'📷', url:'/shoot/index.html',      min:'worker'  , login:'/shoot/login.html'     },
     { key:'progress', label:'공정관리',   icon:'📈', url:'/progress/index.html',   min:'manager'                                 },
-    { key:'status',   label:'인원현황',   icon:'👷', url:'/status/index.html',     min:'manager' , login:'/status/login.html'    },
+    { key:'status',   label:'실행계획',   icon:'👷', url:'/status/index.html',     min:'manager' , login:'/status/login.html'    },
     { key:'material', label:'자재관리',   icon:'📦', url:'/material/index.html',   min:'manager'                                 }
     /* 기성관리(/payment/)는 여기에 넣지 않는다 — 계정 연동을 하지 않는 독립 앱이라
        등급으로 걸러지는 이 목록의 규칙이 적용되지 않는다. 공무가 주소로 직접 들어간다.
@@ -72,7 +72,7 @@ function wrBuildNavFab(){
     return '<a href="'+(isCurrent?'javascript:void(0)':a.url)+'"'+(isCurrent?' class="wr-current"':'')+'>'
       + '<span class="wr-nav-icon">'+a.icon+'</span>'+a.label+(isCurrent?' (현재)':'')+'</a>';
   }).join('')
-  /* 사진관리·공정관리·인원현황·자재관리에는 로그아웃이 아예 없어서, 한 PC에서 다른 등급
+  /* 사진관리·공정관리·실행계획·자재관리에는 로그아웃이 아예 없어서, 한 PC에서 다른 등급
      계정으로 갈아타려면 로그아웃이 있는 앱까지 찾아가야 했다. 여기 하나 두면 어느 화면에서든
      바로 바꿀 수 있다. localStorage는 오리진 단위라 한 브라우저에 한 사람만 로그인된다 —
      여러 계정을 동시에 띄우려면 시크릿 창이나 다른 브라우저 프로필을 써야 한다. */
