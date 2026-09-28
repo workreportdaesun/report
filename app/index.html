@@ -215,8 +215,8 @@ textarea.f{resize:none; height:44px;}
 </div>
 
 <div class="worker-tabs" id="workerTabsBar">
-  <button class="worker-tab active" id="wtabReport" onclick="showWorkerPane('report')">📝 일보</button>
   <button class="worker-tab" id="wtabShoot" onclick="showWorkerPane('shoot')">📷 사진</button>
+  <button class="worker-tab active" id="wtabReport" onclick="showWorkerPane('report')">📝 일보</button>
   <button class="worker-tab" id="wtabProgress" onclick="showWorkerPane('progress')">📈 공정률</button>
   <button class="worker-tab" id="wtabPersonnel" onclick="showWorkerPane('personnel')">👥 인원</button>
   <button class="worker-tab" id="wtabHistory" onclick="showWorkerPane('history')">🗂️ 조회</button>
@@ -540,8 +540,10 @@ textarea.f{resize:none; height:44px;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/2.0.0-beta.8/piexif.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-var SUPABASE_URL='https://feymoykefzfwucbrqoja.supabase.co';
-var SUPABASE_KEY='sb_publishable_ANT6G7_ka3IPHRk_4vLtBg_7G9NWW7i';
+// 2026-08-22: 다른 현장/회사가 각자 다른 Supabase에 연결해 쓸 수 있도록, site-setup.html에서
+// 저장한 값이 있으면 그걸 우선 쓰고 없으면 이 현장(대선이엔씨) 기본값을 그대로 쓴다.
+var SUPABASE_URL=localStorage.getItem('site_supabase_url')||'https://feymoykefzfwucbrqoja.supabase.co';
+var SUPABASE_KEY=localStorage.getItem('site_supabase_key')||'sb_publishable_ANT6G7_ka3IPHRk_4vLtBg_7G9NWW7i';
 var sbClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 /* ── 로그인 가드: work-shoot과 동일한 localStorage 키(member_id) 사용 ── */
@@ -745,13 +747,26 @@ async function fetchSettingsFromSupabase(){
     var res = await sbClient.from('app_settings').select('*').eq('id','global').single();
     if(res.error || !res.data) return;
     applyRemoteSettings(res.data);
+    lastCatStructKey = catStructKeyOf(res.data);
   }catch(e){ console.error('설정 클라우드 불러오기 실패', e); }
+}
+/* 분류/규격/단위가 바뀌었을 때만 알림을 띄우기 위한 구조 비교 — app_settings 한 행에 계획수량·
+   공휴일 등 자주 바뀌는 값도 같이 들어있어서, 그런 무관한 저장까지 매번 알림으로 띄우면 오히려
+   거슬린다(2026-09-14). material/shoot/progress도 같은 키·같은 문구로 통일해서 어느 앱에서
+   봐도 "설정이 바뀌었다"는 알림이 항상 같은 모습이 되도록 한다. */
+var lastCatStructKey='';
+function catStructKeyOf(o){
+  return JSON.stringify([o.cats_by_menu||{}, o.specs_by_cat||{}, o.item_unit||{}, o.unit_options||[]]);
 }
 function subscribeSettingsRealtime(){
   if(!sbClient || !sbClient.channel) return;
   sbClient.channel('app_settings_changes_report')
     .on('postgres_changes',{event:'*',schema:'public',table:'app_settings',filter:'id=eq.global'},function(payload){
-      if(payload.new) applyRemoteSettings(payload.new);
+      if(!payload.new) return;
+      applyRemoteSettings(payload.new);
+      var k=catStructKeyOf(payload.new);
+      if(lastCatStructKey && k!==lastCatStructKey) showToast('⚙️ 설정이 업데이트되어 반영되었습니다', 'var(--brand-2)');
+      lastCatStructKey=k;
     })
     .subscribe();
 }

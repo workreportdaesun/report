@@ -20,8 +20,11 @@
 (function () {
   var ORDER = { worker: 0, manager: 1, admin: 2 };
   var WORKER_HOME = '/checkin/index.html';
-  var SB_URL = 'https://feymoykefzfwucbrqoja.supabase.co';
-  var SB_KEY = 'sb_publishable_ANT6G7_ka3IPHRk_4vLtBg_7G9NWW7i';
+  // 2026-08-22: 다른 현장/회사가 site-setup.html로 자체 Supabase에 연결했으면 그 값을 써야
+  // 등급 조회가 그 현장 데이터를 보게 된다 — 여기만 하드코딩돼 있어서 role-gate가 항상 대선
+  // 기본 프로젝트를 보는 문제가 있었음(다른 파일들은 이미 이 fallback 패턴 적용됨).
+  var SB_URL = localStorage.getItem('site_supabase_url') || 'https://feymoykefzfwucbrqoja.supabase.co';
+  var SB_KEY = localStorage.getItem('site_supabase_key') || 'sb_publishable_ANT6G7_ka3IPHRk_4vLtBg_7G9NWW7i';
 
   var script = document.currentScript;
   var need = (script && script.getAttribute('data-require')) || 'worker';
@@ -73,13 +76,21 @@
   var stored = localStorage.getItem('member_role');
 
   if (stored) {
-    /* 평소 경로 — 저장된 등급으로 즉시 판정하고, 등급이 바뀌었을 수 있으니 뒤에서 갱신만 해둔다.
-       (운영자가 admin.html에서 등급을 올려줘도 예전엔 재로그인해야 반영됐다.) */
+    /* 평소 경로 — 저장된 등급으로 먼저 즉시 판정해서 화면이 안 깜빡이게 하고,
+       뒤에서 최신 등급을 받아와 바뀌었으면 다시 판정한다.
+       (운영자가 admin.html에서 등급을 올려줘도 예전엔 재로그인해야 반영됐다.)
+       2026-08-23: 예전엔 뒤에서 받아온 최신 등급을 localStorage에 저장만 하고 그 자리에서
+       다시 enforce하지 않았다 — 등급을 낮췄는데도 이미 열려있던 탭은 다음에 새로 열 때까지
+       계속 그 화면을 쓸 수 있었다. 이제 등급이 바뀌면 그 자리에서 다시 publish+enforce한다
+       (높아진 경우도 다시 publish해서 그 세션에서 바로 새 버튼이 보이게 한다). */
     publish(stored);
     window.WR_ROLE_READY = Promise.resolve(stored);
     enforce(stored);
     fetchRole().then(function (fresh) {
-      if (fresh && fresh !== stored) localStorage.setItem('member_role', fresh);
+      if (!fresh || fresh === stored) return;
+      localStorage.setItem('member_role', fresh);
+      publish(fresh);
+      enforce(fresh);
     });
     return;
   }
